@@ -43,12 +43,15 @@ struct FanBarSettingsView: View {
 
                 Text(displayMode.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
             coolingPresetSettings
+
+            Divider()
+            freeSoftwareNotice
         }
         .padding(22)
         .frame(width: 420)
@@ -61,13 +64,13 @@ struct FanBarSettingsView: View {
                     .font(.headline)
                 Spacer()
                 Text("\(visibleCoolingPresets.count) / 2")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
             }
 
             Text("选择最多两个显示在主面板中。转速按每枚风扇的最大值分别计算。")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
 
             ForEach(FanCoolingPreset.allCases) { preset in
                 HStack(spacing: 9) {
@@ -85,11 +88,30 @@ struct FanBarSettingsView: View {
                     Spacer()
 
                     Text("最大转速 \(preset.percentageText)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary)
                 }
             }
         }
+    }
+
+    /// Clarifies the app's pricing model without competing with settings content.
+    private var freeSoftwareNotice: some View {
+        HStack(spacing: 6) {
+            Link(destination: URL(string: "https://github.com/helson-lin")!) {
+                Image(nsImage: GitHubMark.image)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
+            }
+            .accessibilityLabel("打开 GitHub 主页")
+            .help("在浏览器中打开 GitHub 主页")
+
+            Text("FanBar 是免费软件，可自由使用。")
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
     }
 
     private func presetSelectionBinding(for preset: FanCoolingPreset) -> Binding<Bool> {
@@ -121,7 +143,7 @@ struct FanBarSettingsView: View {
                     .font(.title3.weight(.semibold))
                 Text("自定义菜单栏中的实时信息")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -130,14 +152,14 @@ struct FanBarSettingsView: View {
         HStack {
             Text("预览")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
 
             Spacer()
 
             MenuBarStatusLabel(controller: controller, displayMode: displayMode)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 6)
-                .background(Color.primary.opacity(0.06), in: Capsule())
+                .background(Capsule().fill(Color.primary.opacity(0.06)))
         }
         .padding(.vertical, 3)
     }

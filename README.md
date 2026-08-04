@@ -1,96 +1,99 @@
 # FanBar
 
-FanBar 是一个 macOS 原生菜单栏风扇控制应用，支持 macOS 11 Big Sur 及更高版本，
-面向 Apple Silicon 和仍使用 `fpe2` 风扇数据的旧款 Mac。
+> 原生 macOS 菜单栏风扇控制器：看得到温度，也能在需要时精细管理散热策略。
 
-## 功能
+FanBar 面向 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍提供 `fpe2`
+风扇数据的部分 Intel Mac。它以轻量的菜单栏界面呈现风扇转速和温度，并在用户明确
+启用控制服务后提供固定转速、散热预设与智能温控。
 
-- 菜单栏实时显示每个风扇的 RPM。
-- 可在设置窗口中选择菜单栏显示图标、CPU 温度、平均风扇 RPM 或二者组合。
-- 风扇周围的冰蓝气流动效会随实时 RPM 改变速度和强度。
-- 首次启动提供可跳过的三步快速引导，并可通过底部 `?` 随时重播。
-- 显示 CPU/GPU 当前温度与最近约三分钟的滚动曲线。
-- 可通过 macOS 原生登录项设置登录时自动启动。
-- 恢复 macOS 自动散热策略。
-- 将全部风扇设置为固定目标 RPM，并按硬件报告的最小/最大值截断。
-- 提供静音 35%、均衡 50%、性能 65% 和极速 80% 四档散热预设；设置中最多选择两个快捷展示。
-- 智能温控可随芯片温度在 35% 到 100% 间平滑调速，并支持一键开启或关闭。
-- 散热预设或固定转速可在 15 分钟、30 分钟或 1 小时后自动恢复 macOS 管理。
-- Apple Silicon 上运行时探测 `F%dMd` / `F%dmd` 模式键。
-- 必要时使用 `Ftst` 解锁序列等待 `thermalmonitord` 释放系统模式。
-- App 退出、XPC 断连或 Helper 终止时尽力恢复自动控制。
-- 睡眠唤醒后重新应用用户选择的固定模式。
+## 亮点
 
-## 架构与权限
+- **一眼掌握状态**：菜单栏可显示图标、CPU 温度、平均风扇 RPM 或组合信息。
+- **实时可视化**：查看 CPU/GPU 温度、近三分钟趋势，以及随 RPM 变化的气流动画。
+- **多种散热方式**：恢复自动控制、设定目标 RPM，或使用静音、均衡、性能、极速预设。
+- **智能温控**：按芯片温度在 35%–100% 之间平滑调速，可随时一键关闭。
+- **安全回退**：转速始终限制在硬件报告范围内；退出、断连或服务异常时尽力恢复系统自动控制。
+- **原生体验**：SwiftUI 界面、登录时启动、首次使用引导，以及 macOS 原生的控制服务授权流程。
 
-普通 FanBar 进程只读取 SMC，并负责 SwiftUI 界面。写入由随 App 签名的
-`local.fanbar.helper` LaunchDaemon 完成：
+## 系统要求
 
-```text
-FanBar.app → privileged XPC → FanBarHelper (root) → AppleSMC
-```
+- macOS 11 Big Sur 或更高版本
+- 一台能被 AppleSMC 读取到风扇数据的 Mac
+- 如需自行构建：Xcode 26 与 Swift 6
 
-Helper 不暴露任意 SMC 写接口，只接受查询、固定/预设/按比例设置以及恢复自动等受限请求，
-并只接受由主 App 发出的受限请求。
+> [!WARNING]
+> SMC 是 Apple 未公开支持的硬件接口。降低转速可能导致过热；持续高转速可能增加噪音、
+> 功耗与机械磨损。请只在理解风险的前提下启用手动控制，并优先使用“自动”或“智能温控”。
 
-macOS 13 及更高版本使用系统 `SMAppService` 管理 helper；macOS 11–12 使用同一签名
-helper 的 legacy launchd 注册方式。温度曲线和气流动画使用 SwiftUI 原生 Path/Shape，
-不依赖 macOS 13 才提供的 Charts 或 MenuBarExtra。
+## 使用方式
 
-首次点击“启用风扇控制服务”时，FanBar 会先解释服务用途。macOS 13+ 会要求在
-“系统设置 → 通用 → 登录项与扩展”中批准；macOS 11–12 会通过系统管理员授权
-注册同一签名的 launchd 服务。成功后会在原引导位置确认“控制服务已启用”。
+1. 启动 FanBar 后，从菜单栏查看当前温度和风扇转速。
+2. 需要手动控制时，选择“启用风扇控制服务”，并按系统提示完成授权。
+3. 从菜单栏选择预设、固定转速或智能温控；完成后可随时恢复“自动”模式。
 
-覆盖安装新版 App 后，FanBar 会在首次启动时自动重新注册同签名的 helper，确保
-新增的 XPC 控制方法与界面版本一致；如果系统仍保留旧进程，退出 FanBar 后重新
-打开一次即可触发迁移。
+固定转速与预设支持 15 分钟、30 分钟或 1 小时的自动恢复，避免忘记关闭手动控制。
 
-## 构建
+## 构建与运行
 
-需要 Xcode 26 和 Swift 6。若本机没有可用的 macOS 签名身份，构建脚本会使用
-临时 ad-hoc 签名，以便进行本地验证。
-
-运行：
+克隆仓库后，执行以下命令生成一个仅用于本机测试的应用包：
 
 ```sh
 zsh scripts/generate-icons.sh
-zsh scripts/package-app.sh
+FANBAR_SIGN_IDENTITY=- zsh scripts/package-app.sh
 open dist/FanBar.app
 ```
 
-生成物位于 `dist/FanBar.app`。构建脚本会先处理内嵌 Helper，再构建主 App。
+`FANBAR_SIGN_IDENTITY=-` 会使用 ad-hoc 签名，适合本地构建验证。若使用自己的有效
+macOS 签名身份，可将该环境变量替换为相应身份名称。
 
-生成本地 DMG：
-
-```sh
-zsh scripts/build-dmg.sh
-```
-
-分别构建 Intel 和 Apple Silicon 安装包：
+### 创建本地 DMG
 
 ```sh
-FANBAR_ARCHS=arm64 FANBAR_APP_OUTPUT=dist/FanBar-arm64.app zsh scripts/package-app.sh
-FANBAR_DMG_OUTPUT=dist/FanBar-0.4.0-arm64.dmg zsh scripts/build-dmg.sh dist/FanBar-arm64.app
-
-FANBAR_ARCHS=x86_64 FANBAR_APP_OUTPUT=dist/FanBar-x86_64.app zsh scripts/package-app.sh
-FANBAR_DMG_OUTPUT=dist/FanBar-0.4.0-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x86_64.app
+FANBAR_SIGN_IDENTITY=- zsh scripts/build-dmg.sh
 ```
 
-只读挂载并验证签名、架构、安装结构和遥测：
+默认产物为 `dist/FanBar-<version>.dmg`。若要为特定架构构建，可显式传入架构和输出路径：
+
+```sh
+FANBAR_ARCHS=arm64 FANBAR_APP_OUTPUT=dist/FanBar-arm64.app \
+  FANBAR_SIGN_IDENTITY=- zsh scripts/package-app.sh
+FANBAR_DMG_OUTPUT=dist/FanBar-arm64.dmg zsh scripts/build-dmg.sh dist/FanBar-arm64.app
+
+FANBAR_ARCHS=x86_64 FANBAR_APP_OUTPUT=dist/FanBar-x86_64.app \
+  FANBAR_SIGN_IDENTITY=- zsh scripts/package-app.sh
+FANBAR_DMG_OUTPUT=dist/FanBar-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x86_64.app
+```
+
+验证 DMG 的签名、架构与安装结构：
 
 ```sh
 zsh scripts/test-dmg.sh dist/FanBar-0.4.0.dmg
 ```
 
-GitHub Actions 会在普通提交上验证 universal2 构建，并在推送与 App 版本匹配的
-`v*` 标签时生成 GitHub Release。
+## 架构
 
-## 安全边界
+FanBar 将界面与特权写入操作分开：主应用仅负责读取 SMC 数据和呈现 SwiftUI 界面；
+受限的风扇控制请求通过 XPC 交给特权 helper 处理。
 
-SMC 是 Apple 未公开支持的硬件接口。固定转速可能增加噪音、功耗和机械磨损；
-过低转速可能造成过热。FanBar 不允许绕过硬件报告的安全范围，并在部分失败时
-回滚全部风扇到自动模式。
+```text
+FanBar.app → privileged XPC → FanBarHelper (root) → AppleSMC
+```
 
-Apple Silicon 控制序列参考了 MIT 许可的
+Helper 不提供任意 SMC 写入接口，只支持查询、固定/预设/按比例设置，以及恢复自动控制。
+macOS 13+ 使用 `SMAppService` 管理服务；macOS 11–12 使用兼容的 launchd 注册流程。
+
+## 持续集成与发布
+
+GitHub Actions 会在推送和 Pull Request 时验证 universal2 构建；推送与 App 版本一致的
+`v*` 标签时，会创建对应的 GitHub Release。
+
+```sh
+git tag -a v0.4.0 -m "FanBar 0.4.0"
+git push origin v0.4.0
+```
+
+## 致谢与许可
+
+Apple Silicon 的控制序列参考了 MIT 许可的
 [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan)。
-完整归属信息见 `THIRD_PARTY_NOTICES.md`。
+完整的第三方归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

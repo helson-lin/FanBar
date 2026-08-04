@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "FanBar",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v11)],
     products: [
         .executable(name: "FanBar", targets: ["FanBar"]),
         .executable(name: "FanBarHelper", targets: ["FanBarHelper"])

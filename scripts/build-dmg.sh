@@ -13,7 +13,10 @@ fi
 
 version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
     "${app_path}/Contents/Info.plist")"
-output_path="${project_root}/dist/FanBar-${version}.dmg"
+output_path="${FANBAR_DMG_OUTPUT:-${project_root}/dist/FanBar-${version}.dmg}"
+if [[ "${output_path}" != /* ]]; then
+    output_path="${project_root}/${output_path}"
+fi
 volume_name="FanBar ${version}"
 temporary_root="$(mktemp -d)"
 trap 'rm -rf "${temporary_root}"' EXIT

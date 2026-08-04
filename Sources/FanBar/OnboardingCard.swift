@@ -19,21 +19,21 @@ struct OnboardingCard: View {
             HStack {
                 Text("快速开始")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
 
                 Spacer()
 
                 Text("\(step + 1) / \(stepCount)")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
             }
 
             HStack(alignment: .top, spacing: 11) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(tint)
+                    .foregroundColor(tint)
                     .frame(width: 30, height: 30)
-                    .background(tint.opacity(0.11), in: Circle())
+                    .background(Circle().fill(tint.opacity(0.11)))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -41,7 +41,7 @@ struct OnboardingCard: View {
                         .font(.subheadline.weight(.semibold))
                     Text(detail)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -50,7 +50,7 @@ struct OnboardingCard: View {
                 Button("跳过") { onSkip() }
                     .buttonStyle(.plain)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
 
                 Spacer()
 
@@ -69,13 +69,13 @@ struct OnboardingCard: View {
         }
         .padding(13)
         .background(
-            Color.accentColor.opacity(0.065),
-            in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(Color.accentColor.opacity(0.065))
         )
-        .overlay {
+        .overlay(
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .stroke(Color.accentColor.opacity(0.12), lineWidth: 1)
-        }
+        )
         .accessibilityElement(children: .contain)
     }
 
@@ -84,39 +84,39 @@ struct OnboardingCard: View {
         switch step {
         case 0:
             Button(isTelemetryAvailable ? "看懂了" : "继续") { onNext() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(DefaultButtonStyle())
                 .controlSize(.small)
         case 1:
             Button("保持自动并继续") { onNext() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(DefaultButtonStyle())
                 .controlSize(.small)
         default:
             switch helperState {
             case .enabled:
                 Button("完成") { onFinish() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(DefaultButtonStyle())
                     .controlSize(.small)
             case .requiresApproval:
                 Button("以后再说") { onFinish() }
                     .buttonStyle(.plain)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
 
                 Button("打开系统设置") { onOpenHelperSettings() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(DefaultButtonStyle())
                     .controlSize(.small)
             case .notRegistered:
                 Button("以后再说") { onFinish() }
                     .buttonStyle(.plain)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
 
                 Button("继续并打开设置") { onEnableHelper() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(DefaultButtonStyle())
                     .controlSize(.small)
             case .unavailable:
                 Button("控制服务不可用") {}
-                    .buttonStyle(.bordered)
+                    .buttonStyle(DefaultButtonStyle())
                     .controlSize(.small)
                     .disabled(true)
             }
@@ -149,7 +149,7 @@ struct OnboardingCard: View {
     private var title: String {
         switch step {
         case 0: isTelemetryAvailable ? "实时状态就在这里" : "正在连接硬件传感器"
-        case 1: "自动模式是安全默认值"
+        case 1: "系统控制是安全默认值"
         default:
             switch helperState {
             case .enabled: "控制服务已启用"
@@ -167,7 +167,7 @@ struct OnboardingCard: View {
                 ? "叶片动画反映相对转速，RPM 数字提供精确读数；下方曲线记录最近的温度变化。"
                 : "连接成功后，这里会显示每枚风扇的真实转速与 CPU、GPU 温度。"
         case 1:
-            "日常使用无需干预。FanBar 启动时保持 macOS 自动管理，只有你主动开启智能温控或选择手动模式才会切换。"
+            "日常使用无需干预。FanBar 启动时交由 macOS 自动管理，只有你主动开启智能温控或选择手动模式才会切换。"
         default:
             switch helperState {
             case .enabled:

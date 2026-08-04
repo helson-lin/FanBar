@@ -1,7 +1,6 @@
 import AppKit
 import FanBarShared
 import Foundation
-import ServiceManagement
 
 @MainActor
 final class FanController: ObservableObject {
@@ -62,16 +61,20 @@ final class FanController: ObservableObject {
 
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
-    private let helperService = SMAppService.daemon(plistName: FanBarService.helperPlistName)
-    private let loginItemService = SMAppService.mainApp
+    private let helperService = FanBarServiceManager()
+    private let loginItemService = FanBarLoginItemManager()
     private var refreshTimer: Timer?
     private var automaticRestoreTask: Task<Void, Never>?
     private var curveUpdateTask: Task<Void, Never>?
     private var curveMissingTemperatureSamples = 0
     private var wakeObserver: NSObjectProtocol?
+    private var helperMigrationAttempted = false
     private let automaticRestoreTestInterval: TimeInterval?
-    private let maximumTemperatureSamples = 90
+    // Ten minutes of readings at the two-second refresh cadence used below.
+    private let maximumTemperatureSamples = 300
     private let automaticRestorePreferenceKey = "fanbar.automaticRestoreDuration"
+    private let helperBuildVersionPreferenceKey = "fanbar.helperBuildVersion"
+    private let helperBuildVersion: String
     private let temperatureCurve = TemperatureFanCurve.standard
     private let curveUpdateDeadband: Float = 0.02
 
@@ -81,6 +84,9 @@ final class FanController: ObservableObject {
 
     init(automaticRestoreTestInterval: TimeInterval? = nil) {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
+        helperBuildVersion = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "unknown"
         if let savedValue = UserDefaults.standard.object(
             forKey: automaticRestorePreferenceKey
         ) as? Int,
@@ -161,7 +167,7 @@ final class FanController: ObservableObject {
     }
 
     func openLoginItemSettings() {
-        SMAppService.openSystemSettingsLoginItems()
+        FanBarServiceManager.openLoginItemsSettings()
     }
 
     func enableHelper() {
@@ -170,7 +176,7 @@ final class FanController: ObservableObject {
             refreshHelperStatus()
             if helperState == .requiresApproval {
                 message = "请在“登录项与扩展”中允许 FanBar"
-                SMAppService.openSystemSettingsLoginItems()
+                helperService.openSettings()
             } else {
                 message = helperState.title
             }
@@ -178,13 +184,13 @@ final class FanController: ObservableObject {
             refreshHelperStatus()
             message = "无法注册控制服务：\(error.localizedDescription)"
             if helperState == .requiresApproval {
-                SMAppService.openSystemSettingsLoginItems()
+                helperService.openSettings()
             }
         }
     }
 
     func openHelperSettings() {
-        SMAppService.openSystemSettingsLoginItems()
+        helperService.openSettings()
     }
 
     func setFixedRPM(_ rpm: Int) {
@@ -305,7 +311,7 @@ final class FanController: ObservableObject {
         guard let temperature = controlTemperature(from: reading) else {
             curveMissingTemperatureSamples += 1
             if curveMissingTemperatureSamples >= 3 {
-                message = "温度传感器不可用，正在恢复自动控制…"
+                message = "温度传感器不可用，正在恢复系统控制…"
                 restoreAutomatic(triggeredByTimer: false)
             }
             return
@@ -391,7 +397,7 @@ final class FanController: ObservableObject {
             return
         }
         isBusy = true
-        message = "正在恢复自动控制…"
+        message = "正在恢复系统控制…"
         Task {
             do {
                 await finishPendingCurveUpdate()
@@ -486,22 +492,87 @@ final class FanController: ObservableObject {
     }
 
     private func refreshHelperStatus() {
+        helperService.refresh()
         switch helperService.status {
         case .enabled:
             helperState = .enabled
+            migrateHelperIfNeeded()
         case .requiresApproval:
             helperState = .requiresApproval
         case .notRegistered:
             helperState = .notRegistered
-        case .notFound:
-            // SMAppService reports notFound before the bundled daemon's first registration.
-            helperState = .notRegistered
-        @unknown default:
+        case .unavailable:
             helperState = .unavailable
         }
     }
 
+    /// Re-registers the bundled daemon once after an app overwrite so the running
+    /// XPC service uses the same protocol version as the visible UI.
+    private func migrateHelperIfNeeded() {
+        guard !helperMigrationAttempted else { return }
+        guard helperBuildVersion != "unknown" else {
+            helperMigrationAttempted = true
+            return
+        }
+        let savedVersion = UserDefaults.standard.string(forKey: helperBuildVersionPreferenceKey)
+        guard savedVersion != helperBuildVersion else {
+            helperMigrationAttempted = true
+            return
+        }
+
+        // Legacy launchd registration already required an administrator prompt.
+        // Do not immediately ask for a second prompt on the first Big Sur setup;
+        // later bundle-version changes still take the migration path below.
+        if #unavailable(macOS 13.0), savedVersion == nil {
+            UserDefaults.standard.set(
+                helperBuildVersion,
+                forKey: helperBuildVersionPreferenceKey
+            )
+            helperMigrationAttempted = true
+            return
+        }
+
+        helperMigrationAttempted = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.reRegisterHelper()
+                self.helperService.refresh()
+                guard self.helperService.status == .enabled else {
+                    self.message = "请在系统设置中批准新版控制服务"
+                    self.refreshHelperStatus()
+                    return
+                }
+                UserDefaults.standard.set(
+                    self.helperBuildVersion,
+                    forKey: self.helperBuildVersionPreferenceKey
+                )
+                self.refreshHelperStatus()
+            } catch {
+                // Keep the actionable permission state visible; the next launch retries.
+                self.message = "控制服务更新失败，请重新打开 FanBar"
+                self.refreshHelperStatus()
+            }
+        }
+    }
+
+    private func reRegisterHelper() async throws {
+        try await helperService.unregister()
+        // launchd needs a short moment to remove the old submission before the
+        // same daemon label can be registered again.
+        for attempt in 0..<3 {
+            do {
+                try helperService.register()
+                return
+            } catch {
+                guard attempt < 2 else { throw error }
+                try await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
     private func refreshLaunchAtLoginStatus() {
+        loginItemService.refresh()
         launchAtLoginEnabled = loginItemService.status == .enabled
         launchAtLoginRequiresApproval = loginItemService.status == .requiresApproval
     }
@@ -509,6 +580,8 @@ final class FanController: ObservableObject {
     private func appendTemperature(_ reading: ThermalReading) {
         guard reading.cpuCelsius != nil || reading.gpuCelsius != nil else { return }
         temperatureHistory.append(reading)
+        let earliestSampleDate = reading.sampledAt.addingTimeInterval(-TemperatureChart.historyDuration)
+        temperatureHistory.removeAll { $0.sampledAt < earliestSampleDate }
         if temperatureHistory.count > maximumTemperatureSamples {
             temperatureHistory.removeFirst(temperatureHistory.count - maximumTemperatureSamples)
         }

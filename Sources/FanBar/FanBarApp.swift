@@ -1,5 +1,4 @@
 import FanBarShared
-import ServiceManagement
 import SwiftUI
 
 @main
@@ -33,21 +32,16 @@ struct FanBarApp: App {
         }
         let controller = FanController()
         _controller = StateObject(wrappedValue: controller)
+        LegacyStatusItemController.shared.install(controller: controller)
         if CommandLine.arguments.contains("--settings-window-smoke-test") {
             Self.runSettingsWindowSmokeTest(controller: controller)
         }
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            FanMenu(controller: controller)
-        } label: {
-            MenuBarStatusLabel(
-                controller: controller,
-                displayMode: menuBarDisplayMode
-            )
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
     }
 
     /// Ensures the LSUIElement app can activate and present a key settings window.
@@ -84,7 +78,7 @@ struct FanBarApp: App {
 
     /// A deterministic installer entry point for managed/local deployment.
     private static func registerHelperAndExit() -> Never {
-        let service = SMAppService.daemon(plistName: FanBarService.helperPlistName)
+        let service = FanBarServiceManager()
         do {
             try service.register()
             switch service.status {
@@ -93,15 +87,12 @@ struct FanBarApp: App {
                 exit(EXIT_SUCCESS)
             case .requiresApproval:
                 print("helper-status=requires-approval")
-                SMAppService.openSystemSettingsLoginItems()
+                service.openSettings()
                 exit(2)
             case .notRegistered:
                 print("helper-status=not-registered")
                 exit(3)
-            case .notFound:
-                print("helper-status=not-found")
-                exit(4)
-            @unknown default:
+            case .unavailable:
                 print("helper-status=unknown")
                 exit(5)
             }
@@ -113,7 +104,7 @@ struct FanBarApp: App {
 
     /// Cleanly removes a managed daemon before replacing it with a newer bundle version.
     private static func unregisterHelperAndExit() -> Never {
-        let service = SMAppService.daemon(plistName: FanBarService.helperPlistName)
+        let service = FanBarServiceManager()
         Task {
             do {
                 try await service.unregister()

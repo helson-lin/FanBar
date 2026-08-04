@@ -50,7 +50,13 @@ static kern_return_t smc_call(SMCParamStruct *input, SMCParamStruct *output) {
 
 int fanbar_smc_open(void) {
     if (connection != IO_OBJECT_NULL) return KERN_SUCCESS;
-    io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSMC"));
+    mach_port_t master_port = MACH_PORT_NULL;
+    if (__builtin_available(macOS 12.0, *)) {
+        master_port = kIOMainPortDefault;
+    } else {
+        master_port = kIOMasterPortDefault;
+    }
+    io_service_t service = IOServiceGetMatchingService(master_port, IOServiceMatching("AppleSMC"));
     if (service == IO_OBJECT_NULL) return KERN_FAILURE;
     kern_return_t result = IOServiceOpen(service, mach_task_self(), 0, &connection);
     IOObjectRelease(service);

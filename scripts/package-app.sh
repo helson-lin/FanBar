@@ -44,6 +44,11 @@ codesign "${sign_arguments[@]}" --sign "${sign_identity}" "${bundle_path}"
 codesign --verify --deep --strict --verbose=2 "${bundle_path}"
 
 mkdir -p "${project_root}/dist"
-rm -rf "${project_root}/dist/FanBar.app"
-mv "${bundle_path}" "${project_root}/dist/FanBar.app"
-print "Built ${project_root}/dist/FanBar.app"
+app_output_path="${FANBAR_APP_OUTPUT:-${project_root}/dist/FanBar.app}"
+if [[ "${app_output_path}" != /* ]]; then
+    app_output_path="${project_root}/${app_output_path}"
+fi
+mkdir -p "${app_output_path:h}"
+rm -rf "${app_output_path}"
+mv "${bundle_path}" "${app_output_path}"
+print "Built ${app_output_path}"

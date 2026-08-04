@@ -38,12 +38,11 @@ struct MenuBarStatusLabel: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: controller.statusIcon)
-                .symbolRenderingMode(.hierarchical)
+                .foregroundColor(.primary)
 
             if let statusText {
                 Text(statusText)
-                    .font(.system(size: 12, weight: .medium))
-                    .monospacedDigit()
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
             }
         }
         .accessibilityLabel(accessibilityText)
@@ -69,15 +68,13 @@ struct MenuBarStatusLabel: View {
 
     private var fanSpeedText: String {
         guard !controller.fans.isEmpty else { return "— RPM" }
-        let average = controller.fans.map(\.currentRPM).reduce(0, +) / controller.fans.count
-        if average >= 1_000 {
-            return String(format: "%.1fK", Double(average) / 1_000)
-        }
-        return "\(average)"
+        let total = controller.fans.map(\.currentRPM).reduce(0, +)
+        let average = Int((Double(total) / Double(controller.fans.count)).rounded())
+        return FanBarNumberFormatter.grouped(average)
     }
 
     private var accessibilityText: String {
-        guard let statusText else { return "FanBar，\(controller.mode == .automatic ? "自动" : "手动")模式" }
+        guard let statusText else { return "FanBar，\(controller.mode == .automatic ? "系统" : "手动")模式" }
         return "FanBar，\(statusText)"
     }
 }

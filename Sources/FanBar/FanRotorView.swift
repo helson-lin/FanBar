@@ -52,19 +52,25 @@ struct FanRotorView: View {
                     .trim(from: 0, to: normalizedSpeed)
                     .stroke(
                         tint,
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        style: StrokeStyle(
+                            lineWidth: 3.5 + airflowIntensity * 1.5,
+                            lineCap: .round
+                        )
                     )
                     .rotationEffect(.degrees(-90))
 
                 Circle()
-                    .fill(tint.opacity(0.1))
+                    .fill(tint.opacity(0.08 + airflowIntensity * 0.08))
                     .padding(9)
 
                 Image(systemName: "fanblades.fill")
                     .font(.system(size: 37, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(tint)
+                    .foregroundColor(tint)
                     .rotationEffect(.degrees(angle))
+                    .shadow(
+                        color: tint.opacity(0.08 + airflowIntensity * 0.18),
+                        radius: 2 + airflowIntensity * 3
+                    )
             }
             .frame(width: 78, height: 78)
         }

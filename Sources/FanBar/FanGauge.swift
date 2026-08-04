@@ -3,10 +3,9 @@ import SwiftUI
 /// One half of the shared dual-fan instrument panel.
 struct FanGauge: View {
     let fan: FanReading
-    let isManual: Bool
 
     private var tint: Color {
-        isManual ? .orange : .accentColor
+        FanCoolingPalette.tint(for: fan)
     }
 
     var body: some View {
@@ -17,25 +16,24 @@ struct FanGauge: View {
                     .frame(width: 6, height: 6)
                 Text("风扇 \(fan.index + 1)")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
             }
 
             FanRotorView(fan: fan, tint: tint)
 
             VStack(spacing: 2) {
-                Text(fan.currentRPM.formatted())
+                Text("\(fan.currentRPM)")
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
+                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
                 Text("RPM")
                     .font(.system(size: 9, weight: .bold))
                     .tracking(1.1)
-                    .foregroundStyle(.tertiary)
+                    .foregroundColor(.secondary)
             }
 
-            Text("\(fan.minimumRPM.formatted())–\(fan.maximumRPM.formatted())")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.tertiary)
+            Text("\(fan.minimumRPM)–\(fan.maximumRPM)")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
                 .accessibilityLabel("安全范围 \(fan.minimumRPM) 到 \(fan.maximumRPM) RPM")
         }
         .frame(maxWidth: .infinity)
