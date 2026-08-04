@@ -1,4 +1,5 @@
 import AppKit
+import FanBarShared
 import SwiftUI
 
 /// Owns the settings window independently from the transient MenuBarExtra popover.
@@ -25,7 +26,7 @@ final class SettingsWindowPresenter {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "FanBar 设置"
+            window.title = fanBarText("FanBar 设置", "FanBar Settings")
             window.contentViewController = hostingController
             // Keep added settings sections visible without coupling the window to a fixed height.
             hostingController.view.layoutSubtreeIfNeeded()

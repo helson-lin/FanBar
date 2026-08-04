@@ -11,13 +11,13 @@ enum FanHardwareError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable(let code):
-            "无法以特权身份连接 AppleSMC（\(code)）"
+            fanBarFormat("无法以特权身份连接 AppleSMC（%d）", "Unable to connect to AppleSMC with privileges (%d)", code)
         case .operation(let key, let code):
-            "SMC 操作 \(key) 失败（\(code)）"
+            fanBarFormat("SMC 操作 %@ 失败（%d）", "SMC operation %@ failed (%d)", key, code)
         case .invalidValue(let key):
-            "SMC 键 \(key) 返回了无效数据"
+            fanBarFormat("SMC 键 %@ 返回了无效数据", "SMC key %@ returned invalid data", key)
         case .unlockTimeout(let fan):
-            "风扇 \(fan + 1) 的系统模式解锁超时"
+            fanBarFormat("风扇 %d 的系统模式解锁超时", "Timed out unlocking system mode for fan %d", fan + 1)
         }
     }
 }
@@ -89,7 +89,7 @@ final class SMCFanDriver {
 
     func setCoolingFraction(_ fraction: Float) throws {
         guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
-            throw FanHardwareError.invalidValue("散热比例")
+            throw FanHardwareError.invalidValue(fanBarText("散热比例", "cooling fraction"))
         }
         let snapshot = try fans()
         try setFans(snapshot) { fan in

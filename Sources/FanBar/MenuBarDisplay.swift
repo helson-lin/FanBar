@@ -1,3 +1,4 @@
+import FanBarShared
 import SwiftUI
 
 enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
@@ -13,19 +14,19 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .iconOnly: "仅图标"
-        case .cpuTemperature: "CPU 温度"
-        case .fanSpeed: "风扇转速"
-        case .temperatureAndFanSpeed: "温度与转速"
+        case .iconOnly: fanBarText("仅图标", "Icon only")
+        case .cpuTemperature: fanBarText("CPU 温度", "CPU temperature")
+        case .fanSpeed: fanBarText("风扇转速", "Fan speed")
+        case .temperatureAndFanSpeed: fanBarText("温度与转速", "Temperature + fan speed")
         }
     }
 
     var detail: String {
         switch self {
-        case .iconOnly: "保持菜单栏最简洁，只显示当前控制模式图标。"
-        case .cpuTemperature: "显示当前 CPU 温度，适合快速观察负载变化。"
-        case .fanSpeed: "显示全部风扇的平均 RPM，并使用紧凑格式。"
-        case .temperatureAndFanSpeed: "同时显示 CPU 温度和平均风扇转速。"
+        case .iconOnly: fanBarText("保持菜单栏最简洁，只显示当前控制模式图标。", "Keep the menu bar minimal with only the current mode icon.")
+        case .cpuTemperature: fanBarText("显示当前 CPU 温度，适合快速观察负载变化。", "Show the current CPU temperature for a quick load check.")
+        case .fanSpeed: fanBarText("显示全部风扇的平均 RPM，并使用千位分隔。", "Show the average RPM across all fans with grouping separators.")
+        case .temperatureAndFanSpeed: fanBarText("同时显示 CPU 温度和平均风扇转速。", "Show CPU temperature and average fan speed together.")
         }
     }
 }
@@ -74,7 +75,15 @@ struct MenuBarStatusLabel: View {
     }
 
     private var accessibilityText: String {
-        guard let statusText else { return "FanBar，\(controller.mode == .automatic ? "系统" : "手动")模式" }
-        return "FanBar，\(statusText)"
+        guard let statusText else {
+            return fanBarFormat(
+                "FanBar，%@模式",
+                "FanBar, %@ mode",
+                controller.mode == .automatic
+                    ? fanBarText("系统", "automatic")
+                    : fanBarText("手动", "manual")
+            )
+        }
+        return fanBarFormat("FanBar，%@", "FanBar, %@", statusText)
     }
 }

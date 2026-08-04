@@ -81,7 +81,7 @@ final class HelperClient: @unchecked Sendable {
             guard let proxy = proxy(error: { error in
                 gate.once { continuation.resume(throwing: error) }
             }) else {
-                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                continuation.resume(throwing: HelperClientError(message: fanBarText("无法连接风扇控制服务", "Unable to connect to the fan control service")))
                 return
             }
             proxy.getFanCount { success, count, error in
@@ -90,7 +90,7 @@ final class HelperClient: @unchecked Sendable {
                         continuation.resume(returning: count)
                     } else {
                         continuation.resume(
-                            throwing: HelperClientError(message: error ?? "无法读取风扇数量")
+                            throwing: HelperClientError(message: error ?? fanBarText("无法读取风扇数量", "Unable to read the fan count"))
                         )
                     }
                 }
@@ -105,7 +105,7 @@ final class HelperClient: @unchecked Sendable {
             guard let proxy = proxy(error: { error in
                 gate.once { continuation.resume(throwing: error) }
             }) else {
-                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                continuation.resume(throwing: HelperClientError(message: fanBarText("无法连接风扇控制服务", "Unable to connect to the fan control service")))
                 return
             }
             proxy.getFan(index) { success, actual, minimum, maximum, manual, error in
@@ -122,7 +122,7 @@ final class HelperClient: @unchecked Sendable {
                         )
                     } else {
                         continuation.resume(
-                            throwing: HelperClientError(message: error ?? "无法读取风扇 \(index + 1)")
+                            throwing: HelperClientError(message: error ?? fanBarFormat("无法读取风扇 %d", "Unable to read fan %d", index + 1))
                         )
                     }
                 }
@@ -142,7 +142,7 @@ final class HelperClient: @unchecked Sendable {
             guard let proxy = proxy(error: { error in
                 gate.once { continuation.resume(throwing: error) }
             }) else {
-                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                continuation.resume(throwing: HelperClientError(message: fanBarText("无法连接风扇控制服务", "Unable to connect to the fan control service")))
                 return
             }
             body(proxy) { success, error in
@@ -151,7 +151,7 @@ final class HelperClient: @unchecked Sendable {
                         continuation.resume(returning: ())
                     } else {
                         continuation.resume(
-                            throwing: HelperClientError(message: error ?? "风扇控制失败")
+                        throwing: HelperClientError(message: error ?? fanBarText("风扇控制失败", "Fan control failed"))
                         )
                     }
                 }

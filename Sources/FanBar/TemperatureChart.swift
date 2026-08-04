@@ -1,3 +1,4 @@
+import FanBarShared
 import SwiftUI
 
 /// A ten-minute rolling trace built from the CPU and GPU sensors available on this Mac.
@@ -68,7 +69,7 @@ struct TemperatureChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("芯片温度")
+                Text(fanBarText("芯片温度", "Chip temperature"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
 
@@ -81,7 +82,7 @@ struct TemperatureChart: View {
             if samples.isEmpty {
                 VStack(spacing: 6) {
                     Image(systemName: "thermometer.medium")
-                    Text("正在读取温度")
+                    Text(fanBarText("正在读取温度", "Reading temperature"))
                         .font(.system(size: 12))
                 }
                 .foregroundColor(.secondary)
@@ -94,7 +95,7 @@ struct TemperatureChart: View {
                     timeRange: timeRange
                 )
                 .frame(height: 116)
-                .accessibilityLabel("最近十分钟芯片温度曲线")
+                .accessibilityLabel(fanBarText("最近十分钟芯片温度曲线", "Chip temperature over the last ten minutes"))
             }
         }
     }

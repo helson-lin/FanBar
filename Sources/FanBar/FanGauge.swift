@@ -1,3 +1,4 @@
+import FanBarShared
 import SwiftUI
 
 /// One half of the shared dual-fan instrument panel.
@@ -14,7 +15,7 @@ struct FanGauge: View {
                 Circle()
                     .fill(tint)
                     .frame(width: 6, height: 6)
-                Text("风扇 \(fan.index + 1)")
+                Text(fanBarFormat("风扇 %d", "Fan %d", fan.index + 1))
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
             }
@@ -34,7 +35,12 @@ struct FanGauge: View {
             Text("\(fan.minimumRPM)–\(fan.maximumRPM)")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.secondary)
-                .accessibilityLabel("安全范围 \(fan.minimumRPM) 到 \(fan.maximumRPM) RPM")
+                .accessibilityLabel(fanBarFormat(
+                    "安全范围 %d 到 %d RPM",
+                    "Safe range %d–%d RPM",
+                    fan.minimumRPM,
+                    fan.maximumRPM
+                ))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)

@@ -68,7 +68,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
             do {
                 let fans = try self.connectedDriver().fans()
                 guard let fan = fans.first(where: { $0.index == index }) else {
-                    reply(false, 0, 0, 0, false, "未找到风扇 \(index + 1)")
+                    reply(false, 0, 0, 0, false, fanBarFormat("未找到风扇 %d", "Fan %d was not found", index + 1))
                     return
                 }
                 reply(true, fan.actual, fan.minimum, fan.maximum, fan.isManual, nil)
@@ -98,7 +98,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     ) {
         hardwareQueue.async {
             guard let preset = FanCoolingPreset(rawValue: rawValue) else {
-                reply(false, "未知的散热预设")
+                reply(false, fanBarText("未知的散热预设", "Unknown cooling preset"))
                 return
             }
             do {
@@ -117,7 +117,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         hardwareQueue.async {
             // Keep the root API bounded even if a compromised client sends malformed input.
             guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
-                reply(false, "散热比例必须在 30% 到 100% 之间")
+                reply(false, fanBarText("散热比例必须在 30% 到 100% 之间", "Cooling fraction must be between 30% and 100%"))
                 return
             }
             do {

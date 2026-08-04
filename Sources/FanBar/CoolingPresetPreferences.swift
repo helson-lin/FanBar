@@ -27,10 +27,10 @@ enum CoolingPresetPreferences {
 extension FanCoolingPreset {
     var title: String {
         switch self {
-        case .silent: "静音"
-        case .balanced: "均衡"
-        case .performance: "性能"
-        case .extreme: "极速"
+        case .silent: fanBarText("静音", "Silent")
+        case .balanced: fanBarText("均衡", "Balanced")
+        case .performance: fanBarText("性能", "Performance")
+        case .extreme: fanBarText("极速", "Extreme")
         }
     }
 

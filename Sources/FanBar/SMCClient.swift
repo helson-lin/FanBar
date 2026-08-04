@@ -1,4 +1,5 @@
 import AppleSMC
+import FanBarShared
 import Foundation
 
 enum SMCError: LocalizedError {
@@ -8,9 +9,23 @@ enum SMCError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable(let code): "无法连接 AppleSMC（错误 \(code)）。"
-        case .unsupportedKey(let key, let code): "此 Mac 不支持 SMC 键 \(key)（错误 \(code)）。"
-        case .writeFailed(let key, let code): "无法写入 \(key)（错误 \(code)）。"
+        case .unavailable(let code): fanBarFormat(
+            "无法连接 AppleSMC（错误 %d）。",
+            "Unable to connect to AppleSMC (error %d).",
+            code
+        )
+        case .unsupportedKey(let key, let code): fanBarFormat(
+            "此 Mac 不支持 SMC 键 %@（错误 %d）。",
+            "This Mac does not support SMC key %@ (error %d).",
+            key,
+            code
+        )
+        case .writeFailed(let key, let code): fanBarFormat(
+            "无法写入 %@（错误 %d）。",
+            "Unable to write %@ (error %d).",
+            key,
+            code
+        )
         }
     }
 }

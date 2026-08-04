@@ -1,3 +1,4 @@
+import FanBarShared
 import SwiftUI
 
 /// A compact instrument that turns live RPM into readable motion and a precise gauge.
@@ -88,7 +89,7 @@ struct FanRotorView: View {
                 .truncatingRemainder(dividingBy: 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("风扇 \(fan.index + 1)")
-        .accessibilityValue("\(fan.currentRPM) RPM")
+        .accessibilityLabel(fanBarFormat("风扇 %d", "Fan %d", fan.index + 1))
+        .accessibilityValue(fanBarFormat("%d RPM", "%d RPM", fan.currentRPM))
     }
 }

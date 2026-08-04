@@ -8,6 +8,8 @@ struct FanMenu: View {
     private var hasCompletedOnboarding = false
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var onboardingStep = 0
 
@@ -27,8 +29,8 @@ struct FanMenu: View {
 
     private var modeLabel: String {
         switch controller.mode {
-        case .automatic: "系统"
-        case .temperatureCurve: "智能温控"
+        case .automatic: fanBarText("系统", "Automatic")
+        case .temperatureCurve: fanBarText("智能温控", "Smart cooling")
         case .fixed(let rpm): "\(rpm) RPM"
         case .preset(let preset): "\(preset.title) \(preset.percentageText)"
         }
@@ -109,8 +111,8 @@ struct FanMenu: View {
             .buttonStyle(.plain)
             // Prevent AppKit from drawing a persistent focus ring around this icon-only action.
             .focusable(false)
-            .accessibilityLabel("打开 FanBar 设置")
-            .help("设置")
+            .accessibilityLabel(fanBarText("打开 FanBar 设置", "Open FanBar Settings"))
+            .help(fanBarText("设置", "Settings"))
 
         }
     }
@@ -155,7 +157,7 @@ struct FanMenu: View {
 
     private var modeControl: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("控制模式")
+            Text(fanBarText("控制模式", "Control mode"))
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.secondary)
 
@@ -166,7 +168,7 @@ struct FanMenu: View {
                     }
                 } label: {
                     modeButtonLabel(
-                        title: "系统",
+                        title: fanBarText("系统", "Automatic"),
                         systemImage: "wand.and.stars",
                         selected: controller.mode == .automatic
                     )
@@ -180,17 +182,17 @@ struct FanMenu: View {
                     }
                 } label: {
                     modeButtonLabel(
-                        title: "智能",
+                        title: fanBarText("智能", "Smart"),
                         systemImage: "thermometer.variable",
                         selected: controller.mode == .temperatureCurve
                     )
                 }
                 .buttonStyle(.plain)
                 .focusable(false)
-                .help("按芯片温度动态调整风扇转速")
+                .help(fanBarText("按芯片温度动态调整风扇转速", "Adjust fan speed from chip temperature"))
 
                 Menu {
-                    Section(header: Text("散热预设")) {
+                    Section(header: Text(fanBarText("散热预设", "Cooling presets"))) {
                         ForEach(visibleCoolingPresets) { preset in
                             Button {
                                 controller.setCoolingPreset(preset)
@@ -210,7 +212,7 @@ struct FanMenu: View {
                         }
                     }
 
-                    Section(header: Text("固定转速")) {
+                    Section(header: Text(fanBarText("固定转速", "Fixed RPM"))) {
                         ForEach([2500, 3500, 4500, 5500], id: \.self) { rpm in
                             Button {
                                 controller.setFixedRPM(rpm)
@@ -225,7 +227,7 @@ struct FanMenu: View {
                     }
                 } label: {
                     modeButtonLabel(
-                        title: "手动",
+                        title: fanBarText("手动", "Manual"),
                         systemImage: "slider.horizontal.3",
                         selected: isFixed || isPreset,
                         showsChevron: true
@@ -234,8 +236,8 @@ struct FanMenu: View {
                 .menuStyle(.borderlessButton)
                 .focusable(false)
                 .frame(maxWidth: .infinity)
-                .accessibilityLabel("选择手动散热模式")
-                .help("选择散热预设或固定转速")
+                .accessibilityLabel(fanBarText("选择手动散热模式", "Choose a manual cooling mode"))
+                .help(fanBarText("选择散热预设或固定转速", "Choose a cooling preset or fixed RPM"))
             }
             .disabled(controller.isBusy || controller.helperState != .enabled)
             .padding(4)
@@ -300,7 +302,7 @@ struct FanMenu: View {
                 // Keep the custom trailing chevron as the only visible menu indicator.
                 .hidingSystemMenuIndicatorWhenAvailable()
                 .fixedSize()
-                .accessibilityLabel("自动恢复")
+                .accessibilityLabel(fanBarText("自动恢复", "Automatic restore"))
                 .accessibilityValue(automaticRestoreAccessibilityValue(at: date))
             }
             .fixedSize()
@@ -313,15 +315,20 @@ struct FanMenu: View {
         if controller.mode == .temperatureCurve,
            let temperature = controller.curveTemperatureCelsius,
            let fraction = controller.curveOutputFraction {
-            return String(format: "%.0f°C → %.0f%%", temperature, fraction * 100)
+            return fanBarFormat(
+                "%.0f°C → %.0f%%",
+                "%.0f°C → %.0f%%",
+                temperature,
+                fraction * 100
+            )
         }
-        return "硬件安全限制"
+        return fanBarText("硬件安全限制", "Hardware safety limits")
     }
 
     private func automaticRestoreValue(at date: Date) -> String {
         guard let deadline = controller.automaticRestoreDeadline else {
             return controller.automaticRestoreDuration == .never
-                ? "关闭"
+                ? fanBarText("关闭", "Off")
                 : controller.automaticRestoreDuration.title
         }
         let remaining = max(0, Int(ceil(deadline.timeIntervalSince(date))))
@@ -337,17 +344,32 @@ struct FanMenu: View {
     private func automaticRestoreAccessibilityValue(at date: Date) -> String {
         guard let deadline = controller.automaticRestoreDeadline else {
             return controller.automaticRestoreDuration == .never
-                ? "已关闭"
-                : "将在 \(controller.automaticRestoreDuration.title)后恢复"
+                ? fanBarText("已关闭", "Off")
+                : fanBarFormat(
+                    "将在 %@后恢复",
+                    "Restores after %@",
+                    controller.automaticRestoreDuration.title
+                )
         }
         let remaining = max(0, Int(ceil(deadline.timeIntervalSince(date))))
         let hours = remaining / 3_600
         let minutes = (remaining % 3_600) / 60
         let seconds = remaining % 60
         if hours > 0 {
-            return "剩余 \(hours) 小时 \(minutes) 分 \(seconds) 秒"
+            return fanBarFormat(
+                "剩余 %d 小时 %d 分 %d 秒",
+                "%d h %d m %d s remaining",
+                hours,
+                minutes,
+                seconds
+            )
         }
-        return "剩余 \(minutes) 分 \(seconds) 秒"
+        return fanBarFormat(
+            "剩余 %d 分 %d 秒",
+            "%d m %d s remaining",
+            minutes,
+            seconds
+        )
     }
 
     private func modeButtonLabel(
@@ -386,10 +408,10 @@ struct FanMenu: View {
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("登录时启动 FanBar")
+                Text(fanBarText("登录时启动 FanBar", "Launch FanBar at login"))
                     .font(.caption)
                 if controller.launchAtLoginRequiresApproval {
-                    Button("等待系统批准 · 打开设置") {
+                    Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
                         controller.openLoginItemSettings()
                     }
                     .buttonStyle(.plain)
@@ -410,7 +432,7 @@ struct FanMenu: View {
             .labelsHidden()
             .toggleStyle(.switch)
             .controlSize(.small)
-            .accessibilityLabel("登录时启动 FanBar")
+            .accessibilityLabel(fanBarText("登录时启动 FanBar", "Launch FanBar at login"))
         }
         .padding(.horizontal, 6)
     }
@@ -420,7 +442,10 @@ struct FanMenu: View {
             Image(systemName: "fan.slash")
                 .font(.title3)
                 .foregroundColor(.secondary)
-            Text("当前机型未返回可识别的风扇数据。")
+            Text(fanBarText(
+                "当前机型未返回可识别的风扇数据。",
+                "This Mac did not return readable fan data."
+            ))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -453,9 +478,9 @@ struct FanMenu: View {
             Spacer(minLength: 8)
 
             if controller.helperState == .requiresApproval {
-                helperActionButton("继续", action: presentHelperAuthorizationGuide)
+                helperActionButton(fanBarText("继续", "Continue"), action: presentHelperAuthorizationGuide)
             } else if controller.helperState == .notRegistered {
-                helperActionButton("了解", action: presentHelperAuthorizationGuide)
+                helperActionButton(fanBarText("了解", "Learn more"), action: presentHelperAuthorizationGuide)
             }
         }
         .padding(.vertical, 3)
@@ -494,25 +519,25 @@ struct FanMenu: View {
 
     private var helperNoticeTitle: String {
         switch controller.helperState {
-        case .requiresApproval: "批准控制服务"
-        case .notRegistered: "启用固定转速"
-        case .unavailable: "控制服务不可用"
-        case .enabled: "控制服务已启用"
+        case .requiresApproval: fanBarText("批准控制服务", "Approve control service")
+        case .notRegistered: fanBarText("启用固定转速", "Enable fan control")
+        case .unavailable: fanBarText("控制服务不可用", "Control service unavailable")
+        case .enabled: fanBarText("控制服务已启用", "Control service enabled")
         }
     }
 
     private var helperNoticeDetail: String {
         switch controller.helperState {
-        case .requiresApproval: "在“登录项与扩展”中允许 FanBar"
-        case .notRegistered: "实时监测无需权限"
-        case .unavailable: "请重新安装已签名的 FanBar"
-        case .enabled: "仅接受同一开发者签名的请求"
+        case .requiresApproval: fanBarText("在“登录项与扩展”中允许 FanBar", "Allow FanBar in Login Items & Extensions")
+        case .notRegistered: fanBarText("实时监测无需权限", "Live monitoring does not need permission")
+        case .unavailable: fanBarText("请重新安装已签名的 FanBar", "Reinstall the signed FanBar app")
+        case .enabled: fanBarText("仅接受同一开发者签名的请求", "Only requests signed by the same developer are accepted")
         }
     }
 
     private var footer: some View {
         HStack {
-            Text("每 2 秒更新")
+            Text(fanBarText("每 2 秒更新", "Updates every 2 seconds"))
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
@@ -529,10 +554,10 @@ struct FanMenu: View {
             .buttonStyle(.plain)
             .font(.caption)
             .foregroundColor(.secondary)
-            .accessibilityLabel("重新查看快速开始")
-            .help("快速开始")
+            .accessibilityLabel(fanBarText("重新查看快速开始", "Replay quick start"))
+            .help(fanBarText("快速开始", "Quick start"))
 
-            Button("退出 FanBar") { controller.quit() }
+            Button(fanBarText("退出 FanBar", "Quit FanBar")) { controller.quit() }
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundColor(.secondary)

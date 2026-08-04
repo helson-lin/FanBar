@@ -237,7 +237,11 @@ private enum LegacyLaunchdError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .commandFailed(let command): "无法执行系统服务命令：\(command)"
+        case .commandFailed(let command): fanBarFormat(
+            "无法执行系统服务命令：%@",
+            "Unable to run the system service command: %@",
+            command
+        )
         }
     }
 }

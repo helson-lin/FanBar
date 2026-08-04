@@ -1,41 +1,59 @@
 # FanBar
 
-> 原生 macOS 菜单栏风扇控制器：看得到温度，也能在需要时精细管理散热策略。
+> A native macOS menu-bar utility for reading temperatures and managing fan cooling when you need it.
 
-FanBar 面向 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍提供 `fpe2`
-风扇数据的部分 Intel Mac。它以轻量的菜单栏界面呈现风扇转速和温度，并在用户明确
-启用控制服务后提供固定转速、散热预设与智能温控。
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-## 亮点
+FanBar supports macOS 11 Big Sur and later on Apple Silicon Macs and Intel Macs that expose readable AppleSMC fan data. It keeps everyday use safe and quiet with macOS automatic management, while making manual control available only after the signed control service is approved.
 
-- **一眼掌握状态**：菜单栏可显示图标、CPU 温度、平均风扇 RPM 或组合信息。
-- **实时可视化**：查看 CPU/GPU 温度、近三分钟趋势，以及随 RPM 变化的气流动画。
-- **多种散热方式**：恢复自动控制、设定目标 RPM，或使用静音、均衡、性能、极速预设。
-- **智能温控**：按芯片温度在 35%–100% 之间平滑调速，可随时一键关闭。
-- **安全回退**：转速始终限制在硬件报告范围内；退出、断连或服务异常时尽力恢复系统自动控制。
-- **原生体验**：SwiftUI 界面、登录时启动、首次使用引导，以及 macOS 原生的控制服务授权流程。
+## Screenshots
 
-## 系统要求
+The screenshots below show the Chinese interface. FanBar also includes English UI copy and can switch languages from **Settings → Language** without restarting.
 
-- macOS 11 Big Sur 或更高版本
-- 一台能被 AppleSMC 读取到风扇数据的 Mac
-- 如需自行构建：Xcode 26 与 Swift 6
+![FanBar dark menu-bar popover](docs/screenshots/fanbar-menu-dark.jpg)
+
+![FanBar settings](docs/screenshots/fanbar-settings-dark.jpg)
+
+## Highlights
+
+- **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
+- **Live visualization** — Monitor CPU/GPU temperatures, a rolling ten-minute chart, and airflow motion that follows actual RPM.
+- **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose Silent, Balanced, Performance, or Extreme presets.
+- **Smart cooling** — Smoothly adjust fan output from 35% to 100% based on chip temperature, with a one-click off switch.
+- **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
+- **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
+- **English and Simplified Chinese** — Choose System, English, or 简体中文 in FanBar Settings.
+
+## Requirements
+
+- macOS 11 Big Sur or later
+- A Mac that exposes fan data through AppleSMC
+- Xcode 26 and Swift 6 for local builds
 
 > [!WARNING]
-> SMC 是 Apple 未公开支持的硬件接口。降低转速可能导致过热；持续高转速可能增加噪音、
-> 功耗与机械磨损。请只在理解风险的前提下启用手动控制，并优先使用“自动”或“智能温控”。
+> AppleSMC is an undocumented hardware interface. Lowering fan speed can increase temperature; sustained high speed can increase noise, power use, and mechanical wear. Use manual control only when you understand the trade-offs, and prefer Automatic or Smart cooling for normal use.
 
-## 使用方式
+## Usage
 
-1. 启动 FanBar 后，从菜单栏查看当前温度和风扇转速。
-2. 需要手动控制时，选择“启用风扇控制服务”，并按系统提示完成授权。
-3. 从菜单栏选择预设、固定转速或智能温控；完成后可随时恢复“自动”模式。
+1. Launch FanBar and read the current temperature and fan speeds from the menu bar.
+2. To control fans, choose **Enable fan control** and follow the macOS authorization prompt.
+3. Choose a cooling preset, fixed RPM, or Smart cooling from the popover. Use **Automatic** at any time to return control to macOS.
 
-固定转速与预设支持 15 分钟、30 分钟或 1 小时的自动恢复，避免忘记关闭手动控制。
+Fixed RPM, presets, and Smart cooling can restore macOS control after 15 minutes, 30 minutes, or one hour.
 
-## 构建与运行
+### Change the interface language
 
-克隆仓库后，执行以下命令生成一个仅用于本机测试的应用包：
+Open **Settings → Language** and choose:
+
+- **System** — follow the Mac's current language (Chinese or English)
+- **English**
+- **简体中文**
+
+The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, and helper errors.
+
+## Build and run
+
+Clone the repository, then build a local app bundle:
 
 ```sh
 zsh scripts/generate-icons.sh
@@ -43,16 +61,15 @@ FANBAR_SIGN_IDENTITY=- zsh scripts/package-app.sh
 open dist/FanBar.app
 ```
 
-`FANBAR_SIGN_IDENTITY=-` 会使用 ad-hoc 签名，适合本地构建验证。若使用自己的有效
-macOS 签名身份，可将该环境变量替换为相应身份名称。
+`FANBAR_SIGN_IDENTITY=-` uses an ad-hoc signature for local testing. For distribution, replace it with a valid Developer ID Application identity.
 
-### 创建本地 DMG
+### Create a local DMG
 
 ```sh
 FANBAR_SIGN_IDENTITY=- zsh scripts/build-dmg.sh
 ```
 
-默认产物为 `dist/FanBar-<version>.dmg`。若要为特定架构构建，可显式传入架构和输出路径：
+The default output is `dist/FanBar-<version>.dmg`. To build a specific architecture:
 
 ```sh
 FANBAR_ARCHS=arm64 FANBAR_APP_OUTPUT=dist/FanBar-arm64.app \
@@ -64,36 +81,31 @@ FANBAR_ARCHS=x86_64 FANBAR_APP_OUTPUT=dist/FanBar-x86_64.app \
 FANBAR_DMG_OUTPUT=dist/FanBar-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x86_64.app
 ```
 
-验证 DMG 的签名、架构与安装结构：
+Verify a DMG's signature, architecture, and installation structure with:
 
 ```sh
 zsh scripts/test-dmg.sh dist/FanBar-0.4.0.dmg
 ```
 
-## 架构
+## Architecture
 
-FanBar 将界面与特权写入操作分开：主应用仅负责读取 SMC 数据和呈现 SwiftUI 界面；
-受限的风扇控制请求通过 XPC 交给特权 helper 处理。
+FanBar separates the UI from privileged writes:
 
 ```text
 FanBar.app → privileged XPC → FanBarHelper (root) → AppleSMC
 ```
 
-Helper 不提供任意 SMC 写入接口，只支持查询、固定/预设/按比例设置，以及恢复自动控制。
-macOS 13+ 使用 `SMAppService` 管理服务；macOS 11–12 使用兼容的 launchd 注册流程。
+The helper does not expose arbitrary SMC writes. It only supports reading fans, setting a bounded target/preset/fraction, and restoring automatic control. macOS 13 and later use `SMAppService`; macOS 11–12 use a compatible launchd registration path.
 
-## 持续集成与发布
+## Continuous integration and releases
 
-GitHub Actions 会在推送和 Pull Request 时验证 universal2 构建；推送与 App 版本一致的
-`v*` 标签时，会创建对应的 GitHub Release。
+GitHub Actions validates the universal2 build on pushes and pull requests. Pushing a tag that matches the app version (for example `v0.4.0`) creates a GitHub Release.
 
 ```sh
 git tag -a v0.4.0 -m "FanBar 0.4.0"
 git push origin v0.4.0
 ```
 
-## 致谢与许可
+## Acknowledgements and license
 
-Apple Silicon 的控制序列参考了 MIT 许可的
-[`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan)。
-完整的第三方归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+The Apple Silicon control sequence references the MIT-licensed [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete third-party attribution.
