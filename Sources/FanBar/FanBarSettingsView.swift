@@ -42,6 +42,8 @@ struct FanBarSettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+                // AppKit caches radio-group item titles; rebuild the group when the language changes.
+                .id(languageRawValue)
 
                 Text(displayMode.detail)
                     .font(.caption)
@@ -127,7 +129,10 @@ struct FanBarSettingsView: View {
                 "",
                 selection: Binding(
                     get: { languageRawValue },
-                    set: { languageRawValue = $0 }
+                    set: {
+                        languageRawValue = $0
+                        SettingsWindowPresenter.shared.updateTitle()
+                    }
                 )
             ) {
                 ForEach(FanBarLanguage.allCases) { language in

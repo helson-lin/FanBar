@@ -8,9 +8,9 @@ FanBar supports macOS 11 Big Sur and later on Apple Silicon Macs and Intel Macs 
 
 ## Screenshots
 
-The screenshots below show the Chinese interface. FanBar also includes English UI copy and can switch languages from **Settings → Language** without restarting.
+The menu-bar screenshot below shows the English interface. FanBar also includes Simplified Chinese and can switch languages from **Settings → Language** without restarting.
 
-![FanBar dark menu-bar popover](docs/screenshots/fanbar-menu-dark.jpg)
+![FanBar English dark menu-bar popover](docs/screenshots/fanbar-menu-dark-en.jpg)
 
 ![FanBar settings](docs/screenshots/fanbar-settings-dark.jpg)
 

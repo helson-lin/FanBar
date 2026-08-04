@@ -26,7 +26,6 @@ final class SettingsWindowPresenter {
                 backing: .buffered,
                 defer: false
             )
-            window.title = fanBarText("FanBar 设置", "FanBar Settings")
             window.contentViewController = hostingController
             // Keep added settings sections visible without coupling the window to a fixed height.
             hostingController.view.layoutSubtreeIfNeeded()
@@ -39,6 +38,9 @@ final class SettingsWindowPresenter {
             windowController = NSWindowController(window: window)
             shouldCenter = true
         }
+
+        // Keep the AppKit title bar in sync with the SwiftUI language picker.
+        updateTitle()
 
         // LSUIElement apps do not activate automatically when their menu closes.
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -57,6 +59,10 @@ final class SettingsWindowPresenter {
 
     func close() {
         windowController?.close()
+    }
+
+    func updateTitle() {
+        windowController?.window?.title = fanBarText("FanBar 设置", "FanBar Settings")
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
