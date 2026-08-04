@@ -1,0 +1,6 @@
+.build/
+dist/
+.DS_Store
+*.p12
+*.cer
+*.provisionprofile

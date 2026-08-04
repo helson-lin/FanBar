@@ -1,0 +1,187 @@
+import FanBarShared
+import Foundation
+
+struct HelperClientError: LocalizedError, Sendable {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+private final class ReplyGate: @unchecked Sendable {
+    private var replied = false
+    private let lock = NSLock()
+
+    func once(_ action: () -> Void) {
+        lock.lock()
+        guard !replied else {
+            lock.unlock()
+            return
+        }
+        replied = true
+        lock.unlock()
+        action()
+    }
+}
+
+/// Typed, reconnecting client for the root launch daemon.
+final class HelperClient: @unchecked Sendable {
+    private let lock = NSLock()
+    private var connection: NSXPCConnection?
+
+    deinit {
+        lock.lock()
+        let current = connection
+        connection = nil
+        lock.unlock()
+        current?.invalidate()
+    }
+
+    func fans() async throws -> [FanReading] {
+        let count = try await fanCount()
+        var readings: [FanReading] = []
+        for index in 0..<count {
+            readings.append(try await fan(index))
+        }
+        return readings
+    }
+
+    func setAllFans(rpm: Int) async throws {
+        try await callVoid { proxy, reply in
+            proxy.setAllFans(rpm: Float(rpm), reply: reply)
+        }
+    }
+
+    func setAllFansToEightyPercent() async throws {
+        try await callVoid { proxy, reply in
+            proxy.setAllFansToEightyPercent(reply: reply)
+        }
+    }
+
+    func restoreAutomatic() async throws {
+        try await callVoid { proxy, reply in
+            proxy.restoreAutomatic(reply: reply)
+        }
+    }
+
+    private func fanCount() async throws -> Int {
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Int, Error>) in
+            let gate = ReplyGate()
+            guard let proxy = proxy(error: { error in
+                gate.once { continuation.resume(throwing: error) }
+            }) else {
+                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                return
+            }
+            proxy.getFanCount { success, count, error in
+                gate.once {
+                    if success {
+                        continuation.resume(returning: count)
+                    } else {
+                        continuation.resume(
+                            throwing: HelperClientError(message: error ?? "无法读取风扇数量")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func fan(_ index: Int) async throws -> FanReading {
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<FanReading, Error>) in
+            let gate = ReplyGate()
+            guard let proxy = proxy(error: { error in
+                gate.once { continuation.resume(throwing: error) }
+            }) else {
+                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                return
+            }
+            proxy.getFan(index) { success, actual, minimum, maximum, manual, error in
+                gate.once {
+                    if success {
+                        continuation.resume(
+                            returning: FanReading(
+                                index: index,
+                                minimumRPM: Int(minimum.rounded()),
+                                currentRPM: Int(actual.rounded()),
+                                maximumRPM: Int(maximum.rounded()),
+                                isManual: manual
+                            )
+                        )
+                    } else {
+                        continuation.resume(
+                            throwing: HelperClientError(message: error ?? "无法读取风扇 \(index + 1)")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func callVoid(
+        _ body: @escaping (
+            FanBarHelperProtocol,
+            @escaping @Sendable (Bool, String?) -> Void
+        ) -> Void
+    ) async throws {
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) in
+            let gate = ReplyGate()
+            guard let proxy = proxy(error: { error in
+                gate.once { continuation.resume(throwing: error) }
+            }) else {
+                continuation.resume(throwing: HelperClientError(message: "无法连接风扇控制服务"))
+                return
+            }
+            body(proxy) { success, error in
+                gate.once {
+                    if success {
+                        continuation.resume(returning: ())
+                    } else {
+                        continuation.resume(
+                            throwing: HelperClientError(message: error ?? "风扇控制失败")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func proxy(
+        error handler: @escaping @Sendable (Error) -> Void
+    ) -> FanBarHelperProtocol? {
+        let connection = activeConnection()
+        return connection.remoteObjectProxyWithErrorHandler { error in
+            handler(HelperClientError(message: error.localizedDescription))
+        } as? FanBarHelperProtocol
+    }
+
+    private func activeConnection() -> NSXPCConnection {
+        lock.lock()
+        if let connection {
+            lock.unlock()
+            return connection
+        }
+        let newConnection = NSXPCConnection(
+            machServiceName: FanBarService.helperBundleID,
+            options: .privileged
+        )
+        newConnection.remoteObjectInterface = NSXPCInterface(with: FanBarHelperProtocol.self)
+        newConnection.invalidationHandler = { [weak self] in
+            self?.clearConnection()
+        }
+        newConnection.interruptionHandler = { [weak self] in
+            self?.clearConnection()
+        }
+        newConnection.resume()
+        connection = newConnection
+        lock.unlock()
+        return newConnection
+    }
+
+    private func clearConnection() {
+        lock.lock()
+        connection = nil
+        lock.unlock()
+    }
+}

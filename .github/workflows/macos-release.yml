@@ -1,0 +1,176 @@
+name: macOS build and release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: zsh {0}
+
+jobs:
+  build:
+    name: Build universal DMG
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build ad-hoc signed universal app
+        env:
+          FANBAR_ARCHS: arm64 x86_64
+          FANBAR_SIGN_IDENTITY: "-"
+        run: zsh scripts/package-app.sh
+
+      - name: Build verification DMG
+        env:
+          FANBAR_SIGN_IDENTITY: "-"
+        run: zsh scripts/build-dmg.sh
+
+      - name: Verify bundle and architectures
+        run: |
+          codesign --verify --deep --strict --verbose=2 dist/FanBar.app
+          app_archs="$(lipo -archs dist/FanBar.app/Contents/MacOS/FanBar)"
+          helper_archs="$(lipo -archs dist/FanBar.app/Contents/Resources/FanBarHelper)"
+          [[ "${app_archs}" == "x86_64 arm64" || "${app_archs}" == "arm64 x86_64" ]]
+          [[ "${helper_archs}" == "x86_64 arm64" || "${helper_archs}" == "arm64 x86_64" ]]
+          hdiutil verify dist/FanBar-*.dmg
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanBar-unnotarized-${{ github.sha }}
+          path: dist/FanBar-*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Sign, notarize, and publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: macos-15
+    permissions:
+      contents: write
+    env:
+      FANBAR_ARCHS: arm64 x86_64
+      FANBAR_SIGN_IDENTITY: "${{ vars.MACOS_SIGN_IDENTITY || 'Developer ID Application: JiangLin He (64S5F787T9)' }}"
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate release secrets
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          for variable_name in \
+            MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD \
+            APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID
+          do
+            test -n "${(P)variable_name}" || {
+              print -u2 "Missing GitHub Actions secret: ${variable_name}"
+              exit 1
+            }
+          done
+
+      - name: Validate tag matches app version
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" App/Info.plist)
+          test "${GITHUB_REF_NAME}" = "v${version}" || {
+            print -u2 "Tag ${GITHUB_REF_NAME} does not match Info.plist version ${version}"
+            exit 1
+          }
+
+      - name: Import Developer ID certificate
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate_path="${RUNNER_TEMP}/developer-id.p12"
+          keychain_path="${RUNNER_TEMP}/fanbar-signing.keychain-db"
+          print -n "${MACOS_CERTIFICATE_P12}" | /usr/bin/base64 -D > "${certificate_path}"
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${keychain_path}"
+          security import "${certificate_path}" \
+            -k "${keychain_path}" \
+            -P "${MACOS_CERTIFICATE_PASSWORD}" \
+            -A -t cert -f pkcs12
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "${KEYCHAIN_PASSWORD}" \
+            "${keychain_path}"
+          security list-keychains -d user -s "${keychain_path}"
+          security find-identity -v -p codesigning "${keychain_path}"
+          print "FANBAR_CI_KEYCHAIN=${keychain_path}" >> "${GITHUB_ENV}"
+
+      - name: Build Developer ID app and DMG
+        run: |
+          zsh scripts/package-app.sh
+          zsh scripts/build-dmg.sh
+
+      - name: Verify signed release
+        run: |
+          codesign --verify --deep --strict --verbose=2 dist/FanBar.app
+          codesign --verify --verbose=2 dist/FanBar-*.dmg
+          lipo -archs dist/FanBar.app/Contents/MacOS/FanBar
+          lipo -archs dist/FanBar.app/Contents/Resources/FanBarHelper
+
+      - name: Notarize and staple
+        run: zsh scripts/notarize-dmg.sh dist/FanBar-*.dmg
+
+      - name: Create checksum
+        run: |
+          dmg_path=(dist/FanBar-*.dmg)
+          dmg_name="$(basename "${dmg_path[1]}")"
+          (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanBar-${{ github.ref_name }}
+          path: |
+            dist/FanBar-*.dmg
+            dist/FanBar-*.dmg.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        run: |
+          release_files=(dist/FanBar-*.dmg dist/FanBar-*.dmg.sha256)
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${release_files[@]}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${release_files[@]}" \
+              --title "FanBar ${GITHUB_REF_NAME#v}" \
+              --generate-notes
+          fi
+
+      - name: Remove temporary keychain
+        if: always()
+        run: |
+          if [[ -n "${FANBAR_CI_KEYCHAIN:-}" && -f "${FANBAR_CI_KEYCHAIN}" ]]; then
+            security delete-keychain "${FANBAR_CI_KEYCHAIN}"
+          fi
