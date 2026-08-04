@@ -1,7 +1,7 @@
 # FanBar
 
-FanBar 是一个 macOS 原生菜单栏风扇控制应用，面向 Apple Silicon 和仍使用
-`fpe2` 风扇数据的旧款 Mac。
+FanBar 是一个 macOS 原生菜单栏风扇控制应用，支持 macOS 11 Big Sur 及更高版本，
+面向 Apple Silicon 和仍使用 `fpe2` 风扇数据的旧款 Mac。
 
 ## 功能
 
@@ -30,20 +30,25 @@ FanBar 是一个 macOS 原生菜单栏风扇控制应用，面向 Apple Silicon 
 FanBar.app → privileged XPC → FanBarHelper (root) → AppleSMC
 ```
 
-Helper 不暴露任意 SMC 写接口，只接受查询、设置全部风扇和恢复自动三类请求。
-它还会校验调用方必须是 Team ID `64S5F787T9` 签名的
-`local.fanbar.app`。
+Helper 不暴露任意 SMC 写接口，只接受查询、固定/预设/按比例设置以及恢复自动等受限请求，
+并只接受由主 App 发出的受限请求。
 
-首次点击“启用风扇控制服务”时，macOS 会要求用户批准后台 root 服务。可在
-“系统设置 → 通用 → 登录项与扩展”中查看或撤销。FanBar 会先解释服务用途，
-再打开对应的系统设置页面，并每两秒检测批准状态；成功后会在原引导位置确认
-“控制服务已启用”。
+macOS 13 及更高版本使用系统 `SMAppService` 管理 helper；macOS 11–12 使用同一签名
+helper 的 legacy launchd 注册方式。温度曲线和气流动画使用 SwiftUI 原生 Path/Shape，
+不依赖 macOS 13 才提供的 Charts 或 MenuBarExtra。
+
+首次点击“启用风扇控制服务”时，FanBar 会先解释服务用途。macOS 13+ 会要求在
+“系统设置 → 通用 → 登录项与扩展”中批准；macOS 11–12 会通过系统管理员授权
+注册同一签名的 launchd 服务。成功后会在原引导位置确认“控制服务已启用”。
+
+覆盖安装新版 App 后，FanBar 会在首次启动时自动重新注册同签名的 helper，确保
+新增的 XPC 控制方法与界面版本一致；如果系统仍保留旧进程，退出 FanBar 后重新
+打开一次即可触发迁移。
 
 ## 构建
 
-需要 Xcode 26、Swift 6，以及钥匙串中的：
-
-`Developer ID Application: JiangLin He (64S5F787T9)`
+需要 Xcode 26 和 Swift 6。若本机没有可用的 macOS 签名身份，构建脚本会使用
+临时 ad-hoc 签名，以便进行本地验证。
 
 运行：
 
@@ -53,12 +58,22 @@ zsh scripts/package-app.sh
 open dist/FanBar.app
 ```
 
-生成物位于 `dist/FanBar.app`。构建脚本会先签名内嵌 Helper，再签名主 App。
+生成物位于 `dist/FanBar.app`。构建脚本会先处理内嵌 Helper，再构建主 App。
 
 生成本地 DMG：
 
 ```sh
 zsh scripts/build-dmg.sh
+```
+
+分别构建 Intel 和 Apple Silicon 安装包：
+
+```sh
+FANBAR_ARCHS=arm64 FANBAR_APP_OUTPUT=dist/FanBar-arm64.app zsh scripts/package-app.sh
+FANBAR_DMG_OUTPUT=dist/FanBar-0.4.0-arm64.dmg zsh scripts/build-dmg.sh dist/FanBar-arm64.app
+
+FANBAR_ARCHS=x86_64 FANBAR_APP_OUTPUT=dist/FanBar-x86_64.app zsh scripts/package-app.sh
+FANBAR_DMG_OUTPUT=dist/FanBar-0.4.0-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x86_64.app
 ```
 
 只读挂载并验证签名、架构、安装结构和遥测：
@@ -68,8 +83,7 @@ zsh scripts/test-dmg.sh dist/FanBar-0.4.0.dmg
 ```
 
 GitHub Actions 会在普通提交上验证 universal2 构建，并在推送与 App 版本匹配的
-`v*` 标签时完成 Developer ID 签名、Apple 公证和 GitHub Release。首次使用前
-按照 [`docs/releasing.md`](docs/releasing.md) 配置仓库 Secrets。
+`v*` 标签时生成 GitHub Release。
 
 ## 安全边界
 
