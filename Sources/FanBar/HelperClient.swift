@@ -50,6 +50,18 @@ final class HelperClient: @unchecked Sendable {
         }
     }
 
+    func setCoolingPreset(_ preset: FanCoolingPreset) async throws {
+        try await callVoid { proxy, reply in
+            proxy.setCoolingPreset(preset.rawValue, reply: reply)
+        }
+    }
+
+    func setCoolingFraction(_ fraction: Float) async throws {
+        try await callVoid { proxy, reply in
+            proxy.setCoolingFraction(fraction, reply: reply)
+        }
+    }
+
     func setAllFansToEightyPercent() async throws {
         try await callVoid { proxy, reply in
             proxy.setAllFansToEightyPercent(reply: reply)

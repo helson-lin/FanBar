@@ -1,4 +1,5 @@
 import AppleSMC
+import FanBarShared
 import Foundation
 
 enum FanHardwareError: LocalizedError {
@@ -79,10 +80,24 @@ final class SMCFanDriver {
     }
 
     func setAllFansToEightyPercent() throws {
+        try setCoolingPreset(.extreme)
+    }
+
+    func setCoolingPreset(_ preset: FanCoolingPreset) throws {
+        try setCoolingFraction(preset.maximumFraction)
+    }
+
+    func setCoolingFraction(_ fraction: Float) throws {
+        guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
+            throw FanHardwareError.invalidValue("散热比例")
+        }
         let snapshot = try fans()
         try setFans(snapshot) { fan in
             // Each fan has its own maximum; round to a stable whole-RPM target.
-            min(max((fan.maximum * 0.8).rounded(), fan.minimum), fan.maximum)
+            min(
+                max((fan.maximum * fraction).rounded(), fan.minimum),
+                fan.maximum
+            )
         }
     }
 

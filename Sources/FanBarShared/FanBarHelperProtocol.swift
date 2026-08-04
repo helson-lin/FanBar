@@ -23,6 +23,16 @@ public enum FanBarService {
         reply: @escaping @Sendable (Bool, String?) -> Void
     )
 
+    func setCoolingPreset(
+        _ rawValue: Int,
+        reply: @escaping @Sendable (Bool, String?) -> Void
+    )
+
+    func setCoolingFraction(
+        _ fraction: Float,
+        reply: @escaping @Sendable (Bool, String?) -> Void
+    )
+
     /// Sets every fan to 80% of its own hardware-reported maximum.
     func setAllFansToEightyPercent(
         reply: @escaping @Sendable (Bool, String?) -> Void

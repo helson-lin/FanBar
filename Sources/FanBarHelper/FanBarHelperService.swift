@@ -92,6 +92,43 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         }
     }
 
+    func setCoolingPreset(
+        _ rawValue: Int,
+        reply: @escaping @Sendable (Bool, String?) -> Void
+    ) {
+        hardwareQueue.async {
+            guard let preset = FanCoolingPreset(rawValue: rawValue) else {
+                reply(false, "未知的散热预设")
+                return
+            }
+            do {
+                try self.connectedDriver().setCoolingPreset(preset)
+                reply(true, nil)
+            } catch {
+                reply(false, error.localizedDescription)
+            }
+        }
+    }
+
+    func setCoolingFraction(
+        _ fraction: Float,
+        reply: @escaping @Sendable (Bool, String?) -> Void
+    ) {
+        hardwareQueue.async {
+            // Keep the root API bounded even if a compromised client sends malformed input.
+            guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
+                reply(false, "散热比例必须在 30% 到 100% 之间")
+                return
+            }
+            do {
+                try self.connectedDriver().setCoolingFraction(fraction)
+                reply(true, nil)
+            } catch {
+                reply(false, error.localizedDescription)
+            }
+        }
+    }
+
     func setAllFansToEightyPercent(
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {

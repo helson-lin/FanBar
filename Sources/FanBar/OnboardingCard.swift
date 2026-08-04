@@ -167,15 +167,15 @@ struct OnboardingCard: View {
                 ? "叶片动画反映相对转速，RPM 数字提供精确读数；下方曲线记录最近的温度变化。"
                 : "连接成功后，这里会显示每枚风扇的真实转速与 CPU、GPU 温度。"
         case 1:
-            "日常使用无需干预。FanBar 启动时保持 macOS 自动管理，只有你主动选择固定转速才会切换。"
+            "日常使用无需干预。FanBar 启动时保持 macOS 自动管理，只有你主动开启智能温控或选择手动模式才会切换。"
         default:
             switch helperState {
             case .enabled:
-                "极速和固定转速现已可用。退出 FanBar 时会自动恢复 macOS 管理。"
+                "智能温控、散热预设和固定转速现已可用。退出 FanBar 时会自动恢复 macOS 管理。"
             case .requiresApproval:
                 "请在“登录项与扩展”中允许 FanBar。批准后无需手动刷新，这里会自动确认结果。"
             case .notRegistered:
-                "实时监测无需权限。极速和固定转速需要签名控制服务；它只接受 FanBar 的受限请求。"
+                "实时监测无需权限。智能温控和手动模式需要签名控制服务；它只接受 FanBar 的受限请求。"
             case .unavailable:
                 "当前应用包中未找到签名控制服务，请重新安装完整版本的 FanBar。"
             }

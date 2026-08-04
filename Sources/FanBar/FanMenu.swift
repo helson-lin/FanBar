@@ -1,19 +1,18 @@
 import AppKit
+import FanBarShared
 import SwiftUI
 
 struct FanMenu: View {
     @ObservedObject var controller: FanController
     @AppStorage("fanbar.onboarding.v1.completed")
     private var hasCompletedOnboarding = false
+    @AppStorage(CoolingPresetPreferences.preferenceKey)
+    private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var onboardingStep = 0
 
     private var isManual: Bool {
         controller.mode != .automatic
-    }
-
-    private var isExtreme: Bool {
-        controller.mode == .extreme
     }
 
     private var isFixed: Bool {
@@ -24,9 +23,14 @@ struct FanMenu: View {
     private var modeLabel: String {
         switch controller.mode {
         case .automatic: "自动"
+        case .temperatureCurve: "智能温控"
         case .fixed(let rpm): "\(rpm.formatted()) RPM"
-        case .extreme: "极速 80%"
+        case .preset(let preset): "\(preset.title) \(preset.percentageText)"
         }
+    }
+
+    private var visibleCoolingPresets: [FanCoolingPreset] {
+        CoolingPresetPreferences.presets(from: visibleCoolingPresetsRawValue)
     }
 
     var body: some View {
@@ -90,6 +94,18 @@ struct FanMenu: View {
 
             Spacer(minLength: 8)
 
+            Button {
+                SettingsWindowPresenter.shared.show(controller: controller)
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Color.primary.opacity(0.055), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("打开 FanBar 设置")
+            .help("设置")
+
             Button { controller.refresh() } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 13, weight: .semibold))
@@ -126,7 +142,7 @@ struct FanMenu: View {
                 if position < min(controller.fans.count, 2) - 1 {
                     Rectangle()
                         .fill(Color.primary.opacity(0.08))
-                        .frame(width: 1, height: 126)
+                        .frame(width: 1, height: 142)
                 }
             }
         }
@@ -147,6 +163,8 @@ struct FanMenu: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
+            temperatureCurveControl
+
             HStack(spacing: 6) {
                 Button {
                     controller.setAutomatic()
@@ -159,17 +177,19 @@ struct FanMenu: View {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    controller.setExtreme()
-                } label: {
-                    modeButtonLabel(
-                        title: "极速",
-                        systemImage: "bolt.fill",
-                        selected: isExtreme
-                    )
+                ForEach(visibleCoolingPresets) { preset in
+                    Button {
+                        controller.setCoolingPreset(preset)
+                    } label: {
+                        modeButtonLabel(
+                            title: preset.title,
+                            systemImage: preset.systemImage,
+                            selected: controller.mode == .preset(preset)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help("\(preset.title) · 各风扇最大转速的 \(preset.percentageText)")
                 }
-                .buttonStyle(.plain)
-                .help("各风扇最大转速的 80%")
 
                 Menu {
                     ForEach([2500, 3500, 4500, 5500], id: \.self) { rpm in
@@ -197,7 +217,118 @@ struct FanMenu: View {
             .disabled(controller.isBusy || controller.helperState != .enabled)
             .padding(4)
             .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+
+            if isManual {
+                automaticRestoreRow
+            }
         }
+    }
+
+    private var temperatureCurveControl: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "thermometer.variable")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(controller.mode == .temperatureCurve ? Color.accentColor : .secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("智能温控")
+                    .font(.subheadline.weight(.medium))
+                Text(temperatureCurveDetail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle(
+                "",
+                isOn: Binding(
+                    get: { controller.mode == .temperatureCurve },
+                    set: { controller.setTemperatureCurveEnabled($0) }
+                )
+            )
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .disabled(controller.isBusy || controller.helperState != .enabled)
+            .accessibilityLabel("智能温控")
+            .accessibilityHint("开启后根据芯片温度动态调整风扇转速")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            Color.primary.opacity(controller.mode == .temperatureCurve ? 0.065 : 0.035),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+    }
+
+    private var temperatureCurveDetail: String {
+        guard controller.mode == .temperatureCurve,
+              let temperature = controller.curveTemperatureCelsius,
+              let fraction = controller.curveOutputFraction else {
+            return "45° 低噪起步，85° 全速散热"
+        }
+        return String(format: "%.0f°C · 输出 %.0f%%", temperature, fraction * 100)
+    }
+
+    private var automaticRestoreRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "timer")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Text("自动恢复")
+                .font(.caption)
+
+            Spacer()
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Menu {
+                    ForEach(FanController.AutomaticRestoreDuration.allCases) { duration in
+                        Button {
+                            controller.setAutomaticRestoreDuration(duration)
+                        } label: {
+                            if controller.automaticRestoreDuration == duration {
+                                Label(duration.title, systemImage: "checkmark")
+                            } else {
+                                Text(duration.title)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(automaticRestoreLabel(at: context.date))
+                            .monospacedDigit()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityLabel("自动恢复时间")
+            }
+            .fixedSize()
+        }
+        .padding(.horizontal, 6)
+        .padding(.top, 1)
+    }
+
+    private func automaticRestoreLabel(at date: Date) -> String {
+        guard let deadline = controller.automaticRestoreDeadline else {
+            return controller.automaticRestoreDuration.title
+        }
+        let remaining = max(0, Int(ceil(deadline.timeIntervalSince(date))))
+        let hours = remaining / 3_600
+        let minutes = (remaining % 3_600) / 60
+        let seconds = remaining % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d 后", hours, minutes, seconds)
+        }
+        return String(format: "%02d:%02d 后", minutes, seconds)
     }
 
     private func modeButtonLabel(
@@ -219,7 +350,7 @@ struct FanMenu: View {
         .font(.subheadline.weight(.medium))
         .foregroundStyle(selected ? Color.primary : Color.secondary)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 13)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(
             selected ? Color(nsColor: .controlBackgroundColor) : Color.clear,
