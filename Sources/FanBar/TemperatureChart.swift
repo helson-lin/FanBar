@@ -1,7 +1,7 @@
 import FanBarShared
 import SwiftUI
 
-/// A ten-minute rolling trace built from the CPU and GPU sensors available on this Mac.
+/// A ten-minute rolling trace built from the CPU, GPU, SSD, and battery sensors available on this Mac.
 /// The plot is drawn with SwiftUI paths so it works on macOS 11 without Charts.framework.
 struct TemperatureChart: View {
     static let historyDuration: TimeInterval = 10 * 60
@@ -10,6 +10,12 @@ struct TemperatureChart: View {
 
     private var latest: ThermalReading? { samples.last }
 
+    private var visibleSeries: [TemperatureSeries] {
+        TemperatureSeries.allCases.filter { series in
+            samples.contains { $0[keyPath: series.keyPath] != nil }
+        }
+    }
+
     /// Keeps the x-axis stable at ten minutes even while the initial history fills in.
     private var timeRange: ClosedRange<Date> {
         let end = latest?.sampledAt ?? Date()
@@ -17,7 +23,9 @@ struct TemperatureChart: View {
     }
 
     private var plottedValues: [Double] {
-        samples.flatMap { [$0.cpuCelsius, $0.gpuCelsius].compactMap { $0 } }
+        samples.flatMap { sample in
+            TemperatureSeries.allCases.compactMap { sample[keyPath: $0.keyPath] }
+        }
     }
 
     private let smoothingRadius = 3
@@ -32,7 +40,9 @@ struct TemperatureChart: View {
             return ThermalReading(
                 sampledAt: sample.sampledAt,
                 cpuCelsius: smoothedValue(at: index, keyPath: \.cpuCelsius),
-                gpuCelsius: smoothedValue(at: index, keyPath: \.gpuCelsius)
+                gpuCelsius: smoothedValue(at: index, keyPath: \.gpuCelsius),
+                ssdCelsius: smoothedValue(at: index, keyPath: \.ssdCelsius),
+                batteryCelsius: smoothedValue(at: index, keyPath: \.batteryCelsius)
             )
         }
     }
@@ -69,14 +79,18 @@ struct TemperatureChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(fanBarText("芯片温度", "Chip temperature"))
+                Text(fanBarText("温度曲线", "Temperature trends"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
 
                 Spacer()
+            }
 
-                temperatureLegend(title: "CPU", value: latest?.cpuCelsius, color: .orange)
-                temperatureLegend(title: "GPU", value: latest?.gpuCelsius, color: .accentColor)
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                ForEach(visibleSeries) { series in
+                    temperatureLegend(series)
+                }
             }
 
             if samples.isEmpty {
@@ -95,26 +109,63 @@ struct TemperatureChart: View {
                     timeRange: timeRange
                 )
                 .frame(height: 116)
-                .accessibilityLabel(fanBarText("最近十分钟芯片温度曲线", "Chip temperature over the last ten minutes"))
+                .accessibilityLabel(fanBarText("最近十分钟温度曲线", "Temperature trends over the last ten minutes"))
             }
         }
     }
 
-    private func temperatureLegend(
-        title: String,
-        value: Double?,
-        color: Color
-    ) -> some View {
+    private func temperatureLegend(_ series: TemperatureSeries) -> some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(color)
+                .fill(series.color)
                 .frame(width: 6, height: 6)
-            Text(title)
+            Text(series.title)
                 .foregroundColor(.secondary)
-            Text(value.map { "\($0, specifier: "%.0f")°" } ?? "—")
+            Text(series.value(in: latest).map { "\($0, specifier: "%.0f")°" } ?? "—")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
         }
         .font(.system(size: 11))
+    }
+}
+
+private enum TemperatureSeries: String, CaseIterable, Identifiable {
+    case cpu
+    case gpu
+    case ssd
+    case battery
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cpu: "CPU"
+        case .gpu: "GPU"
+        case .ssd: fanBarText("SSD", "SSD")
+        case .battery: fanBarText("电池", "Battery")
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .cpu: .orange
+        case .gpu: .accentColor
+        case .ssd: Color(red: 0.18, green: 0.72, blue: 0.82)
+        case .battery: .green
+        }
+    }
+
+    var keyPath: KeyPath<ThermalReading, Double?> {
+        switch self {
+        case .cpu: \.cpuCelsius
+        case .gpu: \.gpuCelsius
+        case .ssd: \.ssdCelsius
+        case .battery: \.batteryCelsius
+        }
+    }
+
+    func value(in reading: ThermalReading?) -> Double? {
+        guard let reading else { return nil }
+        return reading[keyPath: keyPath]
     }
 }
 
@@ -167,23 +218,16 @@ private struct TemperaturePlot: View {
                         .position(x: (leftInset - 5) / 2, y: y)
                 }
 
-                curvePath(
-                    values: samples.map(\.cpuCelsius),
-                    in: plotRect
-                )
-                .stroke(
-                    Color.orange,
-                    style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
-                )
-
-                curvePath(
-                    values: samples.map(\.gpuCelsius),
-                    in: plotRect
-                )
-                .stroke(
-                    Color.accentColor,
-                    style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
-                )
+                ForEach(TemperatureSeries.allCases) { series in
+                    curvePath(
+                        values: samples.map { $0[keyPath: series.keyPath] },
+                        in: plotRect
+                    )
+                    .stroke(
+                        series.color,
+                        style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round)
+                    )
+                }
 
                 xAxisLabels(in: plotRect, width: proxy.size.width)
             }

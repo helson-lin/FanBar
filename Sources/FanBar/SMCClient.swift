@@ -43,11 +43,29 @@ struct ThermalReading {
     let sampledAt: Date
     let cpuCelsius: Double?
     let gpuCelsius: Double?
+    let ssdCelsius: Double?
+    let batteryCelsius: Double?
+
+    init(
+        sampledAt: Date,
+        cpuCelsius: Double?,
+        gpuCelsius: Double?,
+        ssdCelsius: Double? = nil,
+        batteryCelsius: Double? = nil
+    ) {
+        self.sampledAt = sampledAt
+        self.cpuCelsius = cpuCelsius
+        self.gpuCelsius = gpuCelsius
+        self.ssdCelsius = ssdCelsius
+        self.batteryCelsius = batteryCelsius
+    }
 }
 
 final class SMCClient {
     private var cpuTemperatureKeys: [String]?
     private var gpuTemperatureKeys: [String]?
+    private var ssdTemperatureKeys: [String]?
+    private var batteryTemperatureKeys: [String]?
 
     // Common Intel and Apple Silicon keys, derived from the MIT-licensed
     // exelban/Stats sensor catalogue.
@@ -68,6 +86,16 @@ final class SMCClient {
         "Tf14", "Tf18", "Tf19", "Tf1A", "Tf24", "Tf28", "Tf29", "Tf2A",
         "Tg0G", "Tg0H", "Tg1U", "Tg1k", "Tg0K", "Tg0d", "Tg0e", "Tg0k",
         "Tg0U", "Tg0X", "Tg0g", "Tg1Y", "Tg1c", "Tg1g"
+    ]
+
+    // These labels are not part of Apple's public SMC API. Probe common keys
+    // and keep the series optional so unsupported Mac models simply hide it.
+    private static let ssdTemperatureCandidates = [
+        "TH0P", "TH0V", "TH1P", "TH1V", "TH2P", "TH2V", "TH3P", "TH3V"
+    ]
+
+    private static let batteryTemperatureCandidates = [
+        "TB0T", "TB1T", "TB2T", "TB3T", "TB4T", "TB5T", "TB6T", "TB7T"
     ]
 
     // AppleSMC keys use a four-byte ASCII code, such as F0Ac for fan 0 actual RPM.
@@ -169,10 +197,20 @@ final class SMCClient {
             cachedKeys: &gpuTemperatureKeys,
             candidates: Self.gpuTemperatureCandidates
         )
+        let ssdValues = temperatures(
+            cachedKeys: &ssdTemperatureKeys,
+            candidates: Self.ssdTemperatureCandidates
+        )
+        let batteryValues = temperatures(
+            cachedKeys: &batteryTemperatureKeys,
+            candidates: Self.batteryTemperatureCandidates
+        )
         return ThermalReading(
             sampledAt: date,
             cpuCelsius: average(cpuValues),
-            gpuCelsius: average(gpuValues)
+            gpuCelsius: average(gpuValues),
+            ssdCelsius: average(ssdValues),
+            batteryCelsius: average(batteryValues)
         )
     }
 }

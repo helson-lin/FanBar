@@ -88,18 +88,49 @@ final class LegacyStatusItemController: NSObject {
             text = "\(temperature) · \(averageFanSpeed(for: controller))"
         }
 
-        button.image = NSImage(
+        let statusImage = NSImage(
             systemSymbolName: controller.statusIcon,
             accessibilityDescription: "FanBar"
         ) ?? NSApplication.shared.applicationIconImage
+            ?? NSImage(size: NSSize(width: 14, height: 14))
+        statusImage.isTemplate = true
+        statusImage.size = NSSize(width: 12, height: 12)
+        button.image = statusImage
         button.title = text ?? ""
         button.imagePosition = text == nil ? .imageOnly : .imageLeading
-        button.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        // Keep icon-only mode compact while allowing AppKit to measure a label
-        // when the user enables temperature or RPM in the menu bar.
-        statusItem?.length = text == nil
-            ? NSStatusItem.squareLength
-            : NSStatusItem.variableLength
+        button.imageScaling = .scaleProportionallyDown
+        button.imageHugsTitle = true
+        if #available(macOS 11.0, *) {
+            button.symbolConfiguration = NSImage.SymbolConfiguration(
+                pointSize: 11,
+                weight: .medium
+            )
+        }
+        // Keep a stable width once text is enabled. A variable-length status
+        // item moves its popover anchor whenever a changing value gains or
+        // loses a digit, which makes the menu appear to jump while refreshing.
+        let targetLength = statusItemLength(for: displayMode)
+        if statusItem?.length != targetLength {
+            statusItem?.length = targetLength
+        }
+
+        // Digits should not change their advance width as the reading changes.
+        button.font = text == nil
+            ? NSFont.systemFont(ofSize: 12, weight: .medium)
+            : NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+    }
+
+    private func statusItemLength(for displayMode: MenuBarDisplayMode) -> CGFloat {
+        switch displayMode {
+        case .iconOnly:
+            NSStatusItem.squareLength
+        case .cpuTemperature:
+            58
+        case .fanSpeed:
+            84
+        case .temperatureAndFanSpeed:
+            120
+        }
     }
 
     private func averageFanSpeed(for controller: FanController) -> String {

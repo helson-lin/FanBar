@@ -378,10 +378,16 @@ struct FanMenu: View {
         selected: Bool,
         showsChevron: Bool = false
     ) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 5) {
             Image(systemName: systemImage)
             Text(title)
                 .font(.system(size: 13, design: .monospaced))
+                // Keep localized mode names on one line; English "Automatic"
+                // needs to remain readable inside the compact three-way control.
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .allowsTightening(true)
+                .layoutPriority(1)
             if showsChevron {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .bold))
@@ -391,7 +397,7 @@ struct FanMenu: View {
         .font(.subheadline.weight(.medium))
         .foregroundColor(selected ? Color.primary : Color.secondary)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)

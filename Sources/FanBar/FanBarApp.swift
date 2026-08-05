@@ -160,6 +160,8 @@ struct FanBarApp: App {
             print("fans=\(fans.map(\.currentRPM))")
             print("cpu-celsius=\(thermal.cpuCelsius.map { String(format: "%.1f", $0) } ?? "unavailable")")
             print("gpu-celsius=\(thermal.gpuCelsius.map { String(format: "%.1f", $0) } ?? "unavailable")")
+            print("ssd-celsius=\(thermal.ssdCelsius.map { String(format: "%.1f", $0) } ?? "unavailable")")
+            print("battery-celsius=\(thermal.batteryCelsius.map { String(format: "%.1f", $0) } ?? "unavailable")")
             exit(EXIT_SUCCESS)
         } catch {
             print("telemetry-test-error=\(error.localizedDescription)")

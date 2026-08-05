@@ -1,6 +1,7 @@
 import AppKit
 import FanBarShared
 import Foundation
+import UserNotifications
 
 @MainActor
 final class FanController: ObservableObject {
@@ -58,6 +59,8 @@ final class FanController: ObservableObject {
     @Published private(set) var automaticRestoreDeadline: Date?
     @Published private(set) var curveTemperatureCelsius: Double?
     @Published private(set) var curveOutputFraction: Float?
+    @Published private(set) var highTemperatureNotificationsEnabled: Bool
+    @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
 
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
@@ -69,6 +72,12 @@ final class FanController: ObservableObject {
     private var curveMissingTemperatureSamples = 0
     private var wakeObserver: NSObjectProtocol?
     private var helperMigrationAttempted = false
+    private var highTemperatureNotificationRequestID = 0
+    private var thermalAlertMonitor = ThermalAlertMonitor(
+        thresholdCelsius: ThermalAlertSettings.thresholdCelsius
+    )
+    private let notificationCenter = UNUserNotificationCenter.current()
+    private let notificationDelegate = ThermalNotificationDelegate()
     private let automaticRestoreTestInterval: TimeInterval?
     // Ten minutes of readings at the two-second refresh cadence used below.
     private let maximumTemperatureSamples = 300
@@ -84,6 +93,9 @@ final class FanController: ObservableObject {
 
     init(automaticRestoreTestInterval: TimeInterval? = nil) {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
+        highTemperatureNotificationsEnabled = UserDefaults.standard.bool(
+            forKey: ThermalAlertSettings.notificationsEnabledKey
+        )
         helperBuildVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
         ) as? String ?? "unknown"
@@ -94,6 +106,7 @@ final class FanController: ObservableObject {
         {
             automaticRestoreDuration = savedDuration
         }
+        notificationCenter.delegate = notificationDelegate
         refreshHelperStatus()
         refreshLaunchAtLoginStatus()
         connectAndRefresh()
@@ -135,6 +148,7 @@ final class FanController: ObservableObject {
             fans = try localClient.fans()
             let thermal = localClient.thermalReading()
             appendTemperature(thermal)
+            evaluateThermalAlerts(using: thermal)
             if mode == .temperatureCurve {
                 updateTemperatureCurve(using: thermal)
             }
@@ -287,6 +301,59 @@ final class FanController: ObservableObject {
         }
     }
 
+    func setHighTemperatureNotificationsEnabled(_ enabled: Bool) {
+        highTemperatureNotificationRequestID += 1
+        let requestID = highTemperatureNotificationRequestID
+
+        guard enabled else {
+            highTemperatureNotificationsEnabled = false
+            isRequestingHighTemperatureNotificationPermission = false
+            thermalAlertMonitor.reset()
+            UserDefaults.standard.set(
+                false,
+                forKey: ThermalAlertSettings.notificationsEnabledKey
+            )
+            return
+        }
+
+        isRequestingHighTemperatureNotificationPermission = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let granted: Bool
+            do {
+                granted = try await self.notificationCenter.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                granted = false
+            }
+
+            guard requestID == self.highTemperatureNotificationRequestID else { return }
+            self.isRequestingHighTemperatureNotificationPermission = false
+
+            guard granted else {
+                self.highTemperatureNotificationsEnabled = false
+                UserDefaults.standard.set(
+                    false,
+                    forKey: ThermalAlertSettings.notificationsEnabledKey
+                )
+                self.message = fanBarText(
+                    "未获得通知权限，请在系统设置中允许 FanBar 发送通知",
+                    "Notification permission was not granted. Allow FanBar notifications in System Settings."
+                )
+                return
+            }
+
+            self.highTemperatureNotificationsEnabled = true
+            self.thermalAlertMonitor.reset()
+            UserDefaults.standard.set(
+                true,
+                forKey: ThermalAlertSettings.notificationsEnabledKey
+            )
+            if let latest = self.latestThermalReading() {
+                self.evaluateThermalAlerts(using: latest)
+            }
+        }
+    }
+
     private func enableTemperatureCurve() {
         guard helperState == .enabled, !isBusy else {
             message = fanBarText("请先启用并批准控制服务", "Enable and approve the control service first")
@@ -369,6 +436,46 @@ final class FanController: ObservableObject {
 
     private func controlTemperature(from reading: ThermalReading) -> Double? {
         [reading.cpuCelsius, reading.gpuCelsius].compactMap { $0 }.max()
+    }
+
+    private func evaluateThermalAlerts(using reading: ThermalReading) {
+        guard highTemperatureNotificationsEnabled,
+              !isRequestingHighTemperatureNotificationPermission else {
+            thermalAlertMonitor.reset()
+            return
+        }
+
+        let alerts = thermalAlertMonitor.alerts(for: reading)
+        guard !alerts.isEmpty else { return }
+
+        let details = alerts.map {
+            fanBarFormat(
+                "%@ %.0f°C",
+                "%@ %.0f°C",
+                $0.sensor.title,
+                $0.temperatureCelsius
+            )
+        }.joined(separator: fanBarText("、", ", "))
+        let content = UNMutableNotificationContent()
+        content.title = fanBarText("FanBar 高温预警", "FanBar High Temperature Warning")
+        content.body = fanBarFormat(
+            "检测到 %@，已达到 %.0f°C 高温阈值。请检查当前负载和散热。",
+            "%@ reached the high-temperature threshold of %.0f°C. Check the current workload and cooling.",
+            details,
+            ThermalAlertSettings.thresholdCelsius
+        )
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "\(ThermalAlertSettings.notificationIdentifierPrefix).\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        notificationCenter.add(request) { error in
+            if let error {
+                NSLog("FanBar high-temperature notification failed: %@", error.localizedDescription)
+            }
+        }
     }
 
     private func latestThermalReading() -> ThermalReading? {
@@ -604,7 +711,10 @@ final class FanController: ObservableObject {
     }
 
     private func appendTemperature(_ reading: ThermalReading) {
-        guard reading.cpuCelsius != nil || reading.gpuCelsius != nil else { return }
+        guard reading.cpuCelsius != nil
+            || reading.gpuCelsius != nil
+            || reading.ssdCelsius != nil
+            || reading.batteryCelsius != nil else { return }
         temperatureHistory.append(reading)
         let earliestSampleDate = reading.sampledAt.addingTimeInterval(-TemperatureChart.historyDuration)
         temperatureHistory.removeAll { $0.sampledAt < earliestSampleDate }

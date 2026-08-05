@@ -17,9 +17,10 @@ The menu-bar screenshot below shows the English interface. FanBar also includes 
 ## Highlights
 
 - **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
-- **Live visualization** — Monitor CPU/GPU temperatures, a rolling ten-minute chart, and airflow motion that follows actual RPM.
+- **Live visualization** — Monitor CPU/GPU temperatures plus SSD and battery temperatures when the Mac exposes them, with a rolling ten-minute chart and airflow motion that follows actual RPM.
 - **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose Silent, Balanced, Performance, or Extreme presets.
 - **Smart cooling** — Smoothly adjust fan output from 35% to 100% based on chip temperature, with a one-click off switch.
+- **High-temperature notifications** — Opt in to macOS notifications when CPU or GPU reaches 90°C; each sustained high-temperature episode alerts once and re-arms after cooling down.
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
 - **English and Simplified Chinese** — Choose System, English, or 简体中文 in FanBar Settings.
@@ -84,7 +85,7 @@ FANBAR_DMG_OUTPUT=dist/FanBar-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x8
 Verify a DMG's signature, architecture, and installation structure with:
 
 ```sh
-zsh scripts/test-dmg.sh dist/FanBar-0.4.0.dmg
+zsh scripts/test-dmg.sh dist/FanBar-0.4.1.dmg
 ```
 
 ## Architecture
@@ -99,11 +100,11 @@ The helper does not expose arbitrary SMC writes. It only supports reading fans, 
 
 ## Continuous integration and releases
 
-GitHub Actions validates the universal2 build on pushes and pull requests. Pushing a tag that matches the app version (for example `v0.4.0`) creates a GitHub Release.
+GitHub Actions validates the universal2 build on pushes and pull requests. Pushing a tag that matches the app version (for example `v0.4.1`) creates a GitHub Release.
 
 ```sh
-git tag -a v0.4.0 -m "FanBar 0.4.0"
-git push origin v0.4.0
+git tag -a v0.4.1 -m "FanBar 0.4.1"
+git push origin v0.4.1
 ```
 
 ## Acknowledgements and license

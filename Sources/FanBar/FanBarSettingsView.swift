@@ -55,6 +55,9 @@ struct FanBarSettingsView: View {
             coolingPresetSettings
 
             Divider()
+            thermalNotificationSettings
+
+            Divider()
             languageSettings
 
             Divider()
@@ -141,6 +144,37 @@ struct FanBarSettingsView: View {
             }
             .labelsHidden()
             .frame(width: 130)
+        }
+    }
+
+    private var thermalNotificationSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(fanBarText("高温通知", "High-temperature notifications"))
+                .font(.headline)
+
+            Toggle(
+                isOn: Binding(
+                    get: { controller.highTemperatureNotificationsEnabled },
+                    set: { controller.setHighTemperatureNotificationsEnabled($0) }
+                )
+            ) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(fanBarFormat(
+                        "CPU 或 GPU 达到 %.0f°C 时通知",
+                        "Notify when CPU or GPU reaches %.0f°C",
+                        ThermalAlertSettings.thresholdCelsius
+                    ))
+                    Text(fanBarText(
+                        "同一次高温只通知一次，降温后再次升高会重新通知。首次开启需要允许 FanBar 发送通知。",
+                        "One notification per high-temperature episode. A new notification is sent after cooling down and heating up again. Permission is required the first time you enable it."
+                    ))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            .disabled(controller.isRequestingHighTemperatureNotificationPermission)
         }
     }
 
