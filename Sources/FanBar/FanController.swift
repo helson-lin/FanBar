@@ -317,39 +317,35 @@ final class FanController: ObservableObject {
         }
 
         isRequestingHighTemperatureNotificationPermission = true
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            let granted: Bool
-            do {
-                granted = try await self.notificationCenter.requestAuthorization(options: [.alert, .sound])
-            } catch {
-                granted = false
-            }
+        notificationCenter.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
 
-            guard requestID == self.highTemperatureNotificationRequestID else { return }
-            self.isRequestingHighTemperatureNotificationPermission = false
+                guard requestID == self.highTemperatureNotificationRequestID else { return }
+                self.isRequestingHighTemperatureNotificationPermission = false
 
-            guard granted else {
-                self.highTemperatureNotificationsEnabled = false
+                guard granted else {
+                    self.highTemperatureNotificationsEnabled = false
+                    UserDefaults.standard.set(
+                        false,
+                        forKey: ThermalAlertSettings.notificationsEnabledKey
+                    )
+                    self.message = fanBarText(
+                        "未获得通知权限，请在系统设置中允许 FanBar 发送通知",
+                        "Notification permission was not granted. Allow FanBar notifications in System Settings."
+                    )
+                    return
+                }
+
+                self.highTemperatureNotificationsEnabled = true
+                self.thermalAlertMonitor.reset()
                 UserDefaults.standard.set(
-                    false,
+                    true,
                     forKey: ThermalAlertSettings.notificationsEnabledKey
                 )
-                self.message = fanBarText(
-                    "未获得通知权限，请在系统设置中允许 FanBar 发送通知",
-                    "Notification permission was not granted. Allow FanBar notifications in System Settings."
-                )
-                return
-            }
-
-            self.highTemperatureNotificationsEnabled = true
-            self.thermalAlertMonitor.reset()
-            UserDefaults.standard.set(
-                true,
-                forKey: ThermalAlertSettings.notificationsEnabledKey
-            )
-            if let latest = self.latestThermalReading() {
-                self.evaluateThermalAlerts(using: latest)
+                if let latest = self.latestThermalReading() {
+                    self.evaluateThermalAlerts(using: latest)
+                }
             }
         }
     }
