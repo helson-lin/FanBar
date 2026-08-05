@@ -74,30 +74,6 @@ modification follow.
 
 ==============================================================================
 
-                        "Commons Clause" License Condition v1.0
-
-The Software is provided to you by the Licensor under the License, as
-defined below, subject to the following condition.
-
-Without limiting other conditions in the License, the grant of rights
-under the License will not include, and the License does not grant to you,
-the right to Sell the Software.
-
-For purposes of the foregoing, "Sell" means practicing any or all of the
-rights granted to you under the License to provide to third parties, for a
-fee or other consideration (including without limitation fees for hosting
-or consulting/support services related to the Software), a product or
-service whose value derives, entirely or substantially, from the
-functionality of the Software. Any license notice or attribution required
-by the License must also include this Commons Clause License Condition
-notice.
-
-Software: Orbit
-License: GPL-3.0
-Licensor: Yuze Pan / 潘禹泽 (https://github.com/yuzeguitarist)
-
-==============================================================================
-
                         Additional Terms | 附加条款
 
 1. COPYLEFT REQUIREMENT: Any derivative work, modification, or project that
@@ -120,15 +96,6 @@ Licensor: Yuze Pan / 潘禹泽 (https://github.com/yuzeguitarist)
    署名要求：任何对本软件的使用必须保留所有版权声明、本许可证
    以及对原作者的署名。
 
-4. COMMERCIAL LICENSING: For commercial use, please contact the Licensor
-   to obtain a separate commercial license.
-   
-   商业授权：如需商业使用，请联系许可方获取单独的商业许可证。
-   
-   Contact | 联系方式: yuzeguitar@gmail.com
-   GitHub: https://github.com/yuzeguitarist
-
 ==============================================================================
 
-Copyright (c) 2024-2026 Yuze Pan (潘禹泽). All Rights Reserved.
-版权所有 (c) 2024-2026 潘禹泽 (Yuze Pan)。保留所有权利。
+Copyright (c) 2024-2026 Jarin He. All Rights Reserved.
