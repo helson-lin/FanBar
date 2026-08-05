@@ -3,6 +3,8 @@ import Foundation
 
 /// Renders GitHub's Octocat mark as a template image so it follows the current interface color.
 enum GitHubMark {
+    // NSImage is AppKit state and must only be created or read on the main actor.
+    @MainActor
     static let image: NSImage = {
         let svg = #"""
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
