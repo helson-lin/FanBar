@@ -22,17 +22,17 @@ struct FanMenu: View {
         return false
     }
 
-    private var isPreset: Bool {
-        if case .preset = controller.mode { return true }
+    private var isCurveMode: Bool {
+        if case .temperatureCurve = controller.mode { return true }
         return false
     }
 
     private var modeLabel: String {
         switch controller.mode {
         case .automatic: fanBarText("系统", "Automatic")
-        case .temperatureCurve: fanBarText("智能温控", "Smart cooling")
+        case .temperatureCurve:
+            "\(controller.curveCoolingPreset.title) · \(fanBarText("温控", "Curve"))"
         case .fixed(let rpm): "\(rpm) RPM"
-        case .preset(let preset): "\(preset.title) \(preset.percentageText)"
         }
     }
 
@@ -176,39 +176,22 @@ struct FanMenu: View {
                 .buttonStyle(.plain)
                 .focusable(false)
 
-                Button {
-                    if controller.mode != .temperatureCurve {
-                        controller.setTemperatureCurveEnabled(true)
-                    }
-                } label: {
-                    modeButtonLabel(
-                        title: fanBarText("智能", "Smart"),
-                        systemImage: "thermometer.variable",
-                        selected: controller.mode == .temperatureCurve
-                    )
-                }
-                .buttonStyle(.plain)
-                .focusable(false)
-                .help(fanBarFormat(
-                    "按芯片温度动态调速 · 当前曲线：%@",
-                    "Adjust fan speed from chip temperature · Curve: %@",
-                    controller.curveBuiltInSelection.title
-                ))
-
                 Menu {
-                    Section(header: Text(fanBarText("散热预设", "Cooling presets"))) {
+                    Section(header: Text(fanBarText("温控预设", "Curve presets"))) {
                         ForEach(visibleCoolingPresets) { preset in
                             Button {
                                 controller.setCoolingPreset(preset)
                             } label: {
-                                if controller.mode == .preset(preset) {
+                                let active = controller.mode == .temperatureCurve
+                                    && controller.curveCoolingPreset == preset
+                                if active {
                                     Label(
-                                        "\(preset.title) · \(preset.percentageText)",
+                                        "\(preset.title) · \(fanBarText("温控", "Curve"))",
                                         systemImage: "checkmark"
                                     )
                                 } else {
                                     Label(
-                                        "\(preset.title) · \(preset.percentageText)",
+                                        "\(preset.title) · \(fanBarText("温控", "Curve"))",
                                         systemImage: preset.systemImage
                                     )
                                 }
@@ -233,7 +216,7 @@ struct FanMenu: View {
                     modeButtonLabel(
                         title: fanBarText("手动", "Manual"),
                         systemImage: "slider.horizontal.3",
-                        selected: isFixed || isPreset,
+                        selected: isFixed || isCurveMode,
                         showsChevron: true
                     )
                 }
@@ -241,7 +224,10 @@ struct FanMenu: View {
                 .focusable(false)
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel(fanBarText("选择手动散热模式", "Choose a manual cooling mode"))
-                .help(fanBarText("选择散热预设或固定转速", "Choose a cooling preset or fixed RPM"))
+                .help(fanBarText(
+                    "温控预设按温度曲线调速；也可选固定转速",
+                    "Curve presets follow temperature; or pick a fixed RPM"
+                ))
             }
             .disabled(controller.isBusy || controller.helperState != .enabled)
             .padding(4)
@@ -258,7 +244,7 @@ struct FanMenu: View {
 
     private var automaticRestoreRow: some View {
         HStack(spacing: 8) {
-            Image(systemName: controller.mode == .temperatureCurve
+            Image(systemName: isCurveMode
                 ? "thermometer.variable"
                 : "checkmark.shield")
                 .font(.system(size: 11, weight: .semibold))
@@ -322,7 +308,7 @@ struct FanMenu: View {
             return fanBarFormat(
                 "%@ · %.0f°C → %.0f%%",
                 "%@ · %.0f°C → %.0f%%",
-                controller.curveBuiltInSelection.title,
+                controller.curveCoolingPreset.title,
                 temperature,
                 fraction * 100
             )

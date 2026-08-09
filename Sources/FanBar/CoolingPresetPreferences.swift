@@ -34,8 +34,10 @@ extension FanCoolingPreset {
         }
     }
 
+    /// Peak of the factory curve (menu hint before live output is available).
     var percentageText: String {
-        "\(Int((maximumFraction * 100).rounded()))%"
+        let peak = factoryCurve.peakFraction
+        return "≤\(Int((peak * 100).rounded()))%"
     }
 
     var systemImage: String {

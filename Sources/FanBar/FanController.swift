@@ -25,9 +25,9 @@ final class FanController: ObservableObject {
 
     enum Mode: Equatable {
         case automatic
+        /// Temperature-curve control using the selected panel cooling preset’s curve.
         case temperatureCurve
         case fixed(Int)
-        case preset(FanCoolingPreset)
     }
 
     /// Drives the menu-bar icon animation for user-visible mode switches.
@@ -68,10 +68,10 @@ final class FanController: ObservableObject {
     @Published private(set) var curveOutputFraction: Float?
     /// Active smart-cooling curve (user-editable; persisted via FanCurvePreferences).
     @Published private(set) var curveProfile: FanCurveProfile
-    /// Active preset slot (默认 / 静音 / 激进). Edits stay in this slot.
-    @Published private(set) var curveBuiltInSelection: FanCurveProfile.BuiltIn
-    /// Per-preset stored curves (including user edits).
-    private var curvePresetSlots: [FanCurveProfile.BuiltIn: FanCurveProfile]
+    /// Panel cooling preset whose curve is active for editing / smart mode.
+    @Published private(set) var curveCoolingPreset: FanCoolingPreset
+    /// Per–panel-preset stored curves.
+    private var curvePresetSlots: [FanCoolingPreset: FanCurveProfile]
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
@@ -112,7 +112,7 @@ final class FanController: ObservableObject {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
         let curveSnapshot = FanCurvePreferences.load()
         curveProfile = curveSnapshot.profile
-        curveBuiltInSelection = curveSnapshot.builtInSelection
+        curveCoolingPreset = curveSnapshot.coolingPreset
         curvePresetSlots = curveSnapshot.slots
         highTemperatureNotificationsEnabled = UserDefaults.standard.bool(
             forKey: ThermalAlertSettings.notificationsEnabledKey
@@ -154,8 +154,6 @@ final class FanController: ObservableObject {
                     }
                 case .fixed(let rpm):
                     self.applyFixedRPM(rpm, resetsAutomaticRestore: false)
-                case .preset(let preset):
-                    self.applyCoolingPreset(preset, resetsAutomaticRestore: false)
                 }
             }
         }
@@ -270,101 +268,63 @@ final class FanController: ObservableObject {
         }
     }
 
+    /// Activates a panel cooling preset by running its temperature curve (menu entry).
     func setCoolingPreset(_ preset: FanCoolingPreset) {
-        applyCoolingPreset(preset, resetsAutomaticRestore: true)
-    }
-
-    private func applyCoolingPreset(
-        _ preset: FanCoolingPreset,
-        resetsAutomaticRestore: Bool
-    ) {
-        guard helperState == .enabled, !isBusy else {
-            message = fanBarText("请先启用并批准控制服务", "Enable and approve the control service first")
-            return
-        }
-        isBusy = true
-        if resetsAutomaticRestore { switchFeedback = .began }
-        message = fanBarFormat(
-            "正在切换到%@模式…",
-            "Switching to %@ mode…",
-            preset.title
-        )
-        Task {
-            do {
-                await finishPendingCurveUpdate()
-                try await helperClient.setCoolingPreset(preset)
-                mode = .preset(preset)
-                clearTemperatureCurveState()
-                if resetsAutomaticRestore {
-                    scheduleAutomaticRestore()
-                }
-                message = fanBarFormat(
-                    "%@模式：最大转速的 %@",
-                    "%@ mode: %@ of maximum RPM",
-                    preset.title,
-                    preset.percentageText
-                )
-                if let readings = try? await helperClient.fans() {
-                    fans = readings
-                }
-                if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
-            } catch {
-                message = fanBarFormat("控制失败：%@", "Control failed: %@", error.localizedDescription)
-                if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
-            }
-            isBusy = false
-        }
+        selectCoolingCurvePreset(preset, enableControl: true, resetsAutomaticRestore: true)
     }
 
     func setAutomatic() {
         restoreAutomatic(triggeredByTimer: false)
     }
 
+    /// Enables smart curve control for the currently selected panel preset.
     func setTemperatureCurveEnabled(_ enabled: Bool) {
         if enabled {
-            enableTemperatureCurve()
+            selectCoolingCurvePreset(
+                curveCoolingPreset,
+                enableControl: true,
+                resetsAutomaticRestore: true
+            )
         } else {
             setAutomatic()
         }
     }
 
-    /// Updates the active preset’s curve in place and persists that slot.
+    /// Updates the active panel preset’s curve in place and persists that slot.
     func setCurveProfile(_ profile: FanCurveProfile) {
         let sanitized = profile.sanitized()
         curveProfile = sanitized
-        curvePresetSlots[curveBuiltInSelection] = sanitized
-        FanCurvePreferences.save(slots: curvePresetSlots, selection: curveBuiltInSelection)
+        curvePresetSlots[curveCoolingPreset] = sanitized
+        FanCurvePreferences.save(slots: curvePresetSlots, selection: curveCoolingPreset)
         scheduleCurveHardwareApply()
     }
 
-    /// Switch to another preset slot. Saves the current slot first, then loads the target.
-    func applyCurveBuiltIn(_ builtIn: FanCurveProfile.BuiltIn) {
-        guard builtIn != curveBuiltInSelection else {
-            // Re-selecting the active preset reloads its stored shape (useful after experiments).
-            let stored = curvePresetSlots[builtIn] ?? builtIn.profile.sanitized()
-            curveProfile = stored.sanitized()
-            FanCurvePreferences.save(slots: curvePresetSlots, selection: builtIn)
-            scheduleCurveHardwareApply()
-            return
+    /// Switch which panel preset’s curve is being edited (settings). Optionally start control.
+    func selectCoolingCurvePreset(
+        _ preset: FanCoolingPreset,
+        enableControl: Bool = false,
+        resetsAutomaticRestore: Bool = false
+    ) {
+        if preset != curveCoolingPreset {
+            curvePresetSlots[curveCoolingPreset] = curveProfile.sanitized()
+            let target = (curvePresetSlots[preset] ?? preset.factoryCurve).sanitized()
+            curveCoolingPreset = preset
+            curveProfile = target
+            curvePresetSlots[preset] = target
+            FanCurvePreferences.save(slots: curvePresetSlots, selection: preset)
         }
 
-        // Persist whatever the user edited on the current preset.
-        curvePresetSlots[curveBuiltInSelection] = curveProfile.sanitized()
-
-        let target = (curvePresetSlots[builtIn] ?? builtIn.profile).sanitized()
-        // Carry shared smoothing only when the target slot never customized them
-        // beyond factory… actually each slot has its own hysteresis; keep slot data as-is.
-        curveBuiltInSelection = builtIn
-        curveProfile = target
-        curvePresetSlots[builtIn] = target
-        FanCurvePreferences.save(slots: curvePresetSlots, selection: builtIn)
-        scheduleCurveHardwareApply()
+        if enableControl {
+            enableTemperatureCurve(resetsAutomaticRestore: resetsAutomaticRestore)
+        } else {
+            // Editing only — still push hardware if already in curve mode.
+            scheduleCurveHardwareApply()
+        }
     }
 
-    /// Restores the factory shape for the active preset only.
+    /// Restores the factory curve for the active panel preset only.
     func resetActiveCurvePresetToFactory() {
-        let factory = curveBuiltInSelection.profile.sanitized()
-        // Preserve the user’s smoothing knobs on this slot if they changed them.
+        let factory = curveCoolingPreset.factoryCurve.sanitized()
         let restored = FanCurveProfile(
             sensor: factory.sensor,
             points: factory.points.map {
@@ -485,7 +445,7 @@ final class FanController: ObservableObject {
         }
     }
 
-    private func enableTemperatureCurve() {
+    private func enableTemperatureCurve(resetsAutomaticRestore: Bool = true) {
         guard helperState == .enabled, !isBusy else {
             message = fanBarText("请先启用并批准控制服务", "Enable and approve the control service first")
             return
@@ -498,8 +458,12 @@ final class FanController: ObservableObject {
 
         let fraction = targetCurveFraction(for: temperature, force: true)
         isBusy = true
-        switchFeedback = .began
-        message = fanBarText("正在开启智能温控…", "Enabling smart cooling…")
+        if resetsAutomaticRestore { switchFeedback = .began }
+        message = fanBarFormat(
+            "正在切换到%@温控…",
+            "Switching to %@ curve…",
+            curveCoolingPreset.title
+        )
         Task {
             do {
                 await finishPendingCurveUpdate()
@@ -508,20 +472,23 @@ final class FanController: ObservableObject {
                 curveTemperatureCelsius = temperature
                 curveOutputFraction = fraction
                 lastCurveControlTemperature = temperature
-                scheduleAutomaticRestore()
+                if resetsAutomaticRestore {
+                    scheduleAutomaticRestore()
+                }
                 updateCurveMessage()
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
-                switchFeedback = .ended(successfully: true)
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
             } catch {
                 clearTemperatureCurveState()
                 message = fanBarFormat(
-                    "智能温控开启失败：%@",
-                    "Unable to enable smart cooling: %@",
+                    "%@温控开启失败：%@",
+                    "Unable to enable %@ curve: %@",
+                    curveCoolingPreset.title,
                     error.localizedDescription
                 )
-                switchFeedback = .ended(successfully: false)
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
             }
             isBusy = false
         }
@@ -657,9 +624,9 @@ final class FanController: ObservableObject {
         guard let temperature = curveTemperatureCelsius,
               let fraction = curveOutputFraction else { return }
         message = fanBarFormat(
-            "智能温控（%@）：%.0f°C · 最大转速 %.0f%%",
-            "Smart cooling (%@): %.0f°C · %.0f%% maximum RPM",
-            curveBuiltInSelection.title,
+            "%@：%.0f°C · %.0f%%",
+            "%@: %.0f°C · %.0f%%",
+            curveCoolingPreset.title,
             temperature,
             fraction * 100
         )

@@ -14,11 +14,11 @@ struct FanCurveEditorView: View {
         let points = profile.points
             .map { "\($0.celsius)-\($0.fraction)" }
             .joined(separator: "|")
-        return "\(controller.curveBuiltInSelection.rawValue);\(points)"
+        return "\(controller.curveCoolingPreset.rawValue);\(points)"
     }
 
     private var selectionTitle: String {
-        controller.curveBuiltInSelection.title
+        controller.curveCoolingPreset.title
     }
 
     private var temperatureStepRange: ClosedRange<Int> {
@@ -55,7 +55,7 @@ struct FanCurveEditorView: View {
     private var primaryCurveSection: some View {
         VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
             SettingsChrome.sectionHeader(
-                fanBarText("智能温控曲线", "Smart cooling curve"),
+                fanBarText("面板预设曲线", "Panel preset curves"),
                 trailing: selectionTitle
             )
 
@@ -98,7 +98,7 @@ struct FanCurveEditorView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text(fanBarText("预设", "Preset"))
+                        Text(fanBarText("正在编辑", "Editing"))
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                         Spacer()
@@ -109,16 +109,16 @@ struct FanCurveEditorView: View {
                         .font(.system(size: 11))
                         .foregroundColor(.accentColor)
                         .help(fanBarText(
-                            "将当前预设的锚点恢复为出厂默认，不影响另外两个预设",
-                            "Restore this preset’s anchors to factory defaults without changing the other presets"
+                            "将当前面板预设的曲线恢复为出厂默认，不影响其他预设",
+                            "Restore this panel preset’s curve to factory defaults without changing the others"
                         ))
                     }
 
-                    // Native AppKit control — three editable slots, always one selected.
-                    CurvePresetSegmentedControl(
-                        selection: controller.curveBuiltInSelection,
-                        onSelect: { builtIn in
-                            controller.applyCurveBuiltIn(builtIn)
+                    // Same four presets as the menu panel (静音 / 均衡 / 性能 / 极速).
+                    CoolingPresetSegmentedControl(
+                        selection: controller.curveCoolingPreset,
+                        onSelect: { preset in
+                            controller.selectCoolingCurvePreset(preset, enableControl: false)
                         }
                     )
                     .frame(height: 28)
@@ -156,8 +156,8 @@ struct FanCurveEditorView: View {
 
     private var primaryFooter: String {
         fanBarText(
-            "默认 / 静音 / 激进是三个独立预设槽；拖动锚点只改当前槽并自动保存。0% 表示目标停转。开启菜单栏「智能」后立即生效。",
-            "Default / Quiet / Aggressive are three slots; dragging anchors edits the active slot and saves automatically. 0% targets idle RPM. Takes effect when Smart mode is on."
+            "曲线对应菜单里的面板预设（静音 / 均衡 / 性能 / 极速）。拖动锚点只改当前预设并自动保存；在主面板选择该预设即按曲线温控。0% 表示目标停转。",
+            "Each curve belongs to a panel preset (Silent / Balanced / Performance / Extreme). Dragging anchors edits that preset and saves automatically; choosing it in the menu runs temperature-curve control. 0% targets idle RPM."
         )
     }
 
@@ -378,22 +378,22 @@ struct FanCurveEditorView: View {
 
 // MARK: - Native preset control
 
-/// AppKit segmented control — always has one of three presets selected.
-struct CurvePresetSegmentedControl: NSViewRepresentable {
-    var selection: FanCurveProfile.BuiltIn
-    var onSelect: (FanCurveProfile.BuiltIn) -> Void
+/// AppKit segmented control for the four panel cooling presets.
+struct CoolingPresetSegmentedControl: NSViewRepresentable {
+    var selection: FanCoolingPreset
+    var onSelect: (FanCoolingPreset) -> Void
 
     final class Coordinator: NSObject {
-        var onSelect: (FanCurveProfile.BuiltIn) -> Void
-        init(onSelect: @escaping (FanCurveProfile.BuiltIn) -> Void) {
+        var onSelect: (FanCoolingPreset) -> Void
+        init(onSelect: @escaping (FanCoolingPreset) -> Void) {
             self.onSelect = onSelect
         }
 
         @MainActor
         @objc func segmentChanged(_ sender: NSSegmentedControl) {
             let index = sender.selectedSegment
-            guard FanCurveProfile.BuiltIn.allCases.indices.contains(index) else { return }
-            onSelect(FanCurveProfile.BuiltIn.allCases[index])
+            guard FanCoolingPreset.allCases.indices.contains(index) else { return }
+            onSelect(FanCoolingPreset.allCases[index])
         }
     }
 
@@ -402,7 +402,7 @@ struct CurvePresetSegmentedControl: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSSegmentedControl {
-        let titles = FanCurveProfile.BuiltIn.allCases.map(\.title)
+        let titles = FanCoolingPreset.allCases.map(\.title)
         let control = NSSegmentedControl(
             labels: titles,
             trackingMode: .selectOne,
@@ -417,7 +417,7 @@ struct CurvePresetSegmentedControl: NSViewRepresentable {
 
     func updateNSView(_ control: NSSegmentedControl, context: Context) {
         context.coordinator.onSelect = onSelect
-        let titles = FanCurveProfile.BuiltIn.allCases.map(\.title)
+        let titles = FanCoolingPreset.allCases.map(\.title)
         for (index, title) in titles.enumerated() where index < control.segmentCount {
             control.setLabel(title, forSegment: index)
         }
@@ -425,7 +425,7 @@ struct CurvePresetSegmentedControl: NSViewRepresentable {
     }
 
     private func applySelection(_ control: NSSegmentedControl) {
-        if let index = FanCurveProfile.BuiltIn.allCases.firstIndex(of: selection),
+        if let index = FanCoolingPreset.allCases.firstIndex(of: selection),
            control.selectedSegment != index {
             control.selectedSegment = index
         }
@@ -555,10 +555,9 @@ struct FanCurveCanvas: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fanBarText("可拖动温控曲线", "Draggable cooling curve"))
         .accessibilityValue(fanBarFormat(
-            "%d 个锚点，当前曲线 %@",
-            "%d anchors, curve %@",
-            profile.points.count,
-            profile.displayName
+            "%d 个锚点",
+            "%d anchors",
+            profile.points.count
         ))
         .accessibilityHint(fanBarText(
             "拖动锚点调整温度与转速；也可用下方步进器微调",

@@ -159,11 +159,11 @@ struct FanBarSettingsView: View {
 
     private var panelPresetSection: some View {
         SettingsSection(
-            title: fanBarText("面板预设", "Panel presets"),
+            title: fanBarText("面板显示", "Panel visibility"),
             trailing: "\(visibleCoolingPresets.count) / 2",
             footer: fanBarText(
-                "最多两个会出现在主面板的手动菜单中。",
-                "Up to two appear in the main panel’s manual menu."
+                "勾选最多两个温控预设显示在主面板。曲线在上方编辑；菜单里选中后按该预设曲线调速。",
+                "Show up to two curve presets on the main panel. Edit curves above; choosing one in the menu runs that temperature curve."
             )
         ) {
             ForEach(Array(FanCoolingPreset.allCases.enumerated()), id: \.element.id) { index, preset in

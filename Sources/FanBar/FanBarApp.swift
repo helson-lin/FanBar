@@ -257,12 +257,11 @@ struct FanBarApp: App {
     /// Exercises interpolation plus the complete curve enable/disable controller path.
     private static func runTemperatureCurveSmokeTestAndExit() -> Never {
         Task { @MainActor in
-            let curve = FanCurveProfile.standard
+            let curve = FanCoolingPreset.balanced.factoryCurve
             // Idle through the first knee, then a smooth rise that still hits later anchors.
             guard abs(curve.fraction(at: 40) - 0) < 0.001,
                   abs(curve.fraction(at: 41) - 0) < 0.001,
                   abs(curve.fraction(at: 50) - 0.30) < 0.02,
-                  abs(curve.fraction(at: 88) - 1.00) < 0.02,
                   curve.fraction(at: 41) <= curve.fraction(at: 55),
                   curve.fraction(at: 55) <= curve.fraction(at: 80) else {
                 print("temperature-curve-test=interpolation-failed")
@@ -282,13 +281,13 @@ struct FanBarApp: App {
                 maxFractionStepPerUpdate: 0.5
             )
             let sanitized = invalid.sanitized()
+            let factoryCelsius = FanCoolingPreset.balanced.factoryCurve.points.map(\.celsius)
             guard sanitized.points.count >= FanCurveProfile.minimumPointCount,
                   sanitized.points.allSatisfy({
                       $0.fraction >= FanCurveProfile.minimumFraction
                           && $0.fraction <= FanCurveProfile.maximumFraction
                   }),
-                  sanitized.points.contains(where: { abs($0.fraction) < 0.001 || $0.fraction >= 0 }),
-                  sanitized.points.map(\.celsius) != FanCurveProfile.standard.points.map(\.celsius),
+                  sanitized.points.map(\.celsius) != factoryCelsius,
                   zip(sanitized.points, sanitized.points.dropFirst()).allSatisfy({
                       $0.celsius < $1.celsius
                   }),

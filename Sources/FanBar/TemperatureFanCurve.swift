@@ -68,7 +68,6 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         self.maxFractionStepPerUpdate = maxFractionStepPerUpdate
     }
 
-    // Older builds only stored sensor + points; missing keys keep smoothing defaults.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         sensor = try container.decode(FanCurveSensor.self, forKey: .sensor)
@@ -98,63 +97,9 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         case maxFractionStepPerUpdate
     }
 
-    /// Default: idle through ~41°C, then a smooth rise to full cooling.
-    static let standard = FanCurveProfile(
-        sensor: .maxChip,
-        points: [
-            FanCurvePoint(celsius: 41, fraction: 0.00),
-            FanCurvePoint(celsius: 50, fraction: 0.30),
-            FanCurvePoint(celsius: 65, fraction: 0.55),
-            FanCurvePoint(celsius: 78, fraction: 0.80),
-            FanCurvePoint(celsius: 88, fraction: 1.00)
-        ]
-    )
-
-    static let silent = FanCurveProfile(
-        sensor: .maxChip,
-        points: [
-            FanCurvePoint(celsius: 45, fraction: 0.00),
-            FanCurvePoint(celsius: 58, fraction: 0.20),
-            FanCurvePoint(celsius: 72, fraction: 0.40),
-            FanCurvePoint(celsius: 85, fraction: 0.65),
-            FanCurvePoint(celsius: 95, fraction: 0.90)
-        ]
-    )
-
-    static let aggressive = FanCurveProfile(
-        sensor: .maxChip,
-        points: [
-            FanCurvePoint(celsius: 38, fraction: 0.00),
-            FanCurvePoint(celsius: 48, fraction: 0.40),
-            FanCurvePoint(celsius: 60, fraction: 0.70),
-            FanCurvePoint(celsius: 72, fraction: 0.90),
-            FanCurvePoint(celsius: 82, fraction: 1.00)
-        ]
-    )
-
-    /// Named built-ins for the settings picker.
-    enum BuiltIn: String, CaseIterable, Identifiable, Equatable, Hashable {
-        case standard
-        case silent
-        case aggressive
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .standard: fanBarText("默认", "Default")
-            case .silent: fanBarText("静音", "Quiet")
-            case .aggressive: fanBarText("激进", "Aggressive")
-            }
-        }
-
-        var profile: FanCurveProfile {
-            switch self {
-            case .standard: .standard
-            case .silent: .silent
-            case .aggressive: .aggressive
-            }
-        }
+    /// Highest fraction on the curve (for menu captions).
+    var peakFraction: Float {
+        points.map(\.fraction).max() ?? 0
     }
 
     /// Smooth monotone cubic interpolation through the anchors.
@@ -164,10 +109,6 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         }).fraction(at: celsius)
     }
 
-    /// Sorts points, clamps ranges, enforces min/max count and 0…100% bounds.
-    ///
-    /// Never replaces a user curve with the built-in default. Colliding
-    /// temperatures are spread by 1°C so edits cannot wipe the whole profile.
     func sanitized() -> FanCurveProfile {
         var cleaned = points
             .map { point in
@@ -186,12 +127,11 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
             .sorted { $0.celsius < $1.celsius }
 
         if cleaned.isEmpty {
-            cleaned = Self.standard.points.map {
+            cleaned = FanCoolingPreset.balanced.factoryCurve.points.map {
                 FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
             }
         }
 
-        // Guarantee a usable curve without discarding the user's points.
         while cleaned.count < Self.minimumPointCount {
             let last = cleaned[cleaned.count - 1]
             cleaned.append(
@@ -205,7 +145,6 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
             cleaned = Array(cleaned.prefix(Self.maximumPointCount))
         }
 
-        // Strictly increasing X-axis (forward pass, then backward if ceiling-hit).
         for index in cleaned.indices.dropFirst() {
             if cleaned[index].celsius <= cleaned[index - 1].celsius {
                 cleaned[index].celsius = min(
@@ -236,42 +175,68 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
             )
         )
     }
+}
 
-    /// Localized label for the menu bar and settings (built-in name or “Custom”).
-    var displayName: String {
-        matchingBuiltIn()?.title ?? fanBarText("自定义", "Custom")
-    }
+// MARK: - Panel preset factory curves
 
-    func matchingBuiltIn() -> BuiltIn? {
-        let normalized = sanitized()
-        return BuiltIn.allCases.first { builtIn in
-            let candidate = builtIn.profile.sanitized()
-            // Smoothing knobs are user-tunable and do not disqualify a built-in shape.
-            guard candidate.sensor == normalized.sensor,
-                  candidate.points.count == normalized.points.count else {
-                return false
-            }
-            return zip(candidate.points, normalized.points).allSatisfy { lhs, rhs in
-                abs(lhs.celsius - rhs.celsius) < 0.5
-                    && abs(lhs.fraction - rhs.fraction) < 0.01
-            }
+extension FanCoolingPreset {
+    /// Default temperature curve for this panel preset (editable, then stored per slot).
+    var factoryCurve: FanCurveProfile {
+        switch self {
+        case .silent:
+            return FanCurveProfile(
+                sensor: .maxChip,
+                points: [
+                    FanCurvePoint(celsius: 45, fraction: 0.00),
+                    FanCurvePoint(celsius: 58, fraction: 0.20),
+                    FanCurvePoint(celsius: 72, fraction: 0.35),
+                    FanCurvePoint(celsius: 85, fraction: 0.50),
+                    FanCurvePoint(celsius: 95, fraction: 0.65)
+                ]
+            )
+        case .balanced:
+            return FanCurveProfile(
+                sensor: .maxChip,
+                points: [
+                    FanCurvePoint(celsius: 41, fraction: 0.00),
+                    FanCurvePoint(celsius: 50, fraction: 0.30),
+                    FanCurvePoint(celsius: 65, fraction: 0.50),
+                    FanCurvePoint(celsius: 78, fraction: 0.70),
+                    FanCurvePoint(celsius: 88, fraction: 0.85)
+                ]
+            )
+        case .performance:
+            return FanCurveProfile(
+                sensor: .maxChip,
+                points: [
+                    FanCurvePoint(celsius: 40, fraction: 0.00),
+                    FanCurvePoint(celsius: 50, fraction: 0.40),
+                    FanCurvePoint(celsius: 62, fraction: 0.60),
+                    FanCurvePoint(celsius: 75, fraction: 0.80),
+                    FanCurvePoint(celsius: 88, fraction: 0.95)
+                ]
+            )
+        case .extreme:
+            return FanCurveProfile(
+                sensor: .maxChip,
+                points: [
+                    FanCurvePoint(celsius: 38, fraction: 0.00),
+                    FanCurvePoint(celsius: 48, fraction: 0.45),
+                    FanCurvePoint(celsius: 60, fraction: 0.70),
+                    FanCurvePoint(celsius: 72, fraction: 0.90),
+                    FanCurvePoint(celsius: 82, fraction: 1.00)
+                ]
+            )
         }
     }
 }
 
 /// Monotone cubic spline for chip temperature → maximum-fan fraction.
-///
-/// Uses Fritsch–Carlson slopes so the curve stays smooth without overshooting
-/// past neighboring anchors — important when the low end is 0% idle.
 struct TemperatureFanCurve {
     struct Point {
         let celsius: Double
         let fraction: Float
     }
-
-    static let standard = TemperatureFanCurve(points: FanCurveProfile.standard.points.map {
-        Point(celsius: $0.celsius, fraction: $0.fraction)
-    })
 
     let points: [Point]
 
@@ -296,7 +261,6 @@ struct TemperatureFanCurve {
             let t = (celsius - x0) / h
             let t2 = t * t
             let t3 = t2 * t
-            // Hermite basis
             let h00 = 2 * t3 - 3 * t2 + 1
             let h10 = t3 - 2 * t2 + t
             let h01 = -2 * t3 + 3 * t2
@@ -315,7 +279,6 @@ struct TemperatureFanCurve {
         return last.fraction
     }
 
-    /// Fritsch–Carlson monotone cubic derivatives dy/dx at each knot.
     private static func monotoneSlopes(x: [Double], y: [Double]) -> [Double] {
         let n = x.count
         guard n >= 2 else { return Array(repeating: 0, count: max(n, 0)) }
@@ -358,136 +321,128 @@ struct TemperatureFanCurve {
     }
 }
 
-/// Loads and stores smart-cooling curves as three editable preset slots.
-///
-/// Editing anchors keeps you on the current preset (no “custom” dead-end).
-/// Switching preset saves the current slot, then loads the target slot.
+// MARK: - Preferences (one curve slot per panel cooling preset)
+
+/// Stores a temperature curve for each `FanCoolingPreset` shown in the menu panel.
 enum FanCurvePreferences {
-    /// Legacy single-profile key (migrated on first load).
     static let legacyProfileKey = "fanbar.fanCurveProfile"
-    static let selectionKey = "fanbar.fanCurveBuiltInSelection"
-    static let slotsKey = "fanbar.fanCurvePresetSlots"
-    private static let customSelectionValue = "custom"
+    static let legacyBuiltInSelectionKey = "fanbar.fanCurveBuiltInSelection"
+    static let legacySlotsKey = "fanbar.fanCurvePresetSlots"
+    static let selectionKey = "fanbar.coolingCurveSelection"
+    static let slotsKey = "fanbar.coolingCurveSlots"
 
     struct Snapshot {
         var profile: FanCurveProfile
-        /// Always one of the three presets — never nil.
-        var builtInSelection: FanCurveProfile.BuiltIn
-        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile]
+        var coolingPreset: FanCoolingPreset
+        var slots: [FanCoolingPreset: FanCurveProfile]
     }
 
     static func load() -> Snapshot {
         let defaults = UserDefaults.standard
         var slots = loadSlots(from: defaults)
-
-        // Migrate pre-slot storage once.
         if slots.isEmpty {
             slots = migratedSlots(from: defaults)
             persist(slots: slots, selection: nil, defaults: defaults)
         }
-
-        for builtIn in FanCurveProfile.BuiltIn.allCases where slots[builtIn] == nil {
-            slots[builtIn] = builtIn.profile.sanitized()
+        for preset in FanCoolingPreset.allCases where slots[preset] == nil {
+            slots[preset] = preset.factoryCurve.sanitized()
         }
 
-        let selection = resolvedSelection(defaults: defaults, slots: slots)
-        let profile = slots[selection] ?? selection.profile.sanitized()
-        return Snapshot(profile: profile, builtInSelection: selection, slots: slots)
+        let selection = resolvedSelection(defaults: defaults)
+        let profile = slots[selection] ?? selection.factoryCurve.sanitized()
+        return Snapshot(profile: profile, coolingPreset: selection, slots: slots)
     }
 
-    /// Saves `profile` into `selection` and marks that preset active.
-    static func save(profile: FanCurveProfile, selection: FanCurveProfile.BuiltIn) {
-        var slots = load().slots
-        slots[selection] = profile.sanitized()
-        persist(slots: slots, selection: selection, defaults: .standard)
-    }
-
-    /// Saves every slot (e.g. after switching presets with both sides updated).
-    static func save(slots: [FanCurveProfile.BuiltIn: FanCurveProfile], selection: FanCurveProfile.BuiltIn) {
-        var normalized: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
-        for builtIn in FanCurveProfile.BuiltIn.allCases {
-            normalized[builtIn] = (slots[builtIn] ?? builtIn.profile).sanitized()
+    static func save(slots: [FanCoolingPreset: FanCurveProfile], selection: FanCoolingPreset) {
+        var normalized: [FanCoolingPreset: FanCurveProfile] = [:]
+        for preset in FanCoolingPreset.allCases {
+            normalized[preset] = (slots[preset] ?? preset.factoryCurve).sanitized()
         }
         persist(slots: normalized, selection: selection, defaults: .standard)
     }
 
-    // MARK: - Private
+    // MARK: Private
 
-    private static func resolvedSelection(
-        defaults: UserDefaults,
-        slots: [FanCurveProfile.BuiltIn: FanCurveProfile]
-    ) -> FanCurveProfile.BuiltIn {
-        if let raw = defaults.string(forKey: selectionKey),
-           raw != customSelectionValue,
-           let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
-            return builtIn
+    private static func resolvedSelection(defaults: UserDefaults) -> FanCoolingPreset {
+        if let raw = defaults.object(forKey: selectionKey) as? Int,
+           let preset = FanCoolingPreset(rawValue: raw) {
+            return preset
         }
-        // Legacy “custom” or missing key → keep active shape under standard.
-        if let data = defaults.data(forKey: legacyProfileKey),
-           let profile = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
-            return profile.matchingBuiltIn() ?? .standard
-        }
-        return .standard
-    }
-
-    private static func loadSlots(from defaults: UserDefaults) -> [FanCurveProfile.BuiltIn: FanCurveProfile] {
-        guard let data = defaults.data(forKey: slotsKey),
-              let decoded = try? JSONDecoder().decode([String: FanCurveProfile].self, from: data)
-        else {
-            return [:]
-        }
-        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
-        for (raw, profile) in decoded {
-            guard let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) else { continue }
-            slots[builtIn] = profile.sanitized()
-        }
-        return slots
-    }
-
-    private static func migratedSlots(from defaults: UserDefaults) -> [FanCurveProfile.BuiltIn: FanCurveProfile] {
-        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
-        for builtIn in FanCurveProfile.BuiltIn.allCases {
-            slots[builtIn] = builtIn.profile.sanitized()
-        }
-
-        if let data = defaults.data(forKey: legacyProfileKey),
-           let profile = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
-            let sanitized = profile.sanitized()
-            let raw = defaults.string(forKey: selectionKey)
-            if let raw, raw != customSelectionValue, let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
-                slots[builtIn] = sanitized
-            } else if let match = sanitized.matchingBuiltIn() {
-                slots[match] = sanitized
-            } else {
-                // Custom edits land in the standard slot so nothing is lost.
-                slots[.standard] = sanitized
+        // Legacy BuiltIn names → panel presets
+        if let legacy = defaults.string(forKey: legacyBuiltInSelectionKey) {
+            switch legacy {
+            case "silent": return .silent
+            case "aggressive": return .extreme
+            case "standard": return .balanced
+            default: break
             }
+        }
+        return .balanced
+    }
+
+    private static func loadSlots(
+        from defaults: UserDefaults
+    ) -> [FanCoolingPreset: FanCurveProfile] {
+        // New key: rawValue Int as string
+        if let data = defaults.data(forKey: slotsKey),
+           let decoded = try? JSONDecoder().decode([String: FanCurveProfile].self, from: data) {
+            var slots: [FanCoolingPreset: FanCurveProfile] = [:]
+            for (raw, profile) in decoded {
+                if let intKey = Int(raw), let preset = FanCoolingPreset(rawValue: intKey) {
+                    slots[preset] = profile.sanitized()
+                }
+            }
+            if !slots.isEmpty { return slots }
+        }
+        return [:]
+    }
+
+    private static func migratedSlots(
+        from defaults: UserDefaults
+    ) -> [FanCoolingPreset: FanCurveProfile] {
+        var slots: [FanCoolingPreset: FanCurveProfile] = [:]
+        for preset in FanCoolingPreset.allCases {
+            slots[preset] = preset.factoryCurve.sanitized()
+        }
+
+        // Migrate old BuiltIn-keyed slots if present.
+        if let data = defaults.data(forKey: legacySlotsKey),
+           let decoded = try? JSONDecoder().decode([String: FanCurveProfile].self, from: data) {
+            if let silent = decoded["silent"] { slots[.silent] = silent.sanitized() }
+            if let standard = decoded["standard"] { slots[.balanced] = standard.sanitized() }
+            if let aggressive = decoded["aggressive"] { slots[.extreme] = aggressive.sanitized() }
+        } else if let data = defaults.data(forKey: legacyProfileKey),
+                  let profile = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
+            let sanitized = profile.sanitized()
+            let target = resolvedSelection(defaults: defaults)
+            slots[target] = sanitized
         }
         return slots
     }
 
     private static func persist(
-        slots: [FanCurveProfile.BuiltIn: FanCurveProfile],
-        selection: FanCurveProfile.BuiltIn?,
+        slots: [FanCoolingPreset: FanCurveProfile],
+        selection: FanCoolingPreset?,
         defaults: UserDefaults
     ) {
         var payload: [String: FanCurveProfile] = [:]
-        for builtIn in FanCurveProfile.BuiltIn.allCases {
-            payload[builtIn.rawValue] = (slots[builtIn] ?? builtIn.profile).sanitized()
+        for preset in FanCoolingPreset.allCases {
+            payload[String(preset.rawValue)] = (slots[preset] ?? preset.factoryCurve).sanitized()
         }
         do {
             let data = try JSONEncoder().encode(payload)
             defaults.set(data, forKey: slotsKey)
             if let selection {
                 defaults.set(selection.rawValue, forKey: selectionKey)
-                // Keep legacy key in sync for older diagnostics / smoke tests.
-                if let active = try? JSONEncoder().encode(payload[selection.rawValue] ?? selection.profile) {
+                if let active = try? JSONEncoder().encode(
+                    payload[String(selection.rawValue)] ?? selection.factoryCurve
+                ) {
                     defaults.set(active, forKey: legacyProfileKey)
                 }
             }
             defaults.synchronize()
         } catch {
-            NSLog("FanBar: failed to save fan curve slots: %@", error.localizedDescription)
+            NSLog("FanBar: failed to save cooling curves: %@", error.localizedDescription)
         }
     }
 }
