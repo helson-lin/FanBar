@@ -11,7 +11,9 @@ final class LegacyStatusItemController: NSObject {
     private var popover: NSPopover?
     private weak var controller: FanController?
     private var observation: AnyCancellable?
+    private var feedbackObservation: AnyCancellable?
     private var defaultsObservation: NSObjectProtocol?
+    private let iconAnimator = MenuBarIconAnimator()
 
     func install(controller: FanController) {
         guard statusItem == nil else { return }
@@ -43,14 +45,36 @@ final class LegacyStatusItemController: NSObject {
         observation = controller.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { self?.updateButton() }
         }
+        iconAnimator.onFinish = { [weak self] in self?.updateButton() }
+        feedbackObservation = controller.$switchFeedback
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] signal in
+                self?.handleSwitchFeedback(signal)
+            }
         defaultsObservation = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.updateButton() }
+            Task { @MainActor in
+                // Disabling the preference mid-animation restores the still icon.
+                if !SwitchFeedbackPreferences.isEnabled {
+                    self?.iconAnimator.stop()
+                }
+                self?.updateButton()
+            }
         }
         updateButton()
+    }
+
+    private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
+        guard let signal, statusItem?.button != nil else { return }
+        guard SwitchFeedbackPreferences.isEnabled else { return }
+        // The icon already follows the live RPM, so only a failed switch
+        // needs an extra cue.
+        if case .ended(successfully: false) = signal {
+            iconAnimator.flashFailure()
+        }
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -88,14 +112,22 @@ final class LegacyStatusItemController: NSObject {
             text = "\(temperature) · \(averageFanSpeed(for: controller))"
         }
 
-        let statusImage = NSImage(
-            systemSymbolName: controller.statusIcon,
-            accessibilityDescription: "FanBar"
-        ) ?? NSApplication.shared.applicationIconImage
-            ?? NSImage(size: NSSize(width: 14, height: 14))
-        statusImage.isTemplate = true
-        statusImage.size = NSSize(width: 12, height: 12)
-        button.image = statusImage
+        // Drive the icon with the live fan reading: it spins while the fans
+        // run and coasts to a stop when they halt. While any animation is
+        // active the animator owns button.image, so the two-second refresh
+        // must not clobber the rotating frames.
+        if SwitchFeedbackPreferences.isEnabled {
+            iconAnimator.update(
+                rpm: averageFanRPM(for: controller),
+                on: button,
+                symbolName: controller.statusIcon
+            )
+        } else {
+            iconAnimator.stop()
+        }
+        if !iconAnimator.isAnimating {
+            button.image = MenuBarIconAnimator.staticIcon(symbol: controller.statusIcon)
+        }
         button.title = text ?? ""
         button.imagePosition = text == nil ? .imageOnly : .imageLeading
         button.imageScaling = .scaleProportionallyDown
@@ -131,6 +163,12 @@ final class LegacyStatusItemController: NSObject {
         case .temperatureAndFanSpeed:
             120
         }
+    }
+
+    private func averageFanRPM(for controller: FanController) -> Double {
+        guard !controller.fans.isEmpty else { return 0 }
+        let total = controller.fans.map(\.currentRPM).reduce(0, +)
+        return Double(total) / Double(controller.fans.count)
     }
 
     private func averageFanSpeed(for controller: FanController) -> String {
