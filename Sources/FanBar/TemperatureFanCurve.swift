@@ -125,7 +125,7 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
     )
 
     /// Named built-ins for the settings picker.
-    enum BuiltIn: String, CaseIterable, Identifiable {
+    enum BuiltIn: String, CaseIterable, Identifiable, Equatable, Hashable {
         case standard
         case silent
         case aggressive

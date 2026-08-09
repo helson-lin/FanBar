@@ -332,7 +332,8 @@ final class FanController: ObservableObject {
     func applyCurveBuiltIn(_ builtIn: FanCurveProfile.BuiltIn) {
         // Fresh point IDs so the editor rows rebuild cleanly when switching presets.
         // Keep the user's hysteresis / rate-limit preferences across built-ins.
-        let source = builtIn.profile
+        // Always assign a new profile value (even if shape matches) so SwiftUI refreshes.
+        let source = builtIn.profile.sanitized()
         let copied = FanCurveProfile(
             sensor: source.sensor,
             points: source.points.map {
@@ -340,8 +341,11 @@ final class FanController: ObservableObject {
             },
             hysteresisCelsius: curveProfile.hysteresisCelsius,
             maxFractionStepPerUpdate: curveProfile.maxFractionStepPerUpdate
-        )
-        setCurveProfile(copied)
+        ).sanitized()
+        curveProfile = copied
+        FanCurvePreferences.save(copied)
+        objectWillChange.send()
+        scheduleCurveHardwareApply()
     }
 
     func setCurveHysteresisCelsius(_ value: Double) {

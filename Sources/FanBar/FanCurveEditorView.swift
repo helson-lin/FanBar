@@ -8,11 +8,6 @@ struct FanCurveEditorView: View {
 
     private var profile: FanCurveProfile { controller.curveProfile }
 
-    /// Empty string when the curve is custom so no segmented item looks selected.
-    private var selectedBuiltInRawValue: String {
-        profile.matchingBuiltIn()?.rawValue ?? ""
-    }
-
     private var temperatureStepRange: ClosedRange<Int> {
         Int(FanCurveProfile.minimumCelsius)...Int(FanCurveProfile.maximumCelsius)
     }
@@ -88,29 +83,10 @@ struct FanCurveEditorView: View {
             HStack(alignment: .center, spacing: 12) {
                 Text(fanBarText("预设", "Preset"))
                 Spacer(minLength: 8)
-                Picker(
-                    "",
-                    selection: Binding(
-                        get: { selectedBuiltInRawValue },
-                        set: { raw in
-                            if let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
-                                controller.applyCurveBuiltIn(builtIn)
-                            }
-                        }
-                    )
-                ) {
-                    ForEach(FanCurveProfile.BuiltIn.allCases) { builtIn in
-                        Text(builtIn.title).tag(builtIn.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 280)
-                .help(
-                    profile.matchingBuiltIn() == nil
-                        ? fanBarText("当前为自定义曲线", "Current curve is custom")
-                        : fanBarText("套用内置曲线预设", "Apply a built-in curve preset")
-                )
+                // Segmented Picker breaks when selection is not in the tag set
+                // (custom curves). Buttons always fire applyCurveBuiltIn.
+                curvePresetChooser
+                    .frame(maxWidth: 280)
             }
             .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
             .padding(.vertical, SettingsChrome.rowVerticalPadding)
@@ -144,6 +120,46 @@ struct FanCurveEditorView: View {
             "拖动锚点调整曲线。0% 表示目标停转（低温可不散热）。开启菜单栏「智能」后立即生效。",
             "Drag anchors to shape the curve. 0% targets idle RPM when the chip is cool. Takes effect when Smart mode is on."
         )
+    }
+
+    /// Capsule segmented control; each segment is a Button so custom curves
+    /// (no matching built-in) still accept the next preset click.
+    private var curvePresetChooser: some View {
+        let selected = profile.matchingBuiltIn()
+        return HStack(spacing: 0) {
+            ForEach(FanCurveProfile.BuiltIn.allCases) { builtIn in
+                let isSelected = selected == builtIn
+                Button {
+                    controller.applyCurveBuiltIn(builtIn)
+                } label: {
+                    Text(builtIn.title)
+                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                        .foregroundColor(isSelected ? Color.accentColor : Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(fanBarFormat(
+                    "套用「%@」曲线",
+                    "Apply the %@ curve",
+                    builtIn.title
+                ))
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(fanBarText("曲线预设", "Curve presets"))
     }
 
     // MARK: - Advanced (collapsed by default)
