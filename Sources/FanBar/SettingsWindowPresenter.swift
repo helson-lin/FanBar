@@ -8,6 +8,7 @@ final class SettingsWindowPresenter: NSObject {
     static let shared = SettingsWindowPresenter()
 
     private var windowController: NSWindowController?
+    private var settingsHostingController: NSHostingController<FanBarSettingsView>?
     private let tabsItemIdentifier = NSToolbarItem.Identifier("fanbar.settings.tabs")
     private weak var tabSegmentedControl: NSSegmentedControl?
     private var lastSelectedTabRawValue = SettingsTab.cooling.rawValue
@@ -15,15 +16,18 @@ final class SettingsWindowPresenter: NSObject {
 
     @discardableResult
     func show(controller: FanController) -> NSWindow {
+        let rootView = FanBarSettingsView(controller: controller)
         let window: NSWindow
         let shouldCenter: Bool
-        if let existing = windowController?.window {
+        if let existing = windowController?.window,
+           let hosting = settingsHostingController {
+            // Always refresh rootView so settings observe the live controller state.
+            hosting.rootView = rootView
             window = existing
             shouldCenter = false
         } else {
-            let hostingController = NSHostingController(
-                rootView: FanBarSettingsView(controller: controller)
-            )
+            let hostingController = NSHostingController(rootView: rootView)
+            settingsHostingController = hostingController
             window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 460, height: 400),
                 styleMask: [.titled, .closable],
@@ -59,6 +63,7 @@ final class SettingsWindowPresenter: NSObject {
                 self.centerOnActiveScreen(window)
             }
         }
+        resizeToFitContentSoon()
         return window
     }
 

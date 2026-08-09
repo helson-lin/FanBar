@@ -83,6 +83,14 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         ) ?? Self.defaultFractionStep
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sensor, forKey: .sensor)
+        try container.encode(points, forKey: .points)
+        try container.encode(hysteresisCelsius, forKey: .hysteresisCelsius)
+        try container.encode(maxFractionStepPerUpdate, forKey: .maxFractionStepPerUpdate)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case sensor
         case points
@@ -353,18 +361,56 @@ struct TemperatureFanCurve {
 /// Loads and stores the active smart-cooling curve.
 enum FanCurvePreferences {
     static let profileKey = "fanbar.fanCurveProfile"
+    /// Independent of shape matching so the UI selection survives restarts.
+    static let selectionKey = "fanbar.fanCurveBuiltInSelection"
+    private static let customSelectionValue = "custom"
 
-    static func load() -> FanCurveProfile {
-        guard let data = UserDefaults.standard.data(forKey: profileKey),
-              let decoded = try? JSONDecoder().decode(FanCurveProfile.self, from: data) else {
-            return .standard
-        }
-        return decoded.sanitized()
+    struct Snapshot {
+        var profile: FanCurveProfile
+        /// `nil` means the user has customized the anchors.
+        var builtInSelection: FanCurveProfile.BuiltIn?
     }
 
-    static func save(_ profile: FanCurveProfile) {
+    static func load() -> Snapshot {
+        let defaults = UserDefaults.standard
+        let profile: FanCurveProfile
+        if let data = defaults.data(forKey: profileKey),
+           let decoded = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
+            profile = decoded.sanitized()
+        } else {
+            profile = .standard
+        }
+
+        let builtInSelection: FanCurveProfile.BuiltIn?
+        if let raw = defaults.string(forKey: selectionKey) {
+            if raw == customSelectionValue {
+                builtInSelection = nil
+            } else if let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
+                builtInSelection = builtIn
+            } else {
+                builtInSelection = profile.matchingBuiltIn()
+            }
+        } else {
+            builtInSelection = profile.matchingBuiltIn()
+        }
+
+        return Snapshot(profile: profile, builtInSelection: builtInSelection)
+    }
+
+    static func save(_ profile: FanCurveProfile, builtInSelection: FanCurveProfile.BuiltIn?) {
         let sanitized = profile.sanitized()
-        guard let data = try? JSONEncoder().encode(sanitized) else { return }
-        UserDefaults.standard.set(data, forKey: profileKey)
+        do {
+            let data = try JSONEncoder().encode(sanitized)
+            let defaults = UserDefaults.standard
+            defaults.set(data, forKey: profileKey)
+            defaults.set(
+                builtInSelection?.rawValue ?? customSelectionValue,
+                forKey: selectionKey
+            )
+            // LSUIElement apps can quit abruptly; flush so the next launch sees the curve.
+            defaults.synchronize()
+        } catch {
+            NSLog("FanBar: failed to save fan curve profile: %@", error.localizedDescription)
+        }
     }
 }

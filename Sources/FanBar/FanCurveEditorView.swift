@@ -1,3 +1,4 @@
+import AppKit
 import FanBarShared
 import SwiftUI
 
@@ -7,6 +8,20 @@ struct FanCurveEditorView: View {
     @State private var showAdvanced = false
 
     private var profile: FanCurveProfile { controller.curveProfile }
+
+    /// Stable identity for forcing the canvas to redraw when anchors change.
+    private var curveCanvasIdentity: String {
+        let points = profile.points
+            .map { "\($0.celsius)-\($0.fraction)" }
+            .joined(separator: "|")
+        let selection = controller.curveBuiltInSelection?.rawValue ?? "custom"
+        return "\(selection);\(points)"
+    }
+
+    private var selectionTitle: String {
+        controller.curveBuiltInSelection?.title
+            ?? fanBarText("自定义", "Custom")
+    }
 
     private var temperatureStepRange: ClosedRange<Int> {
         Int(FanCurveProfile.minimumCelsius)...Int(FanCurveProfile.maximumCelsius)
@@ -40,78 +55,101 @@ struct FanCurveEditorView: View {
     // MARK: - Primary path
 
     private var primaryCurveSection: some View {
-        SettingsSection(
-            title: fanBarText("智能温控曲线", "Smart cooling curve"),
-            trailing: profile.displayName,
-            footer: primaryFooter
-        ) {
-            FanCurveCanvas(
-                profile: profile,
-                currentCelsius: controller.curveTemperatureCelsius,
-                currentFraction: controller.curveOutputFraction,
-                onPointChange: { id, celsius, fraction in
-                    controller.updateCurvePoint(
-                        id: id,
-                        celsius: celsius,
-                        fraction: fraction
-                    )
-                }
+        VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
+            SettingsChrome.sectionHeader(
+                fanBarText("智能温控曲线", "Smart cooling curve"),
+                trailing: selectionTitle
             )
-            .frame(height: 188)
-            .padding(.horizontal, 10)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
 
-            if controller.mode == .temperatureCurve,
-               let temperature = controller.curveTemperatureCelsius,
-               let fraction = controller.curveOutputFraction {
-                Text(fanBarFormat(
-                    "当前：%.0f°C → %.0f%%",
-                    "Now: %.0f°C → %.0f%%",
-                    temperature,
-                    fraction * 100
-                ))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-                .padding(.bottom, 8)
-            }
+            SettingsChrome.settingsCard {
+                FanCurveCanvas(
+                    profile: profile,
+                    currentCelsius: controller.curveTemperatureCelsius,
+                    currentFraction: controller.curveOutputFraction,
+                    onPointChange: { id, celsius, fraction in
+                        controller.updateCurvePoint(
+                            id: id,
+                            celsius: celsius,
+                            fraction: fraction
+                        )
+                    }
+                )
+                .id(curveCanvasIdentity)
+                .frame(height: 188)
+                .padding(.horizontal, 10)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
 
-            SettingsChrome.rowDivider
+                if controller.mode == .temperatureCurve,
+                   let temperature = controller.curveTemperatureCelsius,
+                   let fraction = controller.curveOutputFraction {
+                    Text(fanBarFormat(
+                        "当前：%.0f°C → %.0f%%",
+                        "Now: %.0f°C → %.0f%%",
+                        temperature,
+                        fraction * 100
+                    ))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                    .padding(.bottom, 8)
+                }
 
-            HStack(alignment: .center, spacing: 12) {
-                Text(fanBarText("预设", "Preset"))
-                Spacer(minLength: 8)
-                // Segmented Picker breaks when selection is not in the tag set
-                // (custom curves). Buttons always fire applyCurveBuiltIn.
-                curvePresetChooser
-                    .frame(maxWidth: 280)
-            }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+                SettingsChrome.rowDivider
 
-            SettingsChrome.rowDivider
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(fanBarText("预设", "Preset"))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
 
-            HStack {
-                Text(fanBarText("温度来源", "Temperature source"))
-                Spacer(minLength: 12)
-                Picker(
-                    "",
-                    selection: Binding(
-                        get: { profile.sensor },
-                        set: { controller.setCurveSensor($0) }
+                    // Native AppKit control — reliable clicks on all three segments.
+                    CurvePresetSegmentedControl(
+                        selection: controller.curveBuiltInSelection,
+                        onSelect: { builtIn in
+                            controller.applyCurveBuiltIn(builtIn)
+                        }
                     )
-                ) {
-                    ForEach(FanCurveSensor.allCases) { sensor in
-                        Text(sensor.title).tag(sensor)
+                    .frame(height: 28)
+                    .frame(maxWidth: .infinity)
+
+                    if controller.curveBuiltInSelection == nil {
+                        Text(fanBarText(
+                            "当前为自定义曲线。选择上方预设可恢复内置形状。",
+                            "Custom curve. Choose a preset above to restore a built-in shape."
+                        ))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .labelsHidden()
-                .fixedSize()
+                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                .padding(.vertical, SettingsChrome.rowVerticalPadding)
+
+                SettingsChrome.rowDivider
+
+                HStack {
+                    Text(fanBarText("温度来源", "Temperature source"))
+                    Spacer(minLength: 12)
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { profile.sensor },
+                            set: { controller.setCurveSensor($0) }
+                        )
+                    ) {
+                        ForEach(FanCurveSensor.allCases) { sensor in
+                            Text(sensor.title).tag(sensor)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                .padding(.vertical, SettingsChrome.rowVerticalPadding)
             }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+
+            SettingsChrome.sectionFooter(primaryFooter)
         }
     }
 
@@ -120,46 +158,6 @@ struct FanCurveEditorView: View {
             "拖动锚点调整曲线。0% 表示目标停转（低温可不散热）。开启菜单栏「智能」后立即生效。",
             "Drag anchors to shape the curve. 0% targets idle RPM when the chip is cool. Takes effect when Smart mode is on."
         )
-    }
-
-    /// Capsule segmented control; each segment is a Button so custom curves
-    /// (no matching built-in) still accept the next preset click.
-    private var curvePresetChooser: some View {
-        let selected = profile.matchingBuiltIn()
-        return HStack(spacing: 0) {
-            ForEach(FanCurveProfile.BuiltIn.allCases) { builtIn in
-                let isSelected = selected == builtIn
-                Button {
-                    controller.applyCurveBuiltIn(builtIn)
-                } label: {
-                    Text(builtIn.title)
-                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                        .foregroundColor(isSelected ? Color.accentColor : Color.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(fanBarFormat(
-                    "套用「%@」曲线",
-                    "Apply the %@ curve",
-                    builtIn.title
-                ))
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-            }
-        }
-        .padding(2)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(fanBarText("曲线预设", "Curve presets"))
     }
 
     // MARK: - Advanced (collapsed by default)
@@ -374,6 +372,68 @@ struct FanCurveEditorView: View {
         }
         .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Native preset control
+
+/// AppKit segmented control so every segment (including “Default”) always receives clicks.
+struct CurvePresetSegmentedControl: NSViewRepresentable {
+    var selection: FanCurveProfile.BuiltIn?
+    var onSelect: (FanCurveProfile.BuiltIn) -> Void
+
+    final class Coordinator: NSObject {
+        var onSelect: (FanCurveProfile.BuiltIn) -> Void
+        init(onSelect: @escaping (FanCurveProfile.BuiltIn) -> Void) {
+            self.onSelect = onSelect
+        }
+
+        @MainActor
+        @objc func segmentChanged(_ sender: NSSegmentedControl) {
+            let index = sender.selectedSegment
+            guard FanCurveProfile.BuiltIn.allCases.indices.contains(index) else { return }
+            onSelect(FanCurveProfile.BuiltIn.allCases[index])
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onSelect: onSelect)
+    }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let titles = FanCurveProfile.BuiltIn.allCases.map(\.title)
+        let control = NSSegmentedControl(
+            labels: titles,
+            trackingMode: .selectOne,
+            target: context.coordinator,
+            action: #selector(Coordinator.segmentChanged(_:))
+        )
+        control.segmentStyle = .rounded
+        control.controlSize = .regular
+        for index in titles.indices {
+            control.setWidth(0, forSegment: index) // equal auto widths
+        }
+        applySelection(control)
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.onSelect = onSelect
+        let titles = FanCurveProfile.BuiltIn.allCases.map(\.title)
+        for (index, title) in titles.enumerated() where index < control.segmentCount {
+            control.setLabel(title, forSegment: index)
+        }
+        applySelection(control)
+    }
+
+    private func applySelection(_ control: NSSegmentedControl) {
+        if let selection,
+           let index = FanCurveProfile.BuiltIn.allCases.firstIndex(of: selection) {
+            control.selectedSegment = index
+        } else {
+            // Custom curve: clear selection so no preset looks falsely active.
+            control.selectedSegment = -1
+        }
     }
 }
 
