@@ -358,59 +358,136 @@ struct TemperatureFanCurve {
     }
 }
 
-/// Loads and stores the active smart-cooling curve.
+/// Loads and stores smart-cooling curves as three editable preset slots.
+///
+/// Editing anchors keeps you on the current preset (no “custom” dead-end).
+/// Switching preset saves the current slot, then loads the target slot.
 enum FanCurvePreferences {
-    static let profileKey = "fanbar.fanCurveProfile"
-    /// Independent of shape matching so the UI selection survives restarts.
+    /// Legacy single-profile key (migrated on first load).
+    static let legacyProfileKey = "fanbar.fanCurveProfile"
     static let selectionKey = "fanbar.fanCurveBuiltInSelection"
+    static let slotsKey = "fanbar.fanCurvePresetSlots"
     private static let customSelectionValue = "custom"
 
     struct Snapshot {
         var profile: FanCurveProfile
-        /// `nil` means the user has customized the anchors.
-        var builtInSelection: FanCurveProfile.BuiltIn?
+        /// Always one of the three presets — never nil.
+        var builtInSelection: FanCurveProfile.BuiltIn
+        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile]
     }
 
     static func load() -> Snapshot {
         let defaults = UserDefaults.standard
-        let profile: FanCurveProfile
-        if let data = defaults.data(forKey: profileKey),
-           let decoded = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
-            profile = decoded.sanitized()
-        } else {
-            profile = .standard
+        var slots = loadSlots(from: defaults)
+
+        // Migrate pre-slot storage once.
+        if slots.isEmpty {
+            slots = migratedSlots(from: defaults)
+            persist(slots: slots, selection: nil, defaults: defaults)
         }
 
-        let builtInSelection: FanCurveProfile.BuiltIn?
-        if let raw = defaults.string(forKey: selectionKey) {
-            if raw == customSelectionValue {
-                builtInSelection = nil
-            } else if let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
-                builtInSelection = builtIn
-            } else {
-                builtInSelection = profile.matchingBuiltIn()
-            }
-        } else {
-            builtInSelection = profile.matchingBuiltIn()
+        for builtIn in FanCurveProfile.BuiltIn.allCases where slots[builtIn] == nil {
+            slots[builtIn] = builtIn.profile.sanitized()
         }
 
-        return Snapshot(profile: profile, builtInSelection: builtInSelection)
+        let selection = resolvedSelection(defaults: defaults, slots: slots)
+        let profile = slots[selection] ?? selection.profile.sanitized()
+        return Snapshot(profile: profile, builtInSelection: selection, slots: slots)
     }
 
-    static func save(_ profile: FanCurveProfile, builtInSelection: FanCurveProfile.BuiltIn?) {
-        let sanitized = profile.sanitized()
+    /// Saves `profile` into `selection` and marks that preset active.
+    static func save(profile: FanCurveProfile, selection: FanCurveProfile.BuiltIn) {
+        var slots = load().slots
+        slots[selection] = profile.sanitized()
+        persist(slots: slots, selection: selection, defaults: .standard)
+    }
+
+    /// Saves every slot (e.g. after switching presets with both sides updated).
+    static func save(slots: [FanCurveProfile.BuiltIn: FanCurveProfile], selection: FanCurveProfile.BuiltIn) {
+        var normalized: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
+        for builtIn in FanCurveProfile.BuiltIn.allCases {
+            normalized[builtIn] = (slots[builtIn] ?? builtIn.profile).sanitized()
+        }
+        persist(slots: normalized, selection: selection, defaults: .standard)
+    }
+
+    // MARK: - Private
+
+    private static func resolvedSelection(
+        defaults: UserDefaults,
+        slots: [FanCurveProfile.BuiltIn: FanCurveProfile]
+    ) -> FanCurveProfile.BuiltIn {
+        if let raw = defaults.string(forKey: selectionKey),
+           raw != customSelectionValue,
+           let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
+            return builtIn
+        }
+        // Legacy “custom” or missing key → keep active shape under standard.
+        if let data = defaults.data(forKey: legacyProfileKey),
+           let profile = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
+            return profile.matchingBuiltIn() ?? .standard
+        }
+        return .standard
+    }
+
+    private static func loadSlots(from defaults: UserDefaults) -> [FanCurveProfile.BuiltIn: FanCurveProfile] {
+        guard let data = defaults.data(forKey: slotsKey),
+              let decoded = try? JSONDecoder().decode([String: FanCurveProfile].self, from: data)
+        else {
+            return [:]
+        }
+        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
+        for (raw, profile) in decoded {
+            guard let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) else { continue }
+            slots[builtIn] = profile.sanitized()
+        }
+        return slots
+    }
+
+    private static func migratedSlots(from defaults: UserDefaults) -> [FanCurveProfile.BuiltIn: FanCurveProfile] {
+        var slots: [FanCurveProfile.BuiltIn: FanCurveProfile] = [:]
+        for builtIn in FanCurveProfile.BuiltIn.allCases {
+            slots[builtIn] = builtIn.profile.sanitized()
+        }
+
+        if let data = defaults.data(forKey: legacyProfileKey),
+           let profile = try? JSONDecoder().decode(FanCurveProfile.self, from: data) {
+            let sanitized = profile.sanitized()
+            let raw = defaults.string(forKey: selectionKey)
+            if let raw, raw != customSelectionValue, let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
+                slots[builtIn] = sanitized
+            } else if let match = sanitized.matchingBuiltIn() {
+                slots[match] = sanitized
+            } else {
+                // Custom edits land in the standard slot so nothing is lost.
+                slots[.standard] = sanitized
+            }
+        }
+        return slots
+    }
+
+    private static func persist(
+        slots: [FanCurveProfile.BuiltIn: FanCurveProfile],
+        selection: FanCurveProfile.BuiltIn?,
+        defaults: UserDefaults
+    ) {
+        var payload: [String: FanCurveProfile] = [:]
+        for builtIn in FanCurveProfile.BuiltIn.allCases {
+            payload[builtIn.rawValue] = (slots[builtIn] ?? builtIn.profile).sanitized()
+        }
         do {
-            let data = try JSONEncoder().encode(sanitized)
-            let defaults = UserDefaults.standard
-            defaults.set(data, forKey: profileKey)
-            defaults.set(
-                builtInSelection?.rawValue ?? customSelectionValue,
-                forKey: selectionKey
-            )
-            // LSUIElement apps can quit abruptly; flush so the next launch sees the curve.
+            let data = try JSONEncoder().encode(payload)
+            defaults.set(data, forKey: slotsKey)
+            if let selection {
+                defaults.set(selection.rawValue, forKey: selectionKey)
+                // Keep legacy key in sync for older diagnostics / smoke tests.
+                if let active = try? JSONEncoder().encode(payload[selection.rawValue] ?? selection.profile) {
+                    defaults.set(active, forKey: legacyProfileKey)
+                }
+            }
             defaults.synchronize()
         } catch {
-            NSLog("FanBar: failed to save fan curve profile: %@", error.localizedDescription)
+            NSLog("FanBar: failed to save fan curve slots: %@", error.localizedDescription)
         }
     }
 }

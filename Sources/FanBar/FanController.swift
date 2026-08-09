@@ -68,8 +68,10 @@ final class FanController: ObservableObject {
     @Published private(set) var curveOutputFraction: Float?
     /// Active smart-cooling curve (user-editable; persisted via FanCurvePreferences).
     @Published private(set) var curveProfile: FanCurveProfile
-    /// Which built-in preset is selected in settings (`nil` = custom anchors).
-    @Published private(set) var curveBuiltInSelection: FanCurveProfile.BuiltIn?
+    /// Active preset slot (默认 / 静音 / 激进). Edits stay in this slot.
+    @Published private(set) var curveBuiltInSelection: FanCurveProfile.BuiltIn
+    /// Per-preset stored curves (including user edits).
+    private var curvePresetSlots: [FanCurveProfile.BuiltIn: FanCurveProfile]
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
@@ -111,6 +113,7 @@ final class FanController: ObservableObject {
         let curveSnapshot = FanCurvePreferences.load()
         curveProfile = curveSnapshot.profile
         curveBuiltInSelection = curveSnapshot.builtInSelection
+        curvePresetSlots = curveSnapshot.slots
         highTemperatureNotificationsEnabled = UserDefaults.standard.bool(
             forKey: ThermalAlertSettings.notificationsEnabledKey
         )
@@ -325,54 +328,64 @@ final class FanController: ObservableObject {
         }
     }
 
-    /// Replaces the active curve, persists it, and reapplies if smart cooling is on.
-    /// Shape edits clear the built-in selection (become custom) unless `builtInSelection` is set.
-    func setCurveProfile(
-        _ profile: FanCurveProfile,
-        builtInSelection: FanCurveProfile.BuiltIn? = nil,
-        markCustom: Bool = true
-    ) {
+    /// Updates the active preset’s curve in place and persists that slot.
+    func setCurveProfile(_ profile: FanCurveProfile) {
         let sanitized = profile.sanitized()
-        let selection: FanCurveProfile.BuiltIn?
-        if let builtInSelection {
-            selection = builtInSelection
-        } else if markCustom {
-            selection = nil
-        } else {
-            selection = curveBuiltInSelection
-        }
         curveProfile = sanitized
-        curveBuiltInSelection = selection
-        FanCurvePreferences.save(sanitized, builtInSelection: selection)
+        curvePresetSlots[curveBuiltInSelection] = sanitized
+        FanCurvePreferences.save(slots: curvePresetSlots, selection: curveBuiltInSelection)
         scheduleCurveHardwareApply()
     }
 
+    /// Switch to another preset slot. Saves the current slot first, then loads the target.
     func applyCurveBuiltIn(_ builtIn: FanCurveProfile.BuiltIn) {
-        // Fresh point IDs so the editor rows rebuild cleanly when switching presets.
-        // Keep the user's hysteresis / rate-limit preferences across built-ins.
-        let source = builtIn.profile.sanitized()
-        let copied = FanCurveProfile(
-            sensor: source.sensor,
-            points: source.points.map {
+        guard builtIn != curveBuiltInSelection else {
+            // Re-selecting the active preset reloads its stored shape (useful after experiments).
+            let stored = curvePresetSlots[builtIn] ?? builtIn.profile.sanitized()
+            curveProfile = stored.sanitized()
+            FanCurvePreferences.save(slots: curvePresetSlots, selection: builtIn)
+            scheduleCurveHardwareApply()
+            return
+        }
+
+        // Persist whatever the user edited on the current preset.
+        curvePresetSlots[curveBuiltInSelection] = curveProfile.sanitized()
+
+        let target = (curvePresetSlots[builtIn] ?? builtIn.profile).sanitized()
+        // Carry shared smoothing only when the target slot never customized them
+        // beyond factory… actually each slot has its own hysteresis; keep slot data as-is.
+        curveBuiltInSelection = builtIn
+        curveProfile = target
+        curvePresetSlots[builtIn] = target
+        FanCurvePreferences.save(slots: curvePresetSlots, selection: builtIn)
+        scheduleCurveHardwareApply()
+    }
+
+    /// Restores the factory shape for the active preset only.
+    func resetActiveCurvePresetToFactory() {
+        let factory = curveBuiltInSelection.profile.sanitized()
+        // Preserve the user’s smoothing knobs on this slot if they changed them.
+        let restored = FanCurveProfile(
+            sensor: factory.sensor,
+            points: factory.points.map {
                 FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
             },
             hysteresisCelsius: curveProfile.hysteresisCelsius,
             maxFractionStepPerUpdate: curveProfile.maxFractionStepPerUpdate
-        )
-        setCurveProfile(copied, builtInSelection: builtIn, markCustom: false)
+        ).sanitized()
+        setCurveProfile(restored)
     }
 
     func setCurveHysteresisCelsius(_ value: Double) {
         var next = curveProfile
         next.hysteresisCelsius = value
-        // Smoothing knobs do not make the curve "custom".
-        setCurveProfile(next, builtInSelection: curveBuiltInSelection, markCustom: false)
+        setCurveProfile(next)
     }
 
     func setCurveMaxFractionStep(_ value: Float) {
         var next = curveProfile
         next.maxFractionStepPerUpdate = value
-        setCurveProfile(next, builtInSelection: curveBuiltInSelection, markCustom: false)
+        setCurveProfile(next)
     }
 
     private func scheduleCurveHardwareApply() {
@@ -389,8 +402,7 @@ final class FanController: ObservableObject {
     func setCurveSensor(_ sensor: FanCurveSensor) {
         var next = curveProfile
         next.sensor = sensor
-        // Sensor is part of the built-in definition; changing it makes the curve custom.
-        setCurveProfile(next, markCustom: true)
+        setCurveProfile(next)
     }
 
     func updateCurvePoint(id: UUID, celsius: Double? = nil, fraction: Float? = nil) {
@@ -398,7 +410,7 @@ final class FanController: ObservableObject {
         guard let index = next.points.firstIndex(where: { $0.id == id }) else { return }
         if let celsius { next.points[index].celsius = celsius }
         if let fraction { next.points[index].fraction = fraction }
-        setCurveProfile(next, markCustom: true)
+        setCurveProfile(next)
     }
 
     func addCurvePoint() {
@@ -414,14 +426,14 @@ final class FanController: ObservableObject {
             FanCurveProfile.maximumFraction
         )
         next.points.append(FanCurvePoint(celsius: celsius, fraction: fraction))
-        setCurveProfile(next, markCustom: true)
+        setCurveProfile(next)
     }
 
     func removeCurvePoint(id: UUID) {
         var next = curveProfile
         guard next.points.count > FanCurveProfile.minimumPointCount else { return }
         next.points.removeAll { $0.id == id }
-        setCurveProfile(next, markCustom: true)
+        setCurveProfile(next)
     }
 
     func setHighTemperatureNotificationsEnabled(_ enabled: Bool) {
@@ -647,8 +659,7 @@ final class FanController: ObservableObject {
         message = fanBarFormat(
             "智能温控（%@）：%.0f°C · 最大转速 %.0f%%",
             "Smart cooling (%@): %.0f°C · %.0f%% maximum RPM",
-            curveBuiltInSelection?.title
-                ?? curveProfile.displayName,
+            curveBuiltInSelection.title,
             temperature,
             fraction * 100
         )

@@ -14,13 +14,11 @@ struct FanCurveEditorView: View {
         let points = profile.points
             .map { "\($0.celsius)-\($0.fraction)" }
             .joined(separator: "|")
-        let selection = controller.curveBuiltInSelection?.rawValue ?? "custom"
-        return "\(selection);\(points)"
+        return "\(controller.curveBuiltInSelection.rawValue);\(points)"
     }
 
     private var selectionTitle: String {
-        controller.curveBuiltInSelection?.title
-            ?? fanBarText("自定义", "Custom")
+        controller.curveBuiltInSelection.title
     }
 
     private var temperatureStepRange: ClosedRange<Int> {
@@ -99,11 +97,24 @@ struct FanCurveEditorView: View {
                 SettingsChrome.rowDivider
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(fanBarText("预设", "Preset"))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Text(fanBarText("预设", "Preset"))
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(fanBarText("恢复出厂形状", "Reset to factory")) {
+                            controller.resetActiveCurvePresetToFactory()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundColor(.accentColor)
+                        .help(fanBarText(
+                            "将当前预设的锚点恢复为出厂默认，不影响另外两个预设",
+                            "Restore this preset’s anchors to factory defaults without changing the other presets"
+                        ))
+                    }
 
-                    // Native AppKit control — reliable clicks on all three segments.
+                    // Native AppKit control — three editable slots, always one selected.
                     CurvePresetSegmentedControl(
                         selection: controller.curveBuiltInSelection,
                         onSelect: { builtIn in
@@ -112,16 +123,6 @@ struct FanCurveEditorView: View {
                     )
                     .frame(height: 28)
                     .frame(maxWidth: .infinity)
-
-                    if controller.curveBuiltInSelection == nil {
-                        Text(fanBarText(
-                            "当前为自定义曲线。选择上方预设可恢复内置形状。",
-                            "Custom curve. Choose a preset above to restore a built-in shape."
-                        ))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
                 .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
                 .padding(.vertical, SettingsChrome.rowVerticalPadding)
@@ -155,8 +156,8 @@ struct FanCurveEditorView: View {
 
     private var primaryFooter: String {
         fanBarText(
-            "拖动锚点调整曲线。0% 表示目标停转（低温可不散热）。开启菜单栏「智能」后立即生效。",
-            "Drag anchors to shape the curve. 0% targets idle RPM when the chip is cool. Takes effect when Smart mode is on."
+            "默认 / 静音 / 激进是三个独立预设槽；拖动锚点只改当前槽并自动保存。0% 表示目标停转。开启菜单栏「智能」后立即生效。",
+            "Default / Quiet / Aggressive are three slots; dragging anchors edits the active slot and saves automatically. 0% targets idle RPM. Takes effect when Smart mode is on."
         )
     }
 
@@ -377,9 +378,9 @@ struct FanCurveEditorView: View {
 
 // MARK: - Native preset control
 
-/// AppKit segmented control so every segment (including “Default”) always receives clicks.
+/// AppKit segmented control — always has one of three presets selected.
 struct CurvePresetSegmentedControl: NSViewRepresentable {
-    var selection: FanCurveProfile.BuiltIn?
+    var selection: FanCurveProfile.BuiltIn
     var onSelect: (FanCurveProfile.BuiltIn) -> Void
 
     final class Coordinator: NSObject {
@@ -410,9 +411,6 @@ struct CurvePresetSegmentedControl: NSViewRepresentable {
         )
         control.segmentStyle = .rounded
         control.controlSize = .regular
-        for index in titles.indices {
-            control.setWidth(0, forSegment: index) // equal auto widths
-        }
         applySelection(control)
         return control
     }
@@ -427,12 +425,9 @@ struct CurvePresetSegmentedControl: NSViewRepresentable {
     }
 
     private func applySelection(_ control: NSSegmentedControl) {
-        if let selection,
-           let index = FanCurveProfile.BuiltIn.allCases.firstIndex(of: selection) {
+        if let index = FanCurveProfile.BuiltIn.allCases.firstIndex(of: selection),
+           control.selectedSegment != index {
             control.selectedSegment = index
-        } else {
-            // Custom curve: clear selection so no preset looks falsely active.
-            control.selectedSegment = -1
         }
     }
 }
