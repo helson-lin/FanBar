@@ -1,14 +1,16 @@
 import FanBarShared
 import SwiftUI
 
-/// Settings pane fragment: draggable curve + presets + sensor + point table + smoothing.
+/// Smart-cooling settings: curve first, advanced controls behind disclosure.
 struct FanCurveEditorView: View {
     @ObservedObject var controller: FanController
+    @State private var showAdvanced = false
 
     private var profile: FanCurveProfile { controller.curveProfile }
 
-    private var selectedBuiltIn: FanCurveProfile.BuiltIn? {
-        profile.matchingBuiltIn()
+    /// Empty string when the curve is custom so no segmented item looks selected.
+    private var selectedBuiltInRawValue: String {
+        profile.matchingBuiltIn()?.rawValue ?? ""
     }
 
     private var temperatureStepRange: ClosedRange<Int> {
@@ -34,177 +36,277 @@ struct FanCurveEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            sectionHeader(
-                fanBarText("智能温控曲线", "Smart cooling curve"),
-                trailing: profile.displayName
+        VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
+            primaryCurveSection
+            advancedSection
+        }
+    }
+
+    // MARK: - Primary path
+
+    private var primaryCurveSection: some View {
+        SettingsSection(
+            title: fanBarText("智能温控曲线", "Smart cooling curve"),
+            trailing: profile.displayName,
+            footer: primaryFooter
+        ) {
+            FanCurveCanvas(
+                profile: profile,
+                currentCelsius: controller.curveTemperatureCelsius,
+                currentFraction: controller.curveOutputFraction,
+                onPointChange: { id, celsius, fraction in
+                    controller.updateCurvePoint(
+                        id: id,
+                        celsius: celsius,
+                        fraction: fraction
+                    )
+                }
             )
+            .frame(height: 188)
+            .padding(.horizontal, 10)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
 
-            settingsCard {
-                FanCurveCanvas(
-                    profile: profile,
-                    currentCelsius: controller.curveTemperatureCelsius,
-                    currentFraction: controller.curveOutputFraction,
-                    onPointChange: { id, celsius, fraction in
-                        controller.updateCurvePoint(
-                            id: id,
-                            celsius: celsius,
-                            fraction: fraction
-                        )
-                    }
-                )
-                .frame(height: 200)
-                .padding(.horizontal, 10)
-                .padding(.top, 12)
+            if controller.mode == .temperatureCurve,
+               let temperature = controller.curveTemperatureCelsius,
+               let fraction = controller.curveOutputFraction {
+                Text(fanBarFormat(
+                    "当前：%.0f°C → %.0f%%",
+                    "Now: %.0f°C → %.0f%%",
+                    temperature,
+                    fraction * 100
+                ))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
                 .padding(.bottom, 8)
-
-                rowDivider
-
-                HStack {
-                    Text(fanBarText("预设", "Presets"))
-                    Spacer(minLength: 12)
-                    HStack(spacing: 6) {
-                        ForEach(FanCurveProfile.BuiltIn.allCases) { builtIn in
-                            Button(builtIn.title) {
-                                controller.applyCurveBuiltIn(builtIn)
-                            }
-                            .buttonStyle(.borderless)
-                            .controlSize(.small)
-                            .foregroundColor(
-                                selectedBuiltIn == builtIn ? Color.accentColor : Color.secondary
-                            )
-                            .font(
-                                .system(
-                                    size: 11,
-                                    weight: selectedBuiltIn == builtIn ? .semibold : .regular
-                                )
-                            )
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-                rowDivider
-
-                HStack {
-                    Text(fanBarText("温度来源", "Temperature source"))
-                    Spacer(minLength: 12)
-                    Picker(
-                        "",
-                        selection: Binding(
-                            get: { profile.sensor },
-                            set: { controller.setCurveSensor($0) }
-                        )
-                    ) {
-                        ForEach(FanCurveSensor.allCases) { sensor in
-                            Text(sensor.title).tag(sensor)
-                        }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-                rowDivider
-
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text(fanBarText("温度", "Temp"))
-                            .frame(minWidth: 100, alignment: .leading)
-                        Text(fanBarText("转速", "Speed"))
-                            .frame(minWidth: 100, alignment: .leading)
-                        Spacer()
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-
-                    ForEach(profile.points) { point in
-                        curvePointRow(point)
-                    }
-
-                    HStack(spacing: 8) {
-                        Button {
-                            controller.addCurvePoint()
-                        } label: {
-                            Label(
-                                fanBarText("添加锚点", "Add point"),
-                                systemImage: "plus.circle"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(profile.points.count >= FanCurveProfile.maximumPointCount)
-
-                        Spacer()
-
-                        Text(fanBarFormat(
-                            "%d / %d",
-                            "%d / %d",
-                            profile.points.count,
-                            FanCurveProfile.maximumPointCount
-                        ))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                }
-
-                rowDivider
-
-                HStack {
-                    Text(fanBarText("降温磁滞", "Falling hysteresis"))
-                    Spacer(minLength: 12)
-                    Stepper(
-                        value: Binding(
-                            get: { Int(profile.hysteresisCelsius.rounded()) },
-                            set: { controller.setCurveHysteresisCelsius(Double($0)) }
-                        ),
-                        in: hysteresisStepRange
-                    ) {
-                        Text(fanBarFormat("%d°C", "%d°C", Int(profile.hysteresisCelsius.rounded())))
-                            .font(.system(size: 12, design: .monospaced))
-                            .frame(width: 36, alignment: .trailing)
-                    }
-                    .fixedSize()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-                rowDivider
-
-                HStack {
-                    Text(fanBarText("每步最大变化", "Max step per tick"))
-                    Spacer(minLength: 12)
-                    Stepper(
-                        value: Binding(
-                            get: { Int((profile.maxFractionStepPerUpdate * 100).rounded()) },
-                            set: { controller.setCurveMaxFractionStep(Float($0) / 100) }
-                        ),
-                        in: rateLimitPercentStepRange
-                    ) {
-                        Text(fanBarFormat(
-                            "%d%%",
-                            "%d%%",
-                            Int((profile.maxFractionStepPerUpdate * 100).rounded())
-                        ))
-                        .font(.system(size: 12, design: .monospaced))
-                        .frame(width: 36, alignment: .trailing)
-                    }
-                    .fixedSize()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
             }
 
-            sectionFooter(fanBarText(
-                "锚点之间为平滑曲线。0% 表示目标停转（适合低温无需散热）；拖动或步进器可调。磁滞与每步限制用于减少抖变，开启智能温控后立即生效。",
-                "Anchors are joined by a smooth curve. 0% targets idle RPM (for cool chips that need no cooling). Drag or use steppers; hysteresis and step limits reduce chatter. Changes apply immediately while smart cooling is on."
+            SettingsChrome.rowDivider
+
+            HStack(alignment: .center, spacing: 12) {
+                Text(fanBarText("预设", "Preset"))
+                Spacer(minLength: 8)
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { selectedBuiltInRawValue },
+                        set: { raw in
+                            if let builtIn = FanCurveProfile.BuiltIn(rawValue: raw) {
+                                controller.applyCurveBuiltIn(builtIn)
+                            }
+                        }
+                    )
+                ) {
+                    ForEach(FanCurveProfile.BuiltIn.allCases) { builtIn in
+                        Text(builtIn.title).tag(builtIn.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 280)
+                .help(
+                    profile.matchingBuiltIn() == nil
+                        ? fanBarText("当前为自定义曲线", "Current curve is custom")
+                        : fanBarText("套用内置曲线预设", "Apply a built-in curve preset")
+                )
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+
+            SettingsChrome.rowDivider
+
+            HStack {
+                Text(fanBarText("温度来源", "Temperature source"))
+                Spacer(minLength: 12)
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { profile.sensor },
+                        set: { controller.setCurveSensor($0) }
+                    )
+                ) {
+                    ForEach(FanCurveSensor.allCases) { sensor in
+                        Text(sensor.title).tag(sensor)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+        }
+    }
+
+    private var primaryFooter: String {
+        fanBarText(
+            "拖动锚点调整曲线。0% 表示目标停转（低温可不散热）。开启菜单栏「智能」后立即生效。",
+            "Drag anchors to shape the curve. 0% targets idle RPM when the chip is cool. Takes effect when Smart mode is on."
+        )
+    }
+
+    // MARK: - Advanced (collapsed by default)
+
+    private var advancedSection: some View {
+        VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    showAdvanced.toggle()
+                }
+                SettingsChrome.requestWindowRefit()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                        .foregroundColor(.secondary)
+                    Text(fanBarText("高级", "Advanced"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text(advancedSummary)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(fanBarText(
+                "展开以编辑锚点、磁滞与步进限制",
+                "Expand to edit anchors, hysteresis, and step limit"
             ))
+
+            if showAdvanced {
+                SettingsChrome.settingsCard {
+                    pointEditorBlock
+
+                    SettingsChrome.rowDivider
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fanBarText("降温磁滞", "Falling hysteresis"))
+                            Text(fanBarText(
+                                "降温时保持较高转速，减少抖动。",
+                                "Holds higher RPM while cooling to reduce chatter."
+                            ))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        Stepper(
+                            value: Binding(
+                                get: { Int(profile.hysteresisCelsius.rounded()) },
+                                set: { controller.setCurveHysteresisCelsius(Double($0)) }
+                            ),
+                            in: hysteresisStepRange
+                        ) {
+                            Text(fanBarFormat("%d°C", "%d°C", Int(profile.hysteresisCelsius.rounded())))
+                                .font(.system(size: 12, design: .monospaced))
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                    .padding(.vertical, SettingsChrome.rowVerticalPadding)
+
+                    SettingsChrome.rowDivider
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fanBarText("每步最大变化", "Max step per tick"))
+                            Text(fanBarText(
+                                "限制转速一次跳变的幅度。",
+                                "Limits how far speed can jump each tick."
+                            ))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        Stepper(
+                            value: Binding(
+                                get: { Int((profile.maxFractionStepPerUpdate * 100).rounded()) },
+                                set: { controller.setCurveMaxFractionStep(Float($0) / 100) }
+                            ),
+                            in: rateLimitPercentStepRange
+                        ) {
+                            Text(fanBarFormat(
+                                "%d%%",
+                                "%d%%",
+                                Int((profile.maxFractionStepPerUpdate * 100).rounded())
+                            ))
+                            .font(.system(size: 12, design: .monospaced))
+                            .frame(width: 36, alignment: .trailing)
+                        }
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                    .padding(.vertical, SettingsChrome.rowVerticalPadding)
+                }
+
+                SettingsChrome.sectionFooter(fanBarText(
+                    "步进器可精确编辑锚点；与拖动曲线等效。",
+                    "Steppers edit anchors precisely; equivalent to dragging the chart."
+                ))
+            }
+        }
+        .onChange(of: showAdvanced) { _ in
+            SettingsChrome.requestWindowRefit()
+        }
+    }
+
+    private var advancedSummary: String {
+        fanBarFormat(
+            "%d 点 · 磁滞 %d°C · 步进 %d%%",
+            "%d pts · hyst %d°C · step %d%%",
+            profile.points.count,
+            Int(profile.hysteresisCelsius.rounded()),
+            Int((profile.maxFractionStepPerUpdate * 100).rounded())
+        )
+    }
+
+    private var pointEditorBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(fanBarText("锚点", "Anchors"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(fanBarFormat(
+                    "%d / %d",
+                    "%d / %d",
+                    profile.points.count,
+                    FanCurveProfile.maximumPointCount
+                ))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ForEach(profile.points) { point in
+                curvePointRow(point)
+            }
+
+            HStack {
+                Button {
+                    controller.addCurvePoint()
+                    SettingsChrome.requestWindowRefit()
+                } label: {
+                    Label(
+                        fanBarText("添加锚点", "Add point"),
+                        systemImage: "plus.circle"
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(profile.points.count >= FanCurveProfile.maximumPointCount)
+
+                Spacer()
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.vertical, 8)
         }
     }
 
@@ -245,6 +347,7 @@ struct FanCurveEditorView: View {
 
             Button {
                 controller.removeCurvePoint(id: point.id)
+                SettingsChrome.requestWindowRefit()
             } label: {
                 Image(systemName: "minus.circle")
                     .foregroundColor(.secondary)
@@ -253,59 +356,8 @@ struct FanCurveEditorView: View {
             .disabled(profile.points.count <= FanCurveProfile.minimumPointCount)
             .help(fanBarText("删除锚点", "Remove point"))
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
         .padding(.vertical, 4)
-    }
-
-    // MARK: - Local chrome (mirrors settings cards)
-
-    private func sectionHeader(_ title: String, trailing: String? = nil) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-            Spacer()
-            if let trailing {
-                Text(trailing)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.horizontal, 4)
-    }
-
-    private func sectionFooter(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11))
-            .foregroundColor(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 4)
-    }
-
-    private func settingsCard<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 0) { content() }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-            )
-    }
-
-    @ViewBuilder
-    private var cardBackground: some View {
-        if #available(macOS 12.0, *) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        } else {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.primary.opacity(0.05))
-        }
-    }
-
-    private var rowDivider: some View {
-        Divider().padding(.leading, 12)
     }
 }
 

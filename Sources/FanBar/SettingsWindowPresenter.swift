@@ -10,7 +10,7 @@ final class SettingsWindowPresenter: NSObject {
     private var windowController: NSWindowController?
     private let tabsItemIdentifier = NSToolbarItem.Identifier("fanbar.settings.tabs")
     private weak var tabSegmentedControl: NSSegmentedControl?
-    private var lastSelectedTabRawValue = SettingsTab.menuBar.rawValue
+    private var lastSelectedTabRawValue = SettingsTab.cooling.rawValue
     private var defaultsObservation: NSObjectProtocol?
 
     @discardableResult
@@ -89,7 +89,7 @@ final class SettingsWindowPresenter: NSObject {
         // Leave toolbarStyle at default — .preference would add a competing
         // background tint and pull focus away from the segmented control.
         lastSelectedTabRawValue = UserDefaults.standard.string(forKey: SettingsTab.preferenceKey)
-            ?? SettingsTab.menuBar.rawValue
+            ?? SettingsTab.cooling.rawValue
         defaultsObservation = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: nil,
@@ -108,7 +108,7 @@ final class SettingsWindowPresenter: NSObject {
     /// wrote `lastSelectedTabRawValue`, so resize always no-oped after sync.
     private func applySelectedTabChange() {
         let rawValue = UserDefaults.standard.string(forKey: SettingsTab.preferenceKey)
-            ?? SettingsTab.menuBar.rawValue
+            ?? SettingsTab.cooling.rawValue
         guard rawValue != lastSelectedTabRawValue else { return }
         lastSelectedTabRawValue = rawValue
 
@@ -120,9 +120,7 @@ final class SettingsWindowPresenter: NSObject {
         }
 
         // Fitting size is only reliable after SwiftUI swaps tab content.
-        DispatchQueue.main.async { [weak self] in
-            self?.resizeWindowToFitContent()
-        }
+        resizeToFitContentSoon()
     }
 
     @objc private func selectTabSegment(_ sender: NSSegmentedControl) {
@@ -132,7 +130,14 @@ final class SettingsWindowPresenter: NSObject {
         applySelectedTabChange()
     }
 
-    private func resizeWindowToFitContent() {
+    /// Public entry for SwiftUI panes that change height (e.g. Advanced disclosure).
+    func resizeToFitContentSoon() {
+        DispatchQueue.main.async { [weak self] in
+            self?.resizeWindowToFitContent(animated: true)
+        }
+    }
+
+    private func resizeWindowToFitContent(animated: Bool = true) {
         guard let window = windowController?.window,
               let contentView = window.contentView else { return }
 
@@ -151,7 +156,7 @@ final class SettingsWindowPresenter: NSObject {
             || abs(newFrame.width - window.frame.width) > 1 else { return }
         newFrame.origin.x = window.frame.minX
         newFrame.origin.y = window.frame.maxY - newFrame.height
-        window.setFrame(newFrame, display: true, animate: true)
+        window.setFrame(newFrame, display: true, animate: animated)
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
