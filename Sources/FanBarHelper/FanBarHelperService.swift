@@ -116,8 +116,9 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     ) {
         hardwareQueue.async {
             // Keep the root API bounded even if a compromised client sends malformed input.
-            guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
-                reply(false, fanBarText("散热比例必须在 30% 到 100% 之间", "Cooling fraction must be between 30% and 100%"))
+            // 0% is allowed so smart cooling can idle below the low-temp knee.
+            guard fraction.isFinite, (0...1.00).contains(fraction) else {
+                reply(false, fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%"))
                 return
             }
             do {

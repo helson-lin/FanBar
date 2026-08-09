@@ -53,8 +53,8 @@ struct FanCurveEditorView: View {
                         )
                     }
                 )
-                .frame(height: 176)
-                .padding(.horizontal, 12)
+                .frame(height: 200)
+                .padding(.horizontal, 10)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
@@ -202,8 +202,8 @@ struct FanCurveEditorView: View {
             }
 
             sectionFooter(fanBarText(
-                "拖动图上的锚点，或用步进器微调。磁滞在降温时保持较高转速；每步限制防止转速跳变。智能温控开启时修改会立即生效。",
-                "Drag anchors on the chart or fine-tune with steppers. Hysteresis holds higher RPM while cooling; the step limit smooths jumps. Changes apply immediately while smart cooling is on."
+                "锚点之间为平滑曲线。0% 表示目标停转（适合低温无需散热）；拖动或步进器可调。磁滞与每步限制用于减少抖变，开启智能温控后立即生效。",
+                "Anchors are joined by a smooth curve. 0% targets idle RPM (for cool chips that need no cooling). Drag or use steppers; hysteresis and step limits reduce chatter. Changes apply immediately while smart cooling is on."
             ))
         }
     }
@@ -325,6 +325,30 @@ struct FanCurveCanvas: View {
     private let temperatureRange = FanCurveProfile.minimumCelsius...FanCurveProfile.maximumCelsius
     private let fractionRange = Double(FanCurveProfile.minimumFraction)...Double(FanCurveProfile.maximumFraction)
     private let handleHitRadius: CGFloat = 14
+    /// Left gutter for Y-axis speed labels (e.g. "100%").
+    private let yAxisWidth: CGFloat = 36
+    /// Bottom gutter for X-axis temperature labels (e.g. "60°C").
+    private let xAxisHeight: CGFloat = 22
+    private let plotTopInset: CGFloat = 6
+    private let plotTrailingInset: CGFloat = 8
+
+    /// Major X ticks every 10°C across the full temperature domain.
+    private var temperatureTicks: [Double] {
+        stride(
+            from: FanCurveProfile.minimumCelsius,
+            through: FanCurveProfile.maximumCelsius,
+            by: 10
+        ).map { $0 }
+    }
+
+    /// Major Y ticks every 10% across the full speed domain.
+    private var fractionPercentTicks: [Int] {
+        stride(
+            from: Int((FanCurveProfile.minimumFraction * 100).rounded()),
+            through: Int((FanCurveProfile.maximumFraction * 100).rounded()),
+            by: 10
+        ).map { $0 }
+    }
 
     private var displayPoints: [FanCurvePoint] {
         profile.points.map { point in
@@ -347,12 +371,14 @@ struct FanCurveCanvas: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let size = geometry.size
-            ZStack {
-                grid(in: size)
+            let plot = plotRect(in: geometry.size)
+            ZStack(alignment: .topLeading) {
+                axisChrome(plot: plot, canvasSize: geometry.size)
 
+                // Plot contents use the full canvas coordinate space; mapping
+                // functions already account for the axis gutters.
                 Path { path in
-                    let samples = samplePoints(for: displayProfile, in: size)
+                    let samples = samplePoints(for: displayProfile, plot: plot)
                     guard let first = samples.first else { return }
                     path.move(to: first)
                     for sample in samples.dropFirst() {
@@ -370,7 +396,7 @@ struct FanCurveCanvas: View {
                             position(
                                 celsius: currentCelsius,
                                 fraction: currentFraction,
-                                in: size
+                                plot: plot
                             )
                         )
                         .allowsHitTesting(false)
@@ -391,8 +417,8 @@ struct FanCurveCanvas: View {
                                 radius: 4
                             )
                     }
-                    .position(position(celsius: point.celsius, fraction: point.fraction, in: size))
-                    .gesture(dragGesture(for: point, in: size))
+                    .position(position(celsius: point.celsius, fraction: point.fraction, plot: plot))
+                    .gesture(dragGesture(for: point, plot: plot))
                     .help(fanBarFormat(
                         "%.0f°C · %.0f%%",
                         "%.0f°C · %.0f%%",
@@ -417,7 +443,84 @@ struct FanCurveCanvas: View {
         ))
     }
 
-    private func dragGesture(for point: FanCurvePoint, in size: CGSize) -> some Gesture {
+    private func plotRect(in size: CGSize) -> CGRect {
+        CGRect(
+            x: yAxisWidth,
+            y: plotTopInset,
+            width: max(1, size.width - yAxisWidth - plotTrailingInset),
+            height: max(1, size.height - plotTopInset - xAxisHeight)
+        )
+    }
+
+    @ViewBuilder
+    private func axisChrome(plot: CGRect, canvasSize: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.03))
+                .frame(width: plot.width, height: plot.height)
+                .position(x: plot.midX, y: plot.midY)
+
+            // Grid lines aligned to every major tick.
+            Path { path in
+                for percent in fractionPercentTicks {
+                    let y = position(
+                        celsius: temperatureRange.lowerBound,
+                        fraction: Float(percent) / 100,
+                        plot: plot
+                    ).y
+                    path.move(to: CGPoint(x: plot.minX, y: y))
+                    path.addLine(to: CGPoint(x: plot.maxX, y: y))
+                }
+                for celsius in temperatureTicks {
+                    let x = position(
+                        celsius: celsius,
+                        fraction: Float(fractionRange.lowerBound),
+                        plot: plot
+                    ).x
+                    path.move(to: CGPoint(x: x, y: plot.minY))
+                    path.addLine(to: CGPoint(x: x, y: plot.maxY))
+                }
+            }
+            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+
+            // Plot border
+            Path { path in
+                path.addRect(plot)
+            }
+            .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+
+            // Y-axis: full speed scale (0% … 100%)
+            ForEach(fractionPercentTicks, id: \.self) { percent in
+                let y = position(
+                    celsius: temperatureRange.lowerBound,
+                    fraction: Float(percent) / 100,
+                    plot: plot
+                ).y
+                Text("\(percent)%")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: yAxisWidth - 4, alignment: .trailing)
+                    .position(x: yAxisWidth / 2 - 1, y: y)
+            }
+
+            // X-axis: full temperature scale (30°C … 100°C)
+            ForEach(temperatureTicks, id: \.self) { celsius in
+                let x = position(
+                    celsius: celsius,
+                    fraction: Float(fractionRange.lowerBound),
+                    plot: plot
+                ).x
+                Text("\(Int(celsius))°C")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .position(x: x, y: plot.maxY + xAxisHeight / 2)
+            }
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
+        .allowsHitTesting(false)
+    }
+
+    private func dragGesture(for point: FanCurvePoint, plot: CGRect) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
                 if draggingPointID == nil {
@@ -425,7 +528,7 @@ struct FanCurveCanvas: View {
                     let origin = position(
                         celsius: point.celsius,
                         fraction: point.fraction,
-                        in: size
+                        plot: plot
                     )
                     let distance = hypot(value.startLocation.x - origin.x, value.startLocation.y - origin.y)
                     guard distance <= handleHitRadius else { return }
@@ -433,7 +536,7 @@ struct FanCurveCanvas: View {
                 }
                 guard draggingPointID == point.id else { return }
 
-                let mapped = values(at: value.location, in: size)
+                let mapped = values(at: value.location, plot: plot)
                 let constrained = constrain(
                     pointID: point.id,
                     celsius: mapped.celsius,
@@ -444,7 +547,7 @@ struct FanCurveCanvas: View {
             }
             .onEnded { value in
                 guard draggingPointID == point.id else { return }
-                let mapped = values(at: value.location, in: size)
+                let mapped = values(at: value.location, plot: plot)
                 let constrained = constrain(
                     pointID: point.id,
                     celsius: mapped.celsius,
@@ -493,75 +596,40 @@ struct FanCurveCanvas: View {
         return (clampedCelsius, quantizedFraction)
     }
 
-    private func grid(in size: CGSize) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.03))
-            Path { path in
-                for step in 0...4 {
-                    let y = size.height * CGFloat(step) / 4
-                    path.move(to: CGPoint(x: 0, y: y))
-                    path.addLine(to: CGPoint(x: size.width, y: y))
-                    let x = size.width * CGFloat(step) / 4
-                    path.move(to: CGPoint(x: x, y: 0))
-                    path.addLine(to: CGPoint(x: x, y: size.height))
-                }
-            }
-            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
-
-            VStack {
-                HStack {
-                    Text("100%")
-                    Spacer()
-                    Text("\(Int(temperatureRange.upperBound))°C")
-                }
-                Spacer()
-                HStack {
-                    Text("30%")
-                    Spacer()
-                    Text("\(Int(temperatureRange.lowerBound))°C")
-                }
-            }
-            .font(.system(size: 9, design: .monospaced))
-            .foregroundColor(.secondary)
-            .padding(4)
-            .allowsHitTesting(false)
-        }
-    }
-
-    private func samplePoints(for profile: FanCurveProfile, in size: CGSize) -> [CGPoint] {
-        let steps = 48
+    private func samplePoints(for profile: FanCurveProfile, plot: CGRect) -> [CGPoint] {
+        // Dense sampling so the monotone cubic reads as a continuous curve.
+        let steps = 96
         return (0...steps).map { step in
             let t = Double(step) / Double(steps)
             let celsius = temperatureRange.lowerBound
                 + (temperatureRange.upperBound - temperatureRange.lowerBound) * t
             let fraction = profile.fraction(at: celsius)
-            return position(celsius: celsius, fraction: fraction, in: size)
+            return position(celsius: celsius, fraction: fraction, plot: plot)
         }
     }
 
-    private func position(celsius: Double, fraction: Float, in size: CGSize) -> CGPoint {
+    private func position(celsius: Double, fraction: Float, plot: CGRect) -> CGPoint {
         let clampedT = min(max(celsius, temperatureRange.lowerBound), temperatureRange.upperBound)
         let clampedF = min(
             max(Double(fraction), fractionRange.lowerBound),
             fractionRange.upperBound
         )
-        let x = CGFloat(
+        let x = plot.minX + CGFloat(
             (clampedT - temperatureRange.lowerBound)
                 / (temperatureRange.upperBound - temperatureRange.lowerBound)
-        ) * size.width
-        let y = size.height - CGFloat(
+        ) * plot.width
+        let y = plot.maxY - CGFloat(
             (clampedF - fractionRange.lowerBound)
                 / (fractionRange.upperBound - fractionRange.lowerBound)
-        ) * size.height
+        ) * plot.height
         return CGPoint(x: x, y: y)
     }
 
-    private func values(at location: CGPoint, in size: CGSize) -> (celsius: Double, fraction: Float) {
-        let width = max(size.width, 1)
-        let height = max(size.height, 1)
-        let tx = min(max(Double(location.x / width), 0), 1)
-        let ty = min(max(Double(1 - location.y / height), 0), 1)
+    private func values(at location: CGPoint, plot: CGRect) -> (celsius: Double, fraction: Float) {
+        let width = max(plot.width, 1)
+        let height = max(plot.height, 1)
+        let tx = min(max(Double((location.x - plot.minX) / width), 0), 1)
+        let ty = min(max(Double((plot.maxY - location.y) / height), 0), 1)
         let celsius = temperatureRange.lowerBound
             + (temperatureRange.upperBound - temperatureRange.lowerBound) * tx
         let fraction = Float(

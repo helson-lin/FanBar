@@ -23,7 +23,8 @@ struct FanCurvePoint: Codable, Equatable, Identifiable, Sendable {
     var id: UUID
     /// Chip temperature in Celsius.
     var celsius: Double
-    /// Fraction of each fan's hardware-reported maximum RPM (0.30…1.00).
+    /// Fraction of each fan's hardware-reported maximum RPM (0…1.00).
+    /// Zero means idle (target 0 RPM); non-zero targets stay within hardware Mn/Mx.
     var fraction: Float
 
     init(id: UUID = UUID(), celsius: Double, fraction: Float) {
@@ -33,9 +34,9 @@ struct FanCurvePoint: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// User-editable curve profile. Interpolation still uses `TemperatureFanCurve`.
+/// User-editable curve profile. Interpolation uses a monotone cubic spline.
 struct FanCurveProfile: Codable, Equatable, Sendable {
-    static let minimumFraction: Float = 0.30
+    static let minimumFraction: Float = 0
     static let maximumFraction: Float = 1.00
     static let minimumPointCount = 2
     static let maximumPointCount = 8
@@ -89,34 +90,37 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         case maxFractionStepPerUpdate
     }
 
-    /// Built-in default — matches the historical smart-cooling curve.
+    /// Default: idle through ~41°C, then a smooth rise to full cooling.
     static let standard = FanCurveProfile(
         sensor: .maxChip,
         points: [
-            FanCurvePoint(celsius: 45, fraction: 0.35),
-            FanCurvePoint(celsius: 60, fraction: 0.50),
-            FanCurvePoint(celsius: 75, fraction: 0.75),
-            FanCurvePoint(celsius: 85, fraction: 1.00)
+            FanCurvePoint(celsius: 41, fraction: 0.00),
+            FanCurvePoint(celsius: 50, fraction: 0.30),
+            FanCurvePoint(celsius: 65, fraction: 0.55),
+            FanCurvePoint(celsius: 78, fraction: 0.80),
+            FanCurvePoint(celsius: 88, fraction: 1.00)
         ]
     )
 
     static let silent = FanCurveProfile(
         sensor: .maxChip,
         points: [
-            FanCurvePoint(celsius: 50, fraction: 0.30),
-            FanCurvePoint(celsius: 65, fraction: 0.40),
-            FanCurvePoint(celsius: 78, fraction: 0.55),
-            FanCurvePoint(celsius: 90, fraction: 0.85)
+            FanCurvePoint(celsius: 45, fraction: 0.00),
+            FanCurvePoint(celsius: 58, fraction: 0.20),
+            FanCurvePoint(celsius: 72, fraction: 0.40),
+            FanCurvePoint(celsius: 85, fraction: 0.65),
+            FanCurvePoint(celsius: 95, fraction: 0.90)
         ]
     )
 
     static let aggressive = FanCurveProfile(
         sensor: .maxChip,
         points: [
-            FanCurvePoint(celsius: 40, fraction: 0.45),
-            FanCurvePoint(celsius: 55, fraction: 0.65),
-            FanCurvePoint(celsius: 68, fraction: 0.85),
-            FanCurvePoint(celsius: 80, fraction: 1.00)
+            FanCurvePoint(celsius: 38, fraction: 0.00),
+            FanCurvePoint(celsius: 48, fraction: 0.40),
+            FanCurvePoint(celsius: 60, fraction: 0.70),
+            FanCurvePoint(celsius: 72, fraction: 0.90),
+            FanCurvePoint(celsius: 82, fraction: 1.00)
         ]
     )
 
@@ -145,14 +149,14 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         }
     }
 
-    /// Linearly interpolates adjacent points and clamps beyond both ends.
+    /// Smooth monotone cubic interpolation through the anchors.
     func fraction(at celsius: Double) -> Float {
         TemperatureFanCurve(points: points.map {
             TemperatureFanCurve.Point(celsius: $0.celsius, fraction: $0.fraction)
         }).fraction(at: celsius)
     }
 
-    /// Sorts points, clamps ranges, enforces min/max count and 30% floor.
+    /// Sorts points, clamps ranges, enforces min/max count and 0…100% bounds.
     ///
     /// Never replaces a user curve with the built-in default. Colliding
     /// temperatures are spread by 1°C so edits cannot wipe the whole profile.
@@ -247,7 +251,10 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
     }
 }
 
-/// Interpolation engine for chip temperature → maximum-fan fraction.
+/// Monotone cubic spline for chip temperature → maximum-fan fraction.
+///
+/// Uses Fritsch–Carlson slopes so the curve stays smooth without overshooting
+/// past neighboring anchors — important when the low end is 0% idle.
 struct TemperatureFanCurve {
     struct Point {
         let celsius: Double
@@ -260,20 +267,86 @@ struct TemperatureFanCurve {
 
     let points: [Point]
 
-    /// Linearly interpolates adjacent points and clamps temperatures beyond both ends.
     func fraction(at celsius: Double) -> Float {
         guard let first = points.first, let last = points.last else { return 1 }
+        if points.count == 1 { return first.fraction }
         if celsius <= first.celsius { return first.fraction }
         if celsius >= last.celsius { return last.fraction }
 
-        for (lower, upper) in zip(points, points.dropFirst())
-        where celsius <= upper.celsius {
-            let progress = Float(
-                (celsius - lower.celsius) / (upper.celsius - lower.celsius)
+        let xs = points.map(\.celsius)
+        let ys = points.map { Double($0.fraction) }
+        let slopes = Self.monotoneSlopes(x: xs, y: ys)
+
+        for index in 0..<(points.count - 1) {
+            let x0 = xs[index]
+            let x1 = xs[index + 1]
+            guard celsius <= x1 || index == points.count - 2 else { continue }
+            if celsius > x1 { continue }
+
+            let h = x1 - x0
+            guard h > 0 else { return Float(ys[index + 1]) }
+            let t = (celsius - x0) / h
+            let t2 = t * t
+            let t3 = t2 * t
+            // Hermite basis
+            let h00 = 2 * t3 - 3 * t2 + 1
+            let h10 = t3 - 2 * t2 + t
+            let h01 = -2 * t3 + 3 * t2
+            let h11 = t3 - t2
+            let value = h00 * ys[index]
+                + h10 * h * slopes[index]
+                + h01 * ys[index + 1]
+                + h11 * h * slopes[index + 1]
+            return Float(
+                min(
+                    max(value, Double(FanCurveProfile.minimumFraction)),
+                    Double(FanCurveProfile.maximumFraction)
+                )
             )
-            return lower.fraction + (upper.fraction - lower.fraction) * progress
         }
         return last.fraction
+    }
+
+    /// Fritsch–Carlson monotone cubic derivatives dy/dx at each knot.
+    private static func monotoneSlopes(x: [Double], y: [Double]) -> [Double] {
+        let n = x.count
+        guard n >= 2 else { return Array(repeating: 0, count: max(n, 0)) }
+
+        var delta = [Double](repeating: 0, count: n - 1)
+        for i in 0..<(n - 1) {
+            let h = x[i + 1] - x[i]
+            delta[i] = h > 0 ? (y[i + 1] - y[i]) / h : 0
+        }
+
+        var m = [Double](repeating: 0, count: n)
+        m[0] = delta[0]
+        m[n - 1] = delta[n - 2]
+        if n > 2 {
+            for i in 1..<(n - 1) {
+                if delta[i - 1] == 0 || delta[i] == 0 || delta[i - 1].sign != delta[i].sign {
+                    m[i] = 0
+                } else {
+                    m[i] = (delta[i - 1] + delta[i]) / 2
+                }
+            }
+        }
+
+        for i in 0..<(n - 1) {
+            if abs(delta[i]) < 1e-12 {
+                m[i] = 0
+                m[i + 1] = 0
+                continue
+            }
+            let a = m[i] / delta[i]
+            let b = m[i + 1] / delta[i]
+            let s = a * a + b * b
+            if s > 9 {
+                let t = 3 / sqrt(s)
+                m[i] = t * a * delta[i]
+                m[i + 1] = t * b * delta[i]
+            }
+        }
+        return m
     }
 }
 

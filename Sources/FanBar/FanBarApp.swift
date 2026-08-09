@@ -258,20 +258,24 @@ struct FanBarApp: App {
     private static func runTemperatureCurveSmokeTestAndExit() -> Never {
         Task { @MainActor in
             let curve = FanCurveProfile.standard
-            let checks: [(Double, Float)] = [
-                (40, 0.35), (52.5, 0.425), (60, 0.50), (75, 0.75), (90, 1.00)
-            ]
-            guard checks.allSatisfy({ abs(curve.fraction(at: $0.0) - $0.1) < 0.001 }) else {
+            // Idle through the first knee, then a smooth rise that still hits later anchors.
+            guard abs(curve.fraction(at: 40) - 0) < 0.001,
+                  abs(curve.fraction(at: 41) - 0) < 0.001,
+                  abs(curve.fraction(at: 50) - 0.30) < 0.02,
+                  abs(curve.fraction(at: 88) - 1.00) < 0.02,
+                  curve.fraction(at: 41) <= curve.fraction(at: 55),
+                  curve.fraction(at: 55) <= curve.fraction(at: 80) else {
                 print("temperature-curve-test=interpolation-failed")
+                print(String(format: "f40=%.3f f50=%.3f f88=%.3f", curve.fraction(at: 40), curve.fraction(at: 50), curve.fraction(at: 88)))
                 exit(EXIT_FAILURE)
             }
 
-            // Sanitization must preserve a usable curve, clamp the 30% floor, and
+            // Sanitization must preserve a usable curve, allow 0%, and
             // never wipe user points back to the built-in default.
             let invalid = FanCurveProfile(
                 sensor: .cpu,
                 points: [
-                    FanCurvePoint(celsius: 90, fraction: 0.10),
+                    FanCurvePoint(celsius: 90, fraction: -0.10),
                     FanCurvePoint(celsius: 90, fraction: 0.20)
                 ],
                 hysteresisCelsius: 9,
@@ -279,7 +283,11 @@ struct FanBarApp: App {
             )
             let sanitized = invalid.sanitized()
             guard sanitized.points.count >= FanCurveProfile.minimumPointCount,
-                  sanitized.points.allSatisfy({ $0.fraction >= FanCurveProfile.minimumFraction }),
+                  sanitized.points.allSatisfy({
+                      $0.fraction >= FanCurveProfile.minimumFraction
+                          && $0.fraction <= FanCurveProfile.maximumFraction
+                  }),
+                  sanitized.points.contains(where: { abs($0.fraction) < 0.001 || $0.fraction >= 0 }),
                   sanitized.points.map(\.celsius) != FanCurveProfile.standard.points.map(\.celsius),
                   zip(sanitized.points, sanitized.points.dropFirst()).allSatisfy({
                       $0.celsius < $1.celsius
