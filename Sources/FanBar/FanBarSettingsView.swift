@@ -78,11 +78,14 @@ struct FanBarSettingsView: View {
     }
 
     private var coolingTab: some View {
-        coolingPresetSection
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+        VStack(alignment: .leading, spacing: 24) {
+            FanCurveEditorView(controller: controller)
+            coolingPresetSection
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var generalTab: some View {

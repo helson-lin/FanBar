@@ -66,6 +66,8 @@ final class FanController: ObservableObject {
     @Published private(set) var automaticRestoreDeadline: Date?
     @Published private(set) var curveTemperatureCelsius: Double?
     @Published private(set) var curveOutputFraction: Float?
+    /// Active smart-cooling curve (user-editable; persisted via FanCurvePreferences).
+    @Published private(set) var curveProfile: FanCurveProfile
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
@@ -92,7 +94,6 @@ final class FanController: ObservableObject {
     private let automaticRestorePreferenceKey = "fanbar.automaticRestoreDuration"
     private let helperBuildVersionPreferenceKey = "fanbar.helperBuildVersion"
     private let helperBuildVersion: String
-    private let temperatureCurve = TemperatureFanCurve.standard
     private let curveUpdateDeadband: Float = 0.02
 
     var statusIcon: String {
@@ -101,6 +102,7 @@ final class FanController: ObservableObject {
 
     init(automaticRestoreTestInterval: TimeInterval? = nil) {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
+        curveProfile = FanCurvePreferences.load()
         highTemperatureNotificationsEnabled = UserDefaults.standard.bool(
             forKey: ThermalAlertSettings.notificationsEnabledKey
         )
@@ -315,6 +317,58 @@ final class FanController: ObservableObject {
         }
     }
 
+    /// Replaces the active curve, persists it, and reapplies if smart cooling is on.
+    func setCurveProfile(_ profile: FanCurveProfile) {
+        let sanitized = profile.sanitized()
+        curveProfile = sanitized
+        FanCurvePreferences.save(sanitized)
+        guard mode == .temperatureCurve, !isBusy else { return }
+        if let reading = latestThermalReading() {
+            updateTemperatureCurve(using: reading, force: true)
+        }
+    }
+
+    func applyCurveBuiltIn(_ builtIn: FanCurveProfile.BuiltIn) {
+        setCurveProfile(builtIn.profile)
+    }
+
+    func setCurveSensor(_ sensor: FanCurveSensor) {
+        var next = curveProfile
+        next.sensor = sensor
+        setCurveProfile(next)
+    }
+
+    func updateCurvePoint(id: UUID, celsius: Double? = nil, fraction: Float? = nil) {
+        var next = curveProfile
+        guard let index = next.points.firstIndex(where: { $0.id == id }) else { return }
+        if let celsius { next.points[index].celsius = celsius }
+        if let fraction { next.points[index].fraction = fraction }
+        setCurveProfile(next)
+    }
+
+    func addCurvePoint() {
+        var next = curveProfile
+        guard next.points.count < FanCurveProfile.maximumPointCount else { return }
+        let last = next.points.max(by: { $0.celsius < $1.celsius })
+        let celsius = min(
+            (last?.celsius ?? 60) + 5,
+            FanCurveProfile.maximumCelsius
+        )
+        let fraction = min(
+            max(last?.fraction ?? 0.5, FanCurveProfile.minimumFraction),
+            FanCurveProfile.maximumFraction
+        )
+        next.points.append(FanCurvePoint(celsius: celsius, fraction: fraction))
+        setCurveProfile(next)
+    }
+
+    func removeCurvePoint(id: UUID) {
+        var next = curveProfile
+        guard next.points.count > FanCurveProfile.minimumPointCount else { return }
+        next.points.removeAll { $0.id == id }
+        setCurveProfile(next)
+    }
+
     func setHighTemperatureNotificationsEnabled(_ enabled: Bool) {
         highTemperatureNotificationRequestID += 1
         let requestID = highTemperatureNotificationRequestID
@@ -375,7 +429,7 @@ final class FanController: ObservableObject {
             return
         }
 
-        let fraction = temperatureCurve.fraction(at: temperature)
+        let fraction = curveProfile.fraction(at: temperature)
         isBusy = true
         switchFeedback = .began
         message = fanBarText("正在开启智能温控…", "Enabling smart cooling…")
@@ -419,7 +473,7 @@ final class FanController: ObservableObject {
         }
         curveMissingTemperatureSamples = 0
 
-        let fraction = temperatureCurve.fraction(at: temperature)
+        let fraction = curveProfile.fraction(at: temperature)
         curveTemperatureCelsius = temperature
         if !force,
            let previous = curveOutputFraction,
@@ -448,7 +502,14 @@ final class FanController: ObservableObject {
     }
 
     private func controlTemperature(from reading: ThermalReading) -> Double? {
-        [reading.cpuCelsius, reading.gpuCelsius].compactMap { $0 }.max()
+        switch curveProfile.sensor {
+        case .maxChip:
+            return [reading.cpuCelsius, reading.gpuCelsius].compactMap { $0 }.max()
+        case .cpu:
+            return reading.cpuCelsius
+        case .gpu:
+            return reading.gpuCelsius
+        }
     }
 
     private func evaluateThermalAlerts(using reading: ThermalReading) {

@@ -257,12 +257,24 @@ struct FanBarApp: App {
     /// Exercises interpolation plus the complete curve enable/disable controller path.
     private static func runTemperatureCurveSmokeTestAndExit() -> Never {
         Task { @MainActor in
-            let curve = TemperatureFanCurve.standard
+            let curve = FanCurveProfile.standard
             let checks: [(Double, Float)] = [
                 (40, 0.35), (52.5, 0.425), (60, 0.50), (75, 0.75), (90, 1.00)
             ]
             guard checks.allSatisfy({ abs(curve.fraction(at: $0.0) - $0.1) < 0.001 }) else {
                 print("temperature-curve-test=interpolation-failed")
+                exit(EXIT_FAILURE)
+            }
+
+            // Sanitization must preserve a valid 2…8 point curve and the 30% floor.
+            let invalid = FanCurveProfile(
+                sensor: .cpu,
+                points: [FanCurvePoint(celsius: 90, fraction: 0.10)]
+            )
+            let sanitized = invalid.sanitized()
+            guard sanitized.points.count >= FanCurveProfile.minimumPointCount,
+                  sanitized.points.allSatisfy({ $0.fraction >= FanCurveProfile.minimumFraction }) else {
+                print("temperature-curve-test=sanitize-failed")
                 exit(EXIT_FAILURE)
             }
 
