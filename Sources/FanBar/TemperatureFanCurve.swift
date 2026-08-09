@@ -41,9 +41,53 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
     static let maximumPointCount = 8
     static let minimumCelsius = 30.0
     static let maximumCelsius = 100.0
+    static let minimumHysteresisCelsius = 0.0
+    static let maximumHysteresisCelsius = 5.0
+    static let defaultHysteresisCelsius = 2.0
+    static let minimumFractionStep: Float = 0.02
+    static let maximumFractionStep: Float = 0.20
+    static let defaultFractionStep: Float = 0.05
 
     var sensor: FanCurveSensor
     var points: [FanCurvePoint]
+    /// Extra °C applied on the falling edge so fans do not chatter near a knee.
+    var hysteresisCelsius: Double
+    /// Max absolute fraction change applied per control tick (rate limit).
+    var maxFractionStepPerUpdate: Float
+
+    init(
+        sensor: FanCurveSensor,
+        points: [FanCurvePoint],
+        hysteresisCelsius: Double = defaultHysteresisCelsius,
+        maxFractionStepPerUpdate: Float = defaultFractionStep
+    ) {
+        self.sensor = sensor
+        self.points = points
+        self.hysteresisCelsius = hysteresisCelsius
+        self.maxFractionStepPerUpdate = maxFractionStepPerUpdate
+    }
+
+    // Older builds only stored sensor + points; missing keys keep smoothing defaults.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sensor = try container.decode(FanCurveSensor.self, forKey: .sensor)
+        points = try container.decode([FanCurvePoint].self, forKey: .points)
+        hysteresisCelsius = try container.decodeIfPresent(
+            Double.self,
+            forKey: .hysteresisCelsius
+        ) ?? Self.defaultHysteresisCelsius
+        maxFractionStepPerUpdate = try container.decodeIfPresent(
+            Float.self,
+            forKey: .maxFractionStepPerUpdate
+        ) ?? Self.defaultFractionStep
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sensor
+        case points
+        case hysteresisCelsius
+        case maxFractionStepPerUpdate
+    }
 
     /// Built-in default — matches the historical smart-cooling curve.
     static let standard = FanCurveProfile(
@@ -109,6 +153,9 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
     }
 
     /// Sorts points, clamps ranges, enforces min/max count and 30% floor.
+    ///
+    /// Never replaces a user curve with the built-in default. Colliding
+    /// temperatures are spread by 1°C so edits cannot wipe the whole profile.
     func sanitized() -> FanCurveProfile {
         var cleaned = points
             .map { point in
@@ -126,25 +173,27 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
             }
             .sorted { $0.celsius < $1.celsius }
 
-        // Collapse same-temperature anchors so interpolation stays well-defined.
-        var unique: [FanCurvePoint] = []
-        for point in cleaned {
-            if let last = unique.last, abs(last.celsius - point.celsius) < 0.5 {
-                unique[unique.count - 1] = point
-            } else {
-                unique.append(point)
+        if cleaned.isEmpty {
+            cleaned = Self.standard.points.map {
+                FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
             }
         }
-        cleaned = unique
 
-        if cleaned.count < Self.minimumPointCount {
-            cleaned = Self.standard.points
+        // Guarantee a usable curve without discarding the user's points.
+        while cleaned.count < Self.minimumPointCount {
+            let last = cleaned[cleaned.count - 1]
+            cleaned.append(
+                FanCurvePoint(
+                    celsius: min(last.celsius + 5, Self.maximumCelsius),
+                    fraction: min(last.fraction + 0.1, Self.maximumFraction)
+                )
+            )
         }
         if cleaned.count > Self.maximumPointCount {
             cleaned = Array(cleaned.prefix(Self.maximumPointCount))
         }
 
-        // Ensure a strictly increasing temperature axis after clamping collisions.
+        // Strictly increasing X-axis (forward pass, then backward if ceiling-hit).
         for index in cleaned.indices.dropFirst() {
             if cleaned[index].celsius <= cleaned[index - 1].celsius {
                 cleaned[index].celsius = min(
@@ -153,14 +202,39 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
                 )
             }
         }
+        for index in cleaned.indices.dropLast().reversed() {
+            if cleaned[index].celsius >= cleaned[index + 1].celsius {
+                cleaned[index].celsius = max(
+                    cleaned[index + 1].celsius - 1,
+                    Self.minimumCelsius
+                )
+            }
+        }
 
-        return FanCurveProfile(sensor: sensor, points: cleaned)
+        return FanCurveProfile(
+            sensor: sensor,
+            points: cleaned,
+            hysteresisCelsius: min(
+                max(hysteresisCelsius.rounded(), Self.minimumHysteresisCelsius),
+                Self.maximumHysteresisCelsius
+            ),
+            maxFractionStepPerUpdate: min(
+                max(maxFractionStepPerUpdate, Self.minimumFractionStep),
+                Self.maximumFractionStep
+            )
+        )
+    }
+
+    /// Localized label for the menu bar and settings (built-in name or “Custom”).
+    var displayName: String {
+        matchingBuiltIn()?.title ?? fanBarText("自定义", "Custom")
     }
 
     func matchingBuiltIn() -> BuiltIn? {
         let normalized = sanitized()
         return BuiltIn.allCases.first { builtIn in
             let candidate = builtIn.profile.sanitized()
+            // Smoothing knobs are user-tunable and do not disqualify a built-in shape.
             guard candidate.sensor == normalized.sensor,
                   candidate.points.count == normalized.points.count else {
                 return false

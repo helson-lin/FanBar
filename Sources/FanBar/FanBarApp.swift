@@ -266,15 +266,38 @@ struct FanBarApp: App {
                 exit(EXIT_FAILURE)
             }
 
-            // Sanitization must preserve a valid 2…8 point curve and the 30% floor.
+            // Sanitization must preserve a usable curve, clamp the 30% floor, and
+            // never wipe user points back to the built-in default.
             let invalid = FanCurveProfile(
                 sensor: .cpu,
-                points: [FanCurvePoint(celsius: 90, fraction: 0.10)]
+                points: [
+                    FanCurvePoint(celsius: 90, fraction: 0.10),
+                    FanCurvePoint(celsius: 90, fraction: 0.20)
+                ],
+                hysteresisCelsius: 9,
+                maxFractionStepPerUpdate: 0.5
             )
             let sanitized = invalid.sanitized()
             guard sanitized.points.count >= FanCurveProfile.minimumPointCount,
-                  sanitized.points.allSatisfy({ $0.fraction >= FanCurveProfile.minimumFraction }) else {
+                  sanitized.points.allSatisfy({ $0.fraction >= FanCurveProfile.minimumFraction }),
+                  sanitized.points.map(\.celsius) != FanCurveProfile.standard.points.map(\.celsius),
+                  zip(sanitized.points, sanitized.points.dropFirst()).allSatisfy({
+                      $0.celsius < $1.celsius
+                  }),
+                  sanitized.hysteresisCelsius == FanCurveProfile.maximumHysteresisCelsius,
+                  abs(sanitized.maxFractionStepPerUpdate - FanCurveProfile.maximumFractionStep) < 0.001 else {
                 print("temperature-curve-test=sanitize-failed")
+                exit(EXIT_FAILURE)
+            }
+
+            // Legacy profile JSON without smoothing keys must still decode.
+            let legacyJSON = """
+            {"sensor":"maxChip","points":[{"id":"00000000-0000-0000-0000-000000000001","celsius":45,"fraction":0.35},{"id":"00000000-0000-0000-0000-000000000002","celsius":85,"fraction":1.0}]}
+            """.data(using: .utf8)!
+            guard let legacy = try? JSONDecoder().decode(FanCurveProfile.self, from: legacyJSON),
+                  abs(legacy.hysteresisCelsius - FanCurveProfile.defaultHysteresisCelsius) < 0.01,
+                  abs(legacy.maxFractionStepPerUpdate - FanCurveProfile.defaultFractionStep) < 0.001 else {
+                print("temperature-curve-test=legacy-decode-failed")
                 exit(EXIT_FAILURE)
             }
 

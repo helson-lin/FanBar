@@ -79,7 +79,11 @@ final class FanController: ObservableObject {
     private var refreshTimer: Timer?
     private var automaticRestoreTask: Task<Void, Never>?
     private var curveUpdateTask: Task<Void, Never>?
+    /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
+    private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
+    /// Last control-temperature sample, used for falling-edge hysteresis.
+    private var lastCurveControlTemperature: Double?
     private var wakeObserver: NSObjectProtocol?
     private var helperMigrationAttempted = false
     private var highTemperatureNotificationRequestID = 0
@@ -322,14 +326,45 @@ final class FanController: ObservableObject {
         let sanitized = profile.sanitized()
         curveProfile = sanitized
         FanCurvePreferences.save(sanitized)
-        guard mode == .temperatureCurve, !isBusy else { return }
-        if let reading = latestThermalReading() {
-            updateTemperatureCurve(using: reading, force: true)
-        }
+        scheduleCurveHardwareApply()
     }
 
     func applyCurveBuiltIn(_ builtIn: FanCurveProfile.BuiltIn) {
-        setCurveProfile(builtIn.profile)
+        // Fresh point IDs so the editor rows rebuild cleanly when switching presets.
+        // Keep the user's hysteresis / rate-limit preferences across built-ins.
+        let source = builtIn.profile
+        let copied = FanCurveProfile(
+            sensor: source.sensor,
+            points: source.points.map {
+                FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
+            },
+            hysteresisCelsius: curveProfile.hysteresisCelsius,
+            maxFractionStepPerUpdate: curveProfile.maxFractionStepPerUpdate
+        )
+        setCurveProfile(copied)
+    }
+
+    func setCurveHysteresisCelsius(_ value: Double) {
+        var next = curveProfile
+        next.hysteresisCelsius = value
+        setCurveProfile(next)
+    }
+
+    func setCurveMaxFractionStep(_ value: Float) {
+        var next = curveProfile
+        next.maxFractionStepPerUpdate = value
+        setCurveProfile(next)
+    }
+
+    private func scheduleCurveHardwareApply() {
+        guard mode == .temperatureCurve, !isBusy else { return }
+        if curveUpdateTask != nil {
+            pendingCurveHardwareApply = true
+            return
+        }
+        if let reading = latestThermalReading() {
+            updateTemperatureCurve(using: reading, force: true)
+        }
     }
 
     func setCurveSensor(_ sensor: FanCurveSensor) {
@@ -429,7 +464,7 @@ final class FanController: ObservableObject {
             return
         }
 
-        let fraction = curveProfile.fraction(at: temperature)
+        let fraction = targetCurveFraction(for: temperature, force: true)
         isBusy = true
         switchFeedback = .began
         message = fanBarText("正在开启智能温控…", "Enabling smart cooling…")
@@ -440,6 +475,7 @@ final class FanController: ObservableObject {
                 mode = .temperatureCurve
                 curveTemperatureCelsius = temperature
                 curveOutputFraction = fraction
+                lastCurveControlTemperature = temperature
                 scheduleAutomaticRestore()
                 updateCurveMessage()
                 if let readings = try? await helperClient.fans() {
@@ -473,8 +509,9 @@ final class FanController: ObservableObject {
         }
         curveMissingTemperatureSamples = 0
 
-        let fraction = curveProfile.fraction(at: temperature)
+        let fraction = targetCurveFraction(for: temperature, force: force)
         curveTemperatureCelsius = temperature
+        lastCurveControlTemperature = temperature
         if !force,
            let previous = curveOutputFraction,
            abs(fraction - previous) < curveUpdateDeadband {
@@ -484,7 +521,13 @@ final class FanController: ObservableObject {
 
         curveUpdateTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { self.curveUpdateTask = nil }
+            defer {
+                self.curveUpdateTask = nil
+                if self.pendingCurveHardwareApply {
+                    self.pendingCurveHardwareApply = false
+                    self.scheduleCurveHardwareApply()
+                }
+            }
             do {
                 try await self.helperClient.setCoolingFraction(fraction)
                 guard self.mode == .temperatureCurve else { return }
@@ -499,6 +542,27 @@ final class FanController: ObservableObject {
                 )
             }
         }
+    }
+
+    /// Applies falling-edge hysteresis then rate-limits the fraction step.
+    /// `force` skips both (profile edits, enable, wake re-apply).
+    private func targetCurveFraction(for temperature: Double, force: Bool) -> Float {
+        let lookupTemperature: Double
+        if force {
+            lookupTemperature = temperature
+        } else if let last = lastCurveControlTemperature,
+                  temperature < last,
+                  curveProfile.hysteresisCelsius > 0 {
+            // Falling edge: evaluate the curve a few degrees hotter so RPM holds longer.
+            lookupTemperature = temperature + curveProfile.hysteresisCelsius
+        } else {
+            lookupTemperature = temperature
+        }
+
+        let raw = curveProfile.fraction(at: lookupTemperature)
+        guard !force, let previous = curveOutputFraction else { return raw }
+        let step = curveProfile.maxFractionStepPerUpdate
+        return min(max(raw, previous - step), previous + step)
     }
 
     private func controlTemperature(from reading: ThermalReading) -> Double? {
@@ -561,8 +625,9 @@ final class FanController: ObservableObject {
         guard let temperature = curveTemperatureCelsius,
               let fraction = curveOutputFraction else { return }
         message = fanBarFormat(
-            "智能温控：%.0f°C · 最大转速 %.0f%%",
-            "Smart cooling: %.0f°C · %.0f%% maximum RPM",
+            "智能温控（%@）：%.0f°C · 最大转速 %.0f%%",
+            "Smart cooling (%@): %.0f°C · %.0f%% maximum RPM",
+            curveProfile.displayName,
             temperature,
             fraction * 100
         )
@@ -579,6 +644,7 @@ final class FanController: ObservableObject {
         curveTemperatureCelsius = nil
         curveOutputFraction = nil
         curveMissingTemperatureSamples = 0
+        lastCurveControlTemperature = nil
     }
 
     func setAutomaticRestoreDuration(_ duration: AutomaticRestoreDuration) {

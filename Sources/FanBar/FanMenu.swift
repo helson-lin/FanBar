@@ -189,7 +189,11 @@ struct FanMenu: View {
                 }
                 .buttonStyle(.plain)
                 .focusable(false)
-                .help(fanBarText("按芯片温度动态调整风扇转速", "Adjust fan speed from chip temperature"))
+                .help(fanBarFormat(
+                    "按芯片温度动态调速 · 当前曲线：%@",
+                    "Adjust fan speed from chip temperature · Curve: %@",
+                    controller.curveProfile.displayName
+                ))
 
                 Menu {
                     Section(header: Text(fanBarText("散热预设", "Cooling presets"))) {
@@ -316,8 +320,9 @@ struct FanMenu: View {
            let temperature = controller.curveTemperatureCelsius,
            let fraction = controller.curveOutputFraction {
             return fanBarFormat(
-                "%.0f°C → %.0f%%",
-                "%.0f°C → %.0f%%",
+                "%@ · %.0f°C → %.0f%%",
+                "%@ · %.0f°C → %.0f%%",
+                controller.curveProfile.displayName,
                 temperature,
                 fraction * 100
             )
