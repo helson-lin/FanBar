@@ -1,3 +1,4 @@
+import AppKit
 import FanBarShared
 import SwiftUI
 
@@ -36,11 +37,56 @@ struct FanBarApp: App {
         if CommandLine.arguments.contains("--settings-window-smoke-test") {
             Self.runSettingsWindowSmokeTest(controller: controller)
         }
+        if CommandLine.arguments.contains("--settings-render-test") {
+            Self.runSettingsRenderTest(controller: controller)
+        }
     }
 
     var body: some Scene {
         Settings {
             EmptyView()
+        }
+    }
+
+    /// Renders the settings view to PNG files (light and dark) so layout
+    /// changes can be verified without screen-recording permission. Schedules
+    /// the capture and lets the app finish launching normally — parking the
+    /// main thread in dispatchMain() would drain the main queue on a worker
+    /// thread, where AppKit window work crashes.
+    private static func runSettingsRenderTest(controller: FanController) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let window = SettingsWindowPresenter.shared.show(controller: controller)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                guard let contentView = window.contentView else {
+                    print("settings-render-test=no-content-view")
+                    exit(EXIT_FAILURE)
+                }
+                let appearances: [(String, NSAppearance?)] = [
+                    ("light", NSAppearance(named: .aqua)),
+                    ("dark", NSAppearance(named: .darkAqua))
+                ]
+                for (name, appearance) in appearances {
+                    window.appearance = appearance
+                    contentView.layoutSubtreeIfNeeded()
+                    guard let bitmap = contentView.bitmapImageRepForCachingDisplay(
+                        in: contentView.bounds
+                    ) else { continue }
+                    contentView.cacheDisplay(in: contentView.bounds, to: bitmap)
+                    guard let data = bitmap.representation(using: .png, properties: [:])
+                    else { continue }
+                    do {
+                        try data.write(
+                            to: URL(fileURLWithPath: "/tmp/fanbar-settings-\(name).png")
+                        )
+                        print("settings-render-\(name)=\(data.count) bytes")
+                    } catch {
+                        print("settings-render-\(name)-error=\(error.localizedDescription)")
+                    }
+                }
+                print("settings-render-test=done")
+                SettingsWindowPresenter.shared.close()
+                exit(EXIT_SUCCESS)
+            }
         }
     }
 

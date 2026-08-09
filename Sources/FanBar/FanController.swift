@@ -30,6 +30,13 @@ final class FanController: ObservableObject {
         case preset(FanCoolingPreset)
     }
 
+    /// Drives the menu-bar icon animation for user-visible mode switches.
+    /// Silent re-applies (e.g. after wake) never emit these signals.
+    enum SwitchFeedbackSignal: Equatable {
+        case began
+        case ended(successfully: Bool)
+    }
+
     enum HelperState: Equatable {
         case enabled
         case requiresApproval
@@ -61,6 +68,7 @@ final class FanController: ObservableObject {
     @Published private(set) var curveOutputFraction: Float?
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
+    @Published private(set) var switchFeedback: SwitchFeedbackSignal?
 
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
@@ -225,6 +233,7 @@ final class FanController: ObservableObject {
             return
         }
         isBusy = true
+        if resetsAutomaticRestore { switchFeedback = .began }
         message = fanBarFormat("正在切换到 %d RPM…", "Switching to %d RPM…", rpm)
         Task {
             do {
@@ -239,8 +248,10 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
             } catch {
                 message = fanBarFormat("控制失败：%@", "Control failed: %@", error.localizedDescription)
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
             }
             isBusy = false
         }
@@ -259,6 +270,7 @@ final class FanController: ObservableObject {
             return
         }
         isBusy = true
+        if resetsAutomaticRestore { switchFeedback = .began }
         message = fanBarFormat(
             "正在切换到%@模式…",
             "Switching to %@ mode…",
@@ -282,8 +294,10 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
             } catch {
                 message = fanBarFormat("控制失败：%@", "Control failed: %@", error.localizedDescription)
+                if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
             }
             isBusy = false
         }
@@ -363,6 +377,7 @@ final class FanController: ObservableObject {
 
         let fraction = temperatureCurve.fraction(at: temperature)
         isBusy = true
+        switchFeedback = .began
         message = fanBarText("正在开启智能温控…", "Enabling smart cooling…")
         Task {
             do {
@@ -376,6 +391,7 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                switchFeedback = .ended(successfully: true)
             } catch {
                 clearTemperatureCurveState()
                 message = fanBarFormat(
@@ -383,6 +399,7 @@ final class FanController: ObservableObject {
                     "Unable to enable smart cooling: %@",
                     error.localizedDescription
                 )
+                switchFeedback = .ended(successfully: false)
             }
             isBusy = false
         }
@@ -526,6 +543,7 @@ final class FanController: ObservableObject {
             return
         }
         isBusy = true
+        switchFeedback = .began
         message = fanBarText("正在恢复系统控制…", "Restoring system control…")
         Task {
             do {
@@ -540,8 +558,10 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                switchFeedback = .ended(successfully: true)
             } catch {
                 message = fanBarFormat("恢复失败：%@", "Restore failed: %@", error.localizedDescription)
+                switchFeedback = .ended(successfully: false)
                 if triggeredByTimer {
                     scheduleAutomaticRestoreRetry(after: 5)
                 }
