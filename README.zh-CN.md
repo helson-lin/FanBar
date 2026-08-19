@@ -104,9 +104,10 @@ gh auth login -h github.com
 FANBAR_NOTARY_PROFILE=FanBar-notary zsh scripts/release-local.sh
 ```
 
-本地发布脚本要求工作区干净且位于 `main`，会依次完成 universal2 构建、签名、
-公证、DMG 验证、校验和、签名 Appcast、Git 标签和 GitHub Release 上传。已有
-Release 默认不会被覆盖；仅在明确重试时使用 `--replace-assets`。
+本地发布脚本要求工作区干净且位于 `main`，会依次完成 universal2 构建、独立的
+`arm64` / `x86_64` DMG、签名、公证、DMG 验证、校验和、签名 Appcast、Git
+标签和 GitHub Release 上传。已有 Release 默认不会被覆盖；仅在明确重试时使用
+`--replace-assets`。
 
 Sparkle 私钥保存在登录钥匙串的 `FanBar` 账户中。首次发布后不要重新生成该密钥，
 否则已安装版本无法验证后续更新。CI 发布还需将导出的私钥保存为

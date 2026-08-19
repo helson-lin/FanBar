@@ -99,17 +99,47 @@ configured_public_key="$(
     exit 1
 }
 
-export FANBAR_ARCHS="arm64 x86_64"
-zsh scripts/package-app.sh
-zsh scripts/build-dmg.sh
+write_checksum() {
+    local archive_path="$1"
+    local archive_name="${archive_path:t}"
+    (cd "${archive_path:h}" && shasum -a 256 "${archive_name}" > "${archive_name}.sha256")
+}
 
-dmg_path="${project_root}/dist/FanBar-${version}.dmg"
-zsh scripts/notarize-dmg.sh "${dmg_path}"
-zsh scripts/test-dmg.sh "${dmg_path}"
+package_signed_dmg() {
+    local architecture="$1"
+    local app_output dmg_output
+    if [[ -z "${architecture}" ]]; then
+        export FANBAR_ARCHS="arm64 x86_64"
+        unset FANBAR_APP_OUTPUT FANBAR_DMG_OUTPUT
+        app_output="${project_root}/dist/FanBar.app"
+        dmg_output="${project_root}/dist/FanBar-${version}.dmg"
+        zsh scripts/package-app.sh
+        zsh scripts/build-dmg.sh
+        zsh scripts/notarize-dmg.sh "${dmg_output}"
+        zsh scripts/test-dmg.sh "${dmg_output}"
+    else
+        app_output="${project_root}/dist/FanBar-${architecture}.app"
+        dmg_output="${project_root}/dist/FanBar-${version}-${architecture}.dmg"
+        FANBAR_ARCHS="${architecture}" \
+            FANBAR_APP_OUTPUT="${app_output}" \
+            zsh scripts/package-app.sh
+        FANBAR_DMG_OUTPUT="${dmg_output}" \
+            zsh scripts/build-dmg.sh "${app_output}"
+        zsh scripts/notarize-dmg.sh "${dmg_output}"
+        FANBAR_EXPECTED_ARCHS="${architecture}" \
+            zsh scripts/test-dmg.sh "${dmg_output}"
+    fi
+    write_checksum "${dmg_output}"
+    packaged_dmg="${dmg_output}"
+}
 
-dmg_name="${dmg_path:t}"
+package_signed_dmg
+dmg_path="${packaged_dmg}"
 checksum_path="${dmg_path}.sha256"
-(cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+package_signed_dmg arm64
+arm64_dmg="${packaged_dmg}"
+package_signed_dmg x86_64
+x86_dmg="${packaged_dmg}"
 
 updates_root="$(mktemp -d)"
 cleanup() { rm -rf "${updates_root}" }
@@ -136,7 +166,15 @@ if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
 fi
 git push origin "${tag}"
 
-release_files=("${dmg_path}" "${checksum_path}" "${appcast_path}")
+release_files=(
+    "${dmg_path}"
+    "${checksum_path}"
+    "${arm64_dmg}"
+    "${arm64_dmg}.sha256"
+    "${x86_dmg}"
+    "${x86_dmg}.sha256"
+    "${appcast_path}"
+)
 if gh release view "${tag}" --repo "${repository}" >/dev/null 2>&1; then
     gh release upload "${tag}" "${release_files[@]}" \
         --repo "${repository}" \

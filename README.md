@@ -122,9 +122,10 @@ FANBAR_NOTARY_PROFILE=FanBar-notary zsh scripts/release-local.sh
 ```
 
 The local release command requires a clean `main` checkout and performs the
-universal2 build, signing, notarization, DMG verification, checksum, signed
-appcast, Git tag, and GitHub Release upload. Existing releases are preserved by
-default; use `--replace-assets` only for an intentional retry.
+universal2 build plus separate `arm64` and `x86_64` DMGs, signing,
+notarization, DMG verification, checksums, signed appcast, Git tag, and
+GitHub Release upload. Existing releases are preserved by default; use
+`--replace-assets` only for an intentional retry.
 
 The Sparkle private key is stored in the login Keychain under the `FanBar`
 account. Do not regenerate it after the first release because installed clients
