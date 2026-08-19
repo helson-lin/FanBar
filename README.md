@@ -8,11 +8,13 @@ FanBar supports macOS 11 Big Sur and later on Apple Silicon Macs and Intel Macs 
 
 ## Screenshots
 
-The menu-bar screenshot below shows the English interface. FanBar also includes Simplified Chinese and can switch languages from **Settings → Language** without restarting.
+English interface. Switch to Simplified Chinese from **Settings → Language** without restarting.
 
-![FanBar English dark menu-bar popover](docs/screenshots/fanbar-menu-dark-en.jpg)
+![FanBar English menu-bar popover](docs/screenshots/fanbar-menu-light-en.jpg)
 
-![FanBar settings](docs/screenshots/fanbar-settings-dark.jpg)
+Settings opens on the Cooling tab. Each panel preset has its own editable temperature→RPM curve.
+
+![FanBar English cooling curve settings](docs/screenshots/fanbar-settings-light-en.jpg)
 
 ## Highlights
 
@@ -25,6 +27,14 @@ The menu-bar screenshot below shows the English interface. FanBar also includes 
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
 - **English and Simplified Chinese** — Choose System, English, or 简体中文 in FanBar Settings.
+
+## Download
+
+The latest notarized build is on the [GitHub Releases](https://github.com/helson-lin/FanBar/releases/latest) page:
+
+- Apple Silicon → `FanBar-<version>-arm64.dmg`
+- Intel → `FanBar-<version>-x86_64.dmg`
+- Universal (Sparkle updates use this) → `FanBar-<version>.dmg`
 
 ## Requirements
 
@@ -86,7 +96,7 @@ FANBAR_DMG_OUTPUT=dist/FanBar-x86_64.dmg zsh scripts/build-dmg.sh dist/FanBar-x8
 Verify a DMG's signature, architecture, and installation structure with:
 
 ```sh
-zsh scripts/test-dmg.sh dist/FanBar-0.4.1.dmg
+zsh scripts/test-dmg.sh dist/FanBar-0.4.3.dmg
 ```
 
 ## Architecture
@@ -141,8 +151,8 @@ while using the local release command.
 When CI publishing is enabled, push a tag matching the app version:
 
 ```sh
-git tag -a v0.4.1 -m "FanBar 0.4.1"
-git push origin v0.4.1
+git tag -a v0.4.3 -m "FanBar 0.4.3"
+git push origin v0.4.3
 ```
 
 ## Acknowledgements and license
