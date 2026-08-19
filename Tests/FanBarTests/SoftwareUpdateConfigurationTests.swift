@@ -27,4 +27,23 @@ final class SoftwareUpdateConfigurationTests: XCTestCase {
         XCTAssertEqual(plist["SUEnableAutomaticChecks"] as? Bool, true)
         XCTAssertEqual(plist["SUAutomaticallyUpdate"] as? Bool, false)
     }
+
+    func testSparkleLicenseIsIncludedInPackagedResources() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let licenseURL = repositoryRoot.appendingPathComponent(
+            "ThirdParty/Sparkle-LICENSE.txt"
+        )
+        let license = try String(contentsOf: licenseURL, encoding: .utf8)
+        let packagingScript = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("scripts/package-app.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(license.contains("Copyright (c) 2006-2013 Andy Matuschak"))
+        XCTAssertTrue(license.contains("EXTERNAL LICENSES"))
+        XCTAssertTrue(packagingScript.contains("Sparkle-LICENSE.txt"))
+    }
 }

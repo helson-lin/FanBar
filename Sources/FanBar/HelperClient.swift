@@ -58,10 +58,26 @@ final class ReplyGate: @unchecked Sendable {
     }
 }
 
+/// Assigns each cached XPC connection a monotonically increasing identity so
+/// delayed callbacks from an older connection cannot clear its replacement.
+struct HelperConnectionGenerations {
+    private(set) var current: UInt64 = 0
+
+    mutating func issue() -> UInt64 {
+        current &+= 1
+        return current
+    }
+
+    func isCurrent(_ generation: UInt64) -> Bool {
+        generation == current
+    }
+}
+
 /// Typed, reconnecting client for the root launch daemon.
 final class HelperClient: @unchecked Sendable {
     private let lock = NSLock()
     private var connection: NSXPCConnection?
+    private var connectionGenerations = HelperConnectionGenerations()
     private let requestTimeout: TimeInterval
 
     init(requestTimeout: TimeInterval = 3) {
@@ -258,12 +274,13 @@ final class HelperClient: @unchecked Sendable {
             machServiceName: FanBarService.helperBundleID,
             options: .privileged
         )
+        let generation = connectionGenerations.issue()
         newConnection.remoteObjectInterface = NSXPCInterface(with: FanBarHelperProtocol.self)
         newConnection.invalidationHandler = { [weak self] in
-            self?.clearConnection()
+            self?.clearConnection(generation: generation)
         }
         newConnection.interruptionHandler = { [weak self] in
-            self?.clearConnection()
+            self?.clearConnection(generation: generation)
         }
         newConnection.resume()
         connection = newConnection
@@ -271,9 +288,11 @@ final class HelperClient: @unchecked Sendable {
         return newConnection
     }
 
-    private func clearConnection() {
+    private func clearConnection(generation: UInt64) {
         lock.lock()
-        connection = nil
+        if connectionGenerations.isCurrent(generation) {
+            connection = nil
+        }
         lock.unlock()
     }
 

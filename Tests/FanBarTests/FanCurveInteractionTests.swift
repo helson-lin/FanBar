@@ -247,4 +247,97 @@ final class FanCurveInteractionTests: XCTestCase {
         gate.once {}
         wait(for: [timeoutFired], timeout: 0.05)
     }
+
+    /// A delayed invalidation callback belongs to the connection generation
+    /// that installed it and must not clear a later retry connection.
+    func testStaleConnectionGenerationCannotClearReplacement() {
+        var generations = HelperConnectionGenerations()
+        let first = generations.issue()
+        let replacement = generations.issue()
+
+        XCTAssertFalse(generations.isCurrent(first))
+        XCTAssertTrue(generations.isCurrent(replacement))
+    }
+
+    /// A failed hardware activation must leave the visible preset and its
+    /// active curve untouched so the UI never claims a mode the Mac did not enter.
+    @MainActor
+    func testFailedCurveActivationDoesNotCommitPresetSelection() {
+        let controller = FanController(notificationCenter: nil)
+        let originalPreset = controller.curveCoolingPreset
+        let originalProfile = controller.curveProfile
+        let targetPreset = FanCoolingPreset.allCases.first { $0 != originalPreset }!
+
+        controller.completeCurveActivation(
+            preset: targetPreset,
+            profile: targetPreset.factoryCurve,
+            succeeded: false
+        )
+
+        XCTAssertEqual(controller.curveCoolingPreset, originalPreset)
+        XCTAssertEqual(controller.curveProfile, originalProfile)
+    }
+
+    /// Falling hysteresis is an output state, not a one-sample edge. Repeated
+    /// readings at the same cooler temperature must continue holding RPM.
+    func testFallingHysteresisPersistsAcrossEqualTemperatureSamples() {
+        let profile = FanCurveProfile(
+            sensor: .cpu,
+            points: [
+                FanCurvePoint(celsius: 50, fraction: 0.40),
+                FanCurvePoint(celsius: 60, fraction: 0.60),
+                FanCurvePoint(celsius: 70, fraction: 0.80)
+            ],
+            hysteresisCelsius: 2,
+            maxFractionStepPerUpdate: 0.20
+        )
+
+        let firstCoolSample = FanCurveControlTarget.fraction(
+            profile: profile,
+            temperature: 58,
+            previousFraction: 0.60,
+            force: false
+        )
+        let equalCoolSample = FanCurveControlTarget.fraction(
+            profile: profile,
+            temperature: 58,
+            previousFraction: firstCoolSample,
+            force: false
+        )
+
+        XCTAssertEqual(firstCoolSample, 0.60, accuracy: 0.001)
+        XCTAssertEqual(equalCoolSample, 0.60, accuracy: 0.001)
+    }
+
+    func testFallingHysteresisNeverRaisesOutputWhileCooling() {
+        let profile = FanCurveProfile(
+            sensor: .cpu,
+            points: [
+                FanCurvePoint(celsius: 50, fraction: 0.40),
+                FanCurvePoint(celsius: 60, fraction: 0.60),
+                FanCurvePoint(celsius: 70, fraction: 0.80)
+            ],
+            hysteresisCelsius: 2,
+            maxFractionStepPerUpdate: 0.20
+        )
+
+        let target = FanCurveControlTarget.fraction(
+            profile: profile,
+            temperature: 59,
+            previousFraction: 0.60,
+            force: false
+        )
+
+        XCTAssertEqual(target, 0.60, accuracy: 0.001)
+    }
+
+    func testSettingsWindowHeightIsClampedToVisibleScreen() {
+        let contentSize = SettingsWindowSizing.contentSize(
+            fittingSize: NSSize(width: 460, height: 1_200),
+            visibleScreenSize: NSSize(width: 1_440, height: 800)
+        )
+
+        XCTAssertEqual(contentSize.width, 460)
+        XCTAssertLessThanOrEqual(contentSize.height, 720)
+    }
 }

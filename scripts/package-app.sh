@@ -41,6 +41,8 @@ cp "Assets/FanBar.icns" "${bundle_path}/Contents/Resources/FanBar.icns"
 cp "App/local.fanbar.helper.plist" \
     "${bundle_path}/Contents/Library/LaunchDaemons/local.fanbar.helper.plist"
 cp "THIRD_PARTY_NOTICES.md" "${bundle_path}/Contents/Resources/THIRD_PARTY_NOTICES.md"
+cp "ThirdParty/Sparkle-LICENSE.txt" \
+    "${bundle_path}/Contents/Resources/Sparkle-LICENSE.txt"
 
 # The root helper and main app must share a real Developer ID team.
 sign_identity="${FANBAR_SIGN_IDENTITY:-Developer ID Application: JiangLin He (64S5F787T9)}"

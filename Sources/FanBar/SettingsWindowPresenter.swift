@@ -2,6 +2,30 @@ import AppKit
 import FanBarShared
 import SwiftUI
 
+/// Keeps the fitted settings content inside the active screen while preserving
+/// the compact natural height of shorter tabs.
+enum SettingsWindowSizing {
+    static let minimumContentSize = NSSize(width: 460, height: 240)
+    private static let verticalChromeAllowance: CGFloat = 80
+
+    static func contentSize(
+        fittingSize: NSSize,
+        visibleScreenSize: NSSize
+    ) -> NSSize {
+        let maximumHeight = max(
+            minimumContentSize.height,
+            visibleScreenSize.height - verticalChromeAllowance
+        )
+        return NSSize(
+            width: max(minimumContentSize.width, fittingSize.width),
+            height: min(
+                max(minimumContentSize.height, fittingSize.height),
+                maximumHeight
+            )
+        )
+    }
+}
+
 /// Owns the settings window independently from the transient MenuBarExtra popover.
 @MainActor
 final class SettingsWindowPresenter: NSObject {
@@ -39,9 +63,12 @@ final class SettingsWindowPresenter: NSObject {
             // Keep added settings sections visible without coupling the window to a fixed height.
             hostingController.view.layoutSubtreeIfNeeded()
             let fittingSize = hostingController.view.fittingSize
-            window.setContentSize(
-                NSSize(width: max(460, fittingSize.width), height: max(240, fittingSize.height))
-            )
+            window.setContentSize(SettingsWindowSizing.contentSize(
+                fittingSize: fittingSize,
+                visibleScreenSize: activeScreen()?.visibleFrame.size
+                    ?? NSScreen.main?.visibleFrame.size
+                    ?? fittingSize
+            ))
             window.isReleasedWhenClosed = false
             window.isRestorable = false
             windowController = NSWindowController(window: window)
@@ -147,13 +174,18 @@ final class SettingsWindowPresenter: NSObject {
 
         contentView.layoutSubtreeIfNeeded()
         let fittingSize = contentView.fittingSize
+        let visibleScreenSize = window.screen?.visibleFrame.size
+            ?? activeScreen()?.visibleFrame.size
+            ?? NSScreen.main?.visibleFrame.size
+            ?? fittingSize
+        let contentSize = SettingsWindowSizing.contentSize(
+            fittingSize: fittingSize,
+            visibleScreenSize: visibleScreenSize
+        )
         var newFrame = window.frameRect(
             forContentRect: NSRect(
                 origin: .zero,
-                size: NSSize(
-                    width: max(460, fittingSize.width),
-                    height: max(240, fittingSize.height)
-                )
+                size: contentSize
             )
         )
         guard abs(newFrame.height - window.frame.height) > 1
@@ -164,9 +196,7 @@ final class SettingsWindowPresenter: NSObject {
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
-        let pointer = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
-            ?? NSScreen.main
+        let screen = activeScreen() ?? NSScreen.main
         guard let visibleFrame = screen?.visibleFrame else {
             window.center()
             return
@@ -177,6 +207,11 @@ final class SettingsWindowPresenter: NSObject {
             y: visibleFrame.midY - window.frame.height / 2
         )
         window.setFrameOrigin(origin)
+    }
+
+    private func activeScreen() -> NSScreen? {
+        let pointer = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
     }
 }
 

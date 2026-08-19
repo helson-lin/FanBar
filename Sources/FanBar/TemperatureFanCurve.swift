@@ -349,6 +349,37 @@ struct TemperatureFanCurve {
     }
 }
 
+/// Resolves the next hardware target from the curve and the last successfully
+/// applied output. Output-based hysteresis persists across flat samples and
+/// avoids lowering fan speed while the underlying curve is asking to rise.
+enum FanCurveControlTarget {
+    static func fraction(
+        profile: FanCurveProfile,
+        temperature: Double,
+        previousFraction: Float?,
+        force: Bool
+    ) -> Float {
+        let normal = profile.fraction(at: temperature)
+        guard !force, let previousFraction else { return normal }
+
+        let hysteresisAdjusted: Float
+        if normal < previousFraction, profile.hysteresisCelsius > 0 {
+            hysteresisAdjusted = min(
+                profile.fraction(at: temperature + profile.hysteresisCelsius),
+                previousFraction
+            )
+        } else {
+            hysteresisAdjusted = normal
+        }
+
+        let step = profile.maxFractionStepPerUpdate
+        return min(
+            max(hysteresisAdjusted, previousFraction - step),
+            previousFraction + step
+        )
+    }
+}
+
 // MARK: - Preferences (one curve slot per panel cooling preset)
 
 /// Stores a temperature curve for each `FanCoolingPreset` shown in the menu panel.

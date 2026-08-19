@@ -122,8 +122,6 @@ final class FanController: ObservableObject {
     /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
-    /// Last control-temperature sample, used for falling-edge hysteresis.
-    private var lastCurveControlTemperature: Double?
     private var wakeObserver: NSObjectProtocol?
     private var helperMigrationAttempted = false
     private var highTemperatureNotificationRequestID = 0
@@ -412,21 +410,36 @@ final class FanController: ObservableObject {
         enableControl: Bool = false,
         resetsAutomaticRestore: Bool = false
     ) {
-        if preset != curveCoolingPreset {
-            curvePresetSlots[curveCoolingPreset] = curveProfile.sanitized()
-            let target = (curvePresetSlots[preset] ?? preset.factoryCurve).sanitized()
-            curveCoolingPreset = preset
-            curveProfile = target
-            curvePresetSlots[preset] = target
-            FanCurvePreferences.save(slots: curvePresetSlots, selection: preset)
-        }
-
-        if enableControl {
-            enableTemperatureCurve(resetsAutomaticRestore: resetsAutomaticRestore)
+        let targetProfile = curveProfile(for: preset)
+        if enableControl || mode == .temperatureCurve {
+            enableTemperatureCurve(
+                preset: preset,
+                profile: targetProfile,
+                resetsAutomaticRestore: resetsAutomaticRestore
+            )
         } else {
-            // Editing only — still push hardware if already in curve mode.
-            scheduleCurveHardwareApply()
+            completeCurveActivation(
+                preset: preset,
+                profile: targetProfile,
+                succeeded: true
+            )
         }
+    }
+
+    /// Commits a prepared curve selection only after its hardware activation
+    /// succeeds. Kept internal so the transaction boundary remains testable.
+    func completeCurveActivation(
+        preset: FanCoolingPreset,
+        profile: FanCurveProfile,
+        succeeded: Bool
+    ) {
+        guard succeeded, preset != curveCoolingPreset else { return }
+        curvePresetSlots[curveCoolingPreset] = curveProfile.sanitized()
+        let sanitized = profile.sanitized()
+        curveCoolingPreset = preset
+        curveProfile = sanitized
+        curvePresetSlots[preset] = sanitized
+        FanCurvePreferences.save(slots: curvePresetSlots, selection: preset)
     }
 
     /// Restores the factory curve for the active panel preset only.
@@ -557,7 +570,11 @@ final class FanController: ObservableObject {
         }
     }
 
-    private func enableTemperatureCurve(resetsAutomaticRestore: Bool = true) {
+    private func enableTemperatureCurve(
+        preset: FanCoolingPreset,
+        profile: FanCurveProfile,
+        resetsAutomaticRestore: Bool = true
+    ) {
         guard helperState == .enabled, !isBusy else {
             let failure = fanBarText(
                 "请先启用并批准控制服务",
@@ -568,24 +585,25 @@ final class FanController: ObservableObject {
             return
         }
         guard let reading = latestThermalReading(),
-              let temperature = controlTemperature(from: reading) else {
+              let temperature = controlTemperature(from: reading, profile: profile) else {
             let failure = fanBarFormat(
                 "未读取到可用于%@温控的温度来源",
                 "No temperature is available for %@ curve control",
-                curveProfile.sensor.title
+                profile.sensor.title
             )
             message = failure
             failModeAction(failure)
             return
         }
 
-        let fraction = targetCurveFraction(for: temperature, force: true)
+        // Initial activation intentionally skips hysteresis and rate limiting.
+        let fraction = profile.fraction(at: temperature)
         isBusy = true
         if resetsAutomaticRestore { switchFeedback = .began }
         let progress = fanBarFormat(
             "正在切换到%@温控…",
             "Switching to %@ curve…",
-            curveCoolingPreset.title
+            preset.title
         )
         message = progress
         beginModeAction(progress)
@@ -593,10 +611,14 @@ final class FanController: ObservableObject {
             do {
                 await finishPendingCurveUpdate()
                 try await helperClient.setCoolingFraction(fraction)
+                completeCurveActivation(
+                    preset: preset,
+                    profile: profile,
+                    succeeded: true
+                )
                 mode = .temperatureCurve
                 curveTemperatureCelsius = temperature
                 curveOutputFraction = fraction
-                lastCurveControlTemperature = temperature
                 if resetsAutomaticRestore {
                     scheduleAutomaticRestore()
                 }
@@ -611,7 +633,7 @@ final class FanController: ObservableObject {
                 let failure = fanBarFormat(
                     "%@温控开启失败：%@",
                     "Unable to enable %@ curve: %@",
-                    curveCoolingPreset.title,
+                    preset.title,
                     error.localizedDescription
                 )
                 message = failure
@@ -641,7 +663,6 @@ final class FanController: ObservableObject {
 
         let fraction = targetCurveFraction(for: temperature, force: force)
         curveTemperatureCelsius = temperature
-        lastCurveControlTemperature = temperature
         if !force,
            let previous = curveOutputFraction,
            abs(fraction - previous) < curveUpdateDeadband {
@@ -674,29 +695,22 @@ final class FanController: ObservableObject {
         }
     }
 
-    /// Applies falling-edge hysteresis then rate-limits the fraction step.
-    /// `force` skips both (profile edits, enable, wake re-apply).
+    /// Applies persistent falling-edge hysteresis, then rate-limits the step.
+    /// `force` skips both for profile edits and wake re-application.
     private func targetCurveFraction(for temperature: Double, force: Bool) -> Float {
-        let lookupTemperature: Double
-        if force {
-            lookupTemperature = temperature
-        } else if let last = lastCurveControlTemperature,
-                  temperature < last,
-                  curveProfile.hysteresisCelsius > 0 {
-            // Falling edge: evaluate the curve a few degrees hotter so RPM holds longer.
-            lookupTemperature = temperature + curveProfile.hysteresisCelsius
-        } else {
-            lookupTemperature = temperature
-        }
-
-        let raw = curveProfile.fraction(at: lookupTemperature)
-        guard !force, let previous = curveOutputFraction else { return raw }
-        let step = curveProfile.maxFractionStepPerUpdate
-        return min(max(raw, previous - step), previous + step)
+        FanCurveControlTarget.fraction(
+            profile: curveProfile,
+            temperature: temperature,
+            previousFraction: curveOutputFraction,
+            force: force
+        )
     }
 
-    private func controlTemperature(from reading: ThermalReading) -> Double? {
-        switch curveProfile.sensor {
+    private func controlTemperature(
+        from reading: ThermalReading,
+        profile: FanCurveProfile? = nil
+    ) -> Double? {
+        switch (profile ?? curveProfile).sensor {
         case .maxChip:
             return [reading.cpuCelsius, reading.gpuCelsius].compactMap { $0 }.max()
         case .cpu:
@@ -776,7 +790,6 @@ final class FanController: ObservableObject {
         curveTemperatureCelsius = nil
         curveOutputFraction = nil
         curveMissingTemperatureSamples = 0
-        lastCurveControlTemperature = nil
     }
 
     func setAutomaticRestoreDuration(_ duration: AutomaticRestoreDuration) {

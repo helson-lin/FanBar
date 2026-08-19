@@ -58,12 +58,15 @@ struct FanBarSettingsView: View {
     }
 
     var body: some View {
-        Group {
-            switch currentTab {
-            case .menuBar: menuBarTab
-            case .cooling: coolingTab
-            case .general: generalTab
+        ScrollView(.vertical, showsIndicators: true) {
+            Group {
+                switch currentTab {
+                case .menuBar: menuBarTab
+                case .cooling: coolingTab
+                case .general: generalTab
+                }
             }
+            .frame(width: SettingsChrome.contentWidth)
         }
         .frame(width: SettingsChrome.contentWidth)
         .background(Color(NSColor.windowBackgroundColor))

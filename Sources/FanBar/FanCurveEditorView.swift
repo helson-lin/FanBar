@@ -72,6 +72,7 @@ struct FanCurveEditorView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .focusable(false)
                         .font(.system(size: 11))
                         .foregroundColor(.accentColor)
                         .disabled(profile.hasFactoryCurve(for: controller.curveCoolingPreset))
