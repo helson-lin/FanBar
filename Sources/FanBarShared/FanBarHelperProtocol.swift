@@ -4,7 +4,6 @@ public enum FanBarService {
     public static let helperBundleID = "local.fanbar.helper"
     public static let helperPlistName = "\(helperBundleID).plist"
     public static let appBundleID = "local.fanbar.app"
-    public static let teamID = "64S5F787T9"
 }
 
 /// The helper deliberately exposes only bounded fan operations, never arbitrary SMC writes.

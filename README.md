@@ -18,8 +18,9 @@ The menu-bar screenshot below shows the English interface. FanBar also includes 
 
 - **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
 - **Live visualization** — Monitor CPU/GPU temperatures plus SSD and battery temperatures when the Mac exposes them, with a rolling ten-minute chart and airflow motion that follows actual RPM.
-- **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose Silent, Balanced, Performance, or Extreme presets.
-- **Smart cooling** — Smoothly adjust fan output from 35% to 100% based on chip temperature, with a one-click off switch.
+- **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose the Silent, Balanced, Performance, or Extreme panel preset.
+- **Smart temperature curves** — Each panel preset has its own editable curve that smoothly adjusts fan output from chip temperature.
+- **Selectable temperature source** — Use CPU, GPU, or SSD temperature for curve control; unavailable sensors trigger the existing safe fallback.
 - **High-temperature notifications** — Opt in to macOS notifications when CPU or GPU reaches 90°C; each sustained high-temperature episode alerts once and re-arms after cooling down.
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
@@ -38,9 +39,9 @@ The menu-bar screenshot below shows the English interface. FanBar also includes 
 
 1. Launch FanBar and read the current temperature and fan speeds from the menu bar.
 2. To control fans, choose **Enable fan control** and follow the macOS authorization prompt.
-3. Choose a cooling preset, fixed RPM, or Smart cooling from the popover. Use **Automatic** at any time to return control to macOS.
+3. Choose a panel preset or fixed RPM from the popover. Use **Automatic** at any time to return control to macOS.
 
-Fixed RPM, presets, and Smart cooling can restore macOS control after 15 minutes, 30 minutes, or one hour.
+Fixed RPM and panel presets can restore macOS control after 15 minutes, 30 minutes, or one hour.
 
 ### Change the interface language
 
@@ -100,7 +101,43 @@ The helper does not expose arbitrary SMC writes. It only supports reading fans, 
 
 ## Continuous integration and releases
 
-GitHub Actions validates the universal2 build on pushes and pull requests. Pushing a tag that matches the app version (for example `v0.4.1`) creates a GitHub Release.
+FanBar uses Sparkle 2 for online updates. The stable feed is the `appcast.xml`
+asset in the latest GitHub Release. Every update must pass Developer ID,
+notarization, and FanBar's independent EdDSA signature verification.
+
+Store Apple notarization credentials once on the release Mac:
+
+```sh
+xcrun notarytool store-credentials FanBar-notary \
+  --apple-id "your Apple ID" \
+  --team-id "64S5F787T9"
+```
+
+After committing an updated `CFBundleShortVersionString` and increasing
+`CFBundleVersion` on `main`, publish locally with:
+
+```sh
+gh auth login -h github.com
+FANBAR_NOTARY_PROFILE=FanBar-notary zsh scripts/release-local.sh
+```
+
+The local release command requires a clean `main` checkout and performs the
+universal2 build, signing, notarization, DMG verification, checksum, signed
+appcast, Git tag, and GitHub Release upload. Existing releases are preserved by
+default; use `--replace-assets` only for an intentional retry.
+
+The Sparkle private key is stored in the login Keychain under the `FanBar`
+account. Do not regenerate it after the first release because installed clients
+must keep trusting the same public key. CI releases also require the exported
+private key in the `SPARKLE_PRIVATE_KEY` GitHub Actions secret.
+
+GitHub Actions validates universal2 builds on pushes and pull requests. Local
+publishing is the default. To opt into tag-triggered CI publishing, set the
+repository variable `FANBAR_PUBLISH_FROM_CI=true` and configure
+`SPARKLE_PRIVATE_KEY` plus the other release secrets. Do not enable CI publishing
+while using the local release command.
+
+When CI publishing is enabled, push a tag matching the app version:
 
 ```sh
 git tag -a v0.4.1 -m "FanBar 0.4.1"

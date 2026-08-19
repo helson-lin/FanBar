@@ -52,6 +52,10 @@ struct OnboardingCard: View {
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    // AppKit otherwise assigns first focus to this plain-text
+                    // action when the menu opens, producing a blue text ring.
+                    .focusable(false)
+                    .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
@@ -104,6 +108,7 @@ struct OnboardingCard: View {
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .focusable(false)
 
                 Button(fanBarText("打开系统设置", "Open System Settings")) { onOpenHelperSettings() }
                     .buttonStyle(DefaultButtonStyle())
@@ -113,6 +118,7 @@ struct OnboardingCard: View {
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .focusable(false)
 
                 Button(fanBarText("继续并打开设置", "Continue and open Settings")) { onEnableHelper() }
                     .buttonStyle(DefaultButtonStyle())
@@ -179,15 +185,15 @@ struct OnboardingCard: View {
                 )
         case 1:
             fanBarText(
-                "日常使用无需干预。FanBar 启动时交由 macOS 自动管理，只有你主动开启智能温控或选择手动模式才会切换。",
-                "No intervention is needed for everyday use. FanBar starts under macOS automatic management and only switches when you choose smart or manual control."
+                "日常使用无需干预。FanBar 启动时交由 macOS 自动管理，只有你主动选择面板预设曲线或其他手动模式才会切换。",
+                "No intervention is needed for everyday use. FanBar starts under macOS automatic management and only switches when you choose a panel preset curve or another manual mode."
             )
         default:
             switch helperState {
             case .enabled:
                 fanBarText(
-                    "智能温控、散热预设和固定转速现已可用。退出 FanBar 时会自动恢复 macOS 管理。",
-                    "Smart cooling, presets, and fixed RPM are ready. macOS management is restored when FanBar quits."
+                    "面板预设曲线和固定转速现已可用。退出 FanBar 时会自动恢复 macOS 管理。",
+                    "Panel preset curves and fixed RPM are ready. macOS management is restored when FanBar quits."
                 )
             case .requiresApproval:
                 fanBarText(
@@ -196,8 +202,8 @@ struct OnboardingCard: View {
                 )
             case .notRegistered:
                 fanBarText(
-                    "实时监测无需权限。智能温控和手动模式需要签名控制服务；它只接受 FanBar 的受限请求。",
-                    "Live monitoring needs no permission. Smart and manual control use a signed service that accepts only limited FanBar requests."
+                    "实时监测无需权限。面板预设曲线和手动模式需要签名控制服务；它只接受 FanBar 的受限请求。",
+                    "Live monitoring needs no permission. Panel preset curves and manual modes use a signed service that accepts only limited FanBar requests."
                 )
             case .unavailable:
                 fanBarText(

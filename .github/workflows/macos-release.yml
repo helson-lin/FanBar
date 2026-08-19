@@ -63,7 +63,9 @@ jobs:
 
   release:
     name: Sign, notarize, and publish
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Local publishing is the default. Set this repository variable to true
+    # only when GitHub Actions should own publication for tag pushes.
+    if: startsWith(github.ref, 'refs/tags/v') && vars.FANBAR_PUBLISH_FROM_CI == 'true'
     needs: build
     runs-on: macos-15
     permissions:
@@ -74,6 +76,7 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out source
@@ -87,7 +90,7 @@ jobs:
         run: |
           for variable_name in \
             MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD \
-            APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID
+            APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID SPARKLE_PRIVATE_KEY
           do
             test -n "${(P)variable_name}" || {
               print -u2 "Missing GitHub Actions secret: ${variable_name}"
@@ -148,6 +151,23 @@ jobs:
           dmg_name="$(basename "${dmg_path[1]}")"
           (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
 
+      - name: Generate signed Sparkle appcast
+        run: |
+          updates_dir="${RUNNER_TEMP}/fanbar-updates"
+          mkdir -p "${updates_dir}"
+          dmg_path=(dist/FanBar-*.dmg)
+          cp "${dmg_path[1]}" "${updates_dir}/"
+          print -n "${SPARKLE_PRIVATE_KEY}" | \
+            .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+              --ed-key-file - \
+              --download-url-prefix \
+                "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+              --link "https://github.com/${GITHUB_REPOSITORY}" \
+              --maximum-deltas 0 \
+              "${updates_dir}"
+          cp "${updates_dir}/appcast.xml" dist/appcast.xml
+          grep -q 'sparkle:edSignature=' dist/appcast.xml
+
       - name: Upload signed artifact
         uses: actions/upload-artifact@v4
         with:
@@ -155,11 +175,12 @@ jobs:
           path: |
             dist/FanBar-*.dmg
             dist/FanBar-*.dmg.sha256
+            dist/appcast.xml
           if-no-files-found: error
 
       - name: Publish GitHub Release
         run: |
-          release_files=(dist/FanBar-*.dmg dist/FanBar-*.dmg.sha256)
+          release_files=(dist/FanBar-*.dmg dist/FanBar-*.dmg.sha256 dist/appcast.xml)
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" "${release_files[@]}" --clobber
           else

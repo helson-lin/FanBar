@@ -22,17 +22,16 @@ struct FanMenu: View {
         return false
     }
 
-    private var isPreset: Bool {
-        if case .preset = controller.mode { return true }
+    private var isCurveMode: Bool {
+        if case .temperatureCurve = controller.mode { return true }
         return false
     }
 
     private var modeLabel: String {
         switch controller.mode {
         case .automatic: fanBarText("系统", "Automatic")
-        case .temperatureCurve: fanBarText("智能温控", "Smart cooling")
+        case .temperatureCurve: controller.curveCoolingPreset.title
         case .fixed(let rpm): "\(rpm) RPM"
-        case .preset(let preset): "\(preset.title) \(preset.percentageText)"
         }
     }
 
@@ -66,8 +65,11 @@ struct FanMenu: View {
                 unavailableState
             }
 
-            if controller.helperState != .enabled {
+            // The onboarding's final step explains authorization. Once the
+            // guide is dismissed, keep an equally direct status entry visible.
+            if hasCompletedOnboarding && controller.helperState != .enabled {
                 helperNotice
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             launchAtLoginRow
@@ -157,9 +159,35 @@ struct FanMenu: View {
 
     private var modeControl: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(fanBarText("控制模式", "Control mode"))
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.secondary)
+            HStack(spacing: 8) {
+                Text(fanBarText("控制模式", "Control mode"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                Spacer(minLength: 8)
+            }
+            .frame(height: 16)
+            // An overlay is excluded from fitting-size calculation, keeping
+            // the popover frame pixel-stable while a mode request is in flight.
+            .overlay(
+                Group {
+                    if let feedback = controller.modeActionFeedback,
+                       feedback.kind == .inProgress {
+                        HStack(spacing: 5) {
+                            ProgressView()
+                                .scaleEffect(0.55)
+                                .frame(width: 12, height: 12)
+                            Text(feedback.message)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                },
+                alignment: .trailing
+            )
+            .accessibilityElement(children: .combine)
 
             HStack(spacing: 6) {
                 Button {
@@ -176,42 +204,30 @@ struct FanMenu: View {
                 .buttonStyle(.plain)
                 .focusable(false)
 
-                Button {
-                    if controller.mode != .temperatureCurve {
-                        controller.setTemperatureCurveEnabled(true)
+                ForEach(visibleCoolingPresets) { preset in
+                    Button {
+                        controller.setCoolingPreset(preset)
+                    } label: {
+                        modeButtonLabel(
+                            title: preset.title,
+                            systemImage: preset.systemImage,
+                            selected: controller.mode == .temperatureCurve
+                                && controller.curveCoolingPreset == preset
+                        )
                     }
-                } label: {
-                    modeButtonLabel(
-                        title: fanBarText("智能", "Smart"),
-                        systemImage: "thermometer.variable",
-                        selected: controller.mode == .temperatureCurve
-                    )
+                    .buttonStyle(.plain)
+                    // Match the adjacent Automatic and Fixed controls: mouse
+                    // activation must not leave an AppKit focus ring over the
+                    // custom selected-state capsule.
+                    .focusable(false)
+                    .help(fanBarFormat(
+                        "切换到 %@ 面板预设",
+                        "Switch to the %@ panel preset",
+                        preset.title
+                    ))
                 }
-                .buttonStyle(.plain)
-                .focusable(false)
-                .help(fanBarText("按芯片温度动态调整风扇转速", "Adjust fan speed from chip temperature"))
 
                 Menu {
-                    Section(header: Text(fanBarText("散热预设", "Cooling presets"))) {
-                        ForEach(visibleCoolingPresets) { preset in
-                            Button {
-                                controller.setCoolingPreset(preset)
-                            } label: {
-                                if controller.mode == .preset(preset) {
-                                    Label(
-                                        "\(preset.title) · \(preset.percentageText)",
-                                        systemImage: "checkmark"
-                                    )
-                                } else {
-                                    Label(
-                                        "\(preset.title) · \(preset.percentageText)",
-                                        systemImage: preset.systemImage
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     Section(header: Text(fanBarText("固定转速", "Fixed RPM"))) {
                         ForEach([2500, 3500, 4500, 5500], id: \.self) { rpm in
                             Button {
@@ -227,23 +243,36 @@ struct FanMenu: View {
                     }
                 } label: {
                     modeButtonLabel(
-                        title: fanBarText("手动", "Manual"),
+                        title: fanBarText("固定", "Fixed"),
                         systemImage: "slider.horizontal.3",
-                        selected: isFixed || isPreset,
+                        selected: isFixed,
                         showsChevron: true
                     )
                 }
                 .menuStyle(.borderlessButton)
                 .focusable(false)
                 .frame(maxWidth: .infinity)
-                .accessibilityLabel(fanBarText("选择手动散热模式", "Choose a manual cooling mode"))
-                .help(fanBarText("选择散热预设或固定转速", "Choose a cooling preset or fixed RPM"))
+                .accessibilityLabel(fanBarText("选择固定转速", "Choose a fixed RPM"))
+                .help(fanBarText(
+                    "选择固定转速",
+                    "Choose a fixed RPM"
+                ))
             }
             .disabled(controller.isBusy || controller.helperState != .enabled)
             .padding(4)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.primary.opacity(0.055))
+            )
+            // Failure replaces the control strip visually but remains outside
+            // layout, so success and failure paths share the same popover size.
+            .overlay(
+                Group {
+                    if let feedback = controller.modeActionFeedback,
+                       feedback.kind == .failure {
+                        modeActionFeedbackBanner(feedback)
+                    }
+                }
             )
 
             if isManual {
@@ -252,9 +281,84 @@ struct FanMenu: View {
         }
     }
 
+    private func modeActionFeedbackBanner(
+        _ feedback: FanController.ModeActionFeedback
+    ) -> some View {
+        let isFailure = feedback.kind == .failure
+        let tint = isFailure ? Color.red : Color.accentColor
+
+        return HStack(alignment: .top, spacing: 9) {
+            Group {
+                if isFailure {
+                    Image(systemName: "exclamationmark.circle.fill")
+                } else {
+                    ProgressView()
+                        .scaleEffect(0.65)
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(tint)
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+
+            Text(feedback.message)
+                .font(.caption)
+                .foregroundColor(isFailure ? .primary : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isFailure {
+                if feedback.offersHelperSettings {
+                    Button(fanBarText("打开系统设置", "Open System Settings")) {
+                        controller.openHelperSettings()
+                    }
+                    .buttonStyle(.plain)
+                    .focusable(false)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Color.accentColor)
+                    .fixedSize()
+                    .accessibilityHint(fanBarText(
+                        "前往“登录项与扩展”批准控制服务",
+                        "Approve the control service in Login Items & Extensions"
+                    ))
+                }
+
+                Button {
+                    controller.clearModeActionFeedback()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .focusable(false)
+                .foregroundColor(.secondary)
+                .accessibilityLabel(fanBarText("关闭错误提示", "Dismiss error"))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(tint.opacity(isFailure ? 0.09 : 0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(isFailure ? 0.22 : 0.12), lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            isFailure
+                ? fanBarText("控制模式切换失败", "Control mode switch failed")
+                : fanBarText("正在切换控制模式", "Switching control mode")
+        )
+        .accessibilityValue(feedback.message)
+    }
+
     private var automaticRestoreRow: some View {
         HStack(spacing: 8) {
-            Image(systemName: controller.mode == .temperatureCurve
+            Image(systemName: isCurveMode
                 ? "thermometer.variable"
                 : "checkmark.shield")
                 .font(.system(size: 11, weight: .semibold))
@@ -316,8 +420,9 @@ struct FanMenu: View {
            let temperature = controller.curveTemperatureCelsius,
            let fraction = controller.curveOutputFraction {
             return fanBarFormat(
-                "%.0f°C → %.0f%%",
-                "%.0f°C → %.0f%%",
+                "%@ · %.0f°C → %.0f%%",
+                "%@ · %.0f°C → %.0f%%",
+                controller.curveCoolingPreset.title,
                 temperature,
                 fraction * 100
             )
@@ -484,12 +589,26 @@ struct FanMenu: View {
             Spacer(minLength: 8)
 
             if controller.helperState == .requiresApproval {
-                helperActionButton(fanBarText("继续", "Continue"), action: presentHelperAuthorizationGuide)
+                helperActionButton(
+                    fanBarText("打开系统设置", "Open System Settings"),
+                    action: controller.openHelperSettings
+                )
             } else if controller.helperState == .notRegistered {
-                helperActionButton(fanBarText("了解", "Learn more"), action: presentHelperAuthorizationGuide)
+                helperActionButton(
+                    fanBarText("启用", "Enable"),
+                    action: controller.enableHelper
+                )
             }
         }
-        .padding(.vertical, 3)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(helperNoticeTint.opacity(0.065))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(helperNoticeTint.opacity(0.14), lineWidth: 1)
+        )
         .accessibilityElement(children: .contain)
     }
 
@@ -507,6 +626,9 @@ struct FanMenu: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        // This custom capsule communicates selection on press; suppress the
+        // persistent AppKit focus ring that otherwise survives mouse clicks.
+        .focusable(false)
         .foregroundColor(Color.accentColor)
     }
 
@@ -526,7 +648,7 @@ struct FanMenu: View {
     private var helperNoticeTitle: String {
         switch controller.helperState {
         case .requiresApproval: fanBarText("批准控制服务", "Approve control service")
-        case .notRegistered: fanBarText("启用固定转速", "Enable fan control")
+        case .notRegistered: fanBarText("控制服务未启用", "Control service is off")
         case .unavailable: fanBarText("控制服务不可用", "Control service unavailable")
         case .enabled: fanBarText("控制服务已启用", "Control service enabled")
         }
@@ -535,7 +657,10 @@ struct FanMenu: View {
     private var helperNoticeDetail: String {
         switch controller.helperState {
         case .requiresApproval: fanBarText("在“登录项与扩展”中允许 FanBar", "Allow FanBar in Login Items & Extensions")
-        case .notRegistered: fanBarText("实时监测无需权限", "Live monitoring does not need permission")
+        case .notRegistered: fanBarText(
+            "启用后可使用温控预设和手动控制",
+            "Enable it for cooling presets and manual control"
+        )
         case .unavailable: fanBarText("请重新安装已签名的 FanBar", "Reinstall the signed FanBar app")
         case .enabled: fanBarText("仅接受同一开发者签名的请求", "Only requests signed by the same developer are accepted")
         }
@@ -582,14 +707,6 @@ struct FanMenu: View {
     private func completeOnboarding() {
         withAnimation(onboardingAnimation) {
             hasCompletedOnboarding = true
-        }
-    }
-
-    /// Every permission entry point starts with context before leaving FanBar.
-    private func presentHelperAuthorizationGuide() {
-        withAnimation(onboardingAnimation) {
-            onboardingStep = 2
-            hasCompletedOnboarding = false
         }
     }
 

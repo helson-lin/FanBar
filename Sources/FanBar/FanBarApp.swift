@@ -31,6 +31,9 @@ struct FanBarApp: App {
         if CommandLine.arguments.contains("--temperature-curve-smoke-test") {
             Self.runTemperatureCurveSmokeTestAndExit()
         }
+        // Keep Sparkle alive for the full LSUIElement app lifetime. Diagnostic
+        // command-line modes exit above and never start network update checks.
+        _ = SoftwareUpdateController.shared
         let controller = FanController()
         _controller = StateObject(wrappedValue: controller)
         LegacyStatusItemController.shared.install(controller: controller)
@@ -48,8 +51,8 @@ struct FanBarApp: App {
         }
     }
 
-    /// Renders the settings view to PNG files (light and dark) so layout
-    /// changes can be verified without screen-recording permission. Schedules
+    /// Renders the full settings window to PNG files (light and dark) so title-
+    /// bar navigation and content can be verified without screen-recording permission. Schedules
     /// the capture and lets the app finish launching normally — parking the
     /// main thread in dispatchMain() would drain the main queue on a worker
     /// thread, where AppKit window work crashes.
@@ -57,7 +60,8 @@ struct FanBarApp: App {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             let window = SettingsWindowPresenter.shared.show(controller: controller)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                guard let contentView = window.contentView else {
+                guard let contentView = window.contentView,
+                      let snapshotView = contentView.superview else {
                     print("settings-render-test=no-content-view")
                     exit(EXIT_FAILURE)
                 }
@@ -67,11 +71,11 @@ struct FanBarApp: App {
                 ]
                 for (name, appearance) in appearances {
                     window.appearance = appearance
-                    contentView.layoutSubtreeIfNeeded()
-                    guard let bitmap = contentView.bitmapImageRepForCachingDisplay(
-                        in: contentView.bounds
+                    snapshotView.layoutSubtreeIfNeeded()
+                    guard let bitmap = snapshotView.bitmapImageRepForCachingDisplay(
+                        in: snapshotView.bounds
                     ) else { continue }
-                    contentView.cacheDisplay(in: contentView.bounds, to: bitmap)
+                    snapshotView.cacheDisplay(in: snapshotView.bounds, to: bitmap)
                     guard let data = bitmap.representation(using: .png, properties: [:])
                     else { continue }
                     do {
@@ -257,12 +261,54 @@ struct FanBarApp: App {
     /// Exercises interpolation plus the complete curve enable/disable controller path.
     private static func runTemperatureCurveSmokeTestAndExit() -> Never {
         Task { @MainActor in
-            let curve = TemperatureFanCurve.standard
-            let checks: [(Double, Float)] = [
-                (40, 0.35), (52.5, 0.425), (60, 0.50), (75, 0.75), (90, 1.00)
-            ]
-            guard checks.allSatisfy({ abs(curve.fraction(at: $0.0) - $0.1) < 0.001 }) else {
+            let curve = FanCoolingPreset.balanced.factoryCurve
+            // Idle through the first knee, then a smooth rise that still hits later anchors.
+            guard abs(curve.fraction(at: 40) - 0) < 0.001,
+                  abs(curve.fraction(at: 41) - 0) < 0.001,
+                  abs(curve.fraction(at: 50) - 0.30) < 0.02,
+                  curve.fraction(at: 41) <= curve.fraction(at: 55),
+                  curve.fraction(at: 55) <= curve.fraction(at: 80) else {
                 print("temperature-curve-test=interpolation-failed")
+                print(String(format: "f40=%.3f f50=%.3f f88=%.3f", curve.fraction(at: 40), curve.fraction(at: 50), curve.fraction(at: 88)))
+                exit(EXIT_FAILURE)
+            }
+
+            // Sanitization must preserve a usable curve, allow 0%, and
+            // never wipe user points back to the built-in default.
+            let invalid = FanCurveProfile(
+                sensor: .cpu,
+                points: [
+                    FanCurvePoint(celsius: 90, fraction: -0.10),
+                    FanCurvePoint(celsius: 90, fraction: 0.20)
+                ],
+                hysteresisCelsius: 9,
+                maxFractionStepPerUpdate: 0.5
+            )
+            let sanitized = invalid.sanitized()
+            let factoryCelsius = FanCoolingPreset.balanced.factoryCurve.points.map(\.celsius)
+            guard sanitized.points.count >= FanCurveProfile.minimumPointCount,
+                  sanitized.points.allSatisfy({
+                      $0.fraction >= FanCurveProfile.minimumFraction
+                          && $0.fraction <= FanCurveProfile.maximumFraction
+                  }),
+                  sanitized.points.map(\.celsius) != factoryCelsius,
+                  zip(sanitized.points, sanitized.points.dropFirst()).allSatisfy({
+                      $0.celsius < $1.celsius
+                  }),
+                  sanitized.hysteresisCelsius == FanCurveProfile.maximumHysteresisCelsius,
+                  abs(sanitized.maxFractionStepPerUpdate - FanCurveProfile.maximumFractionStep) < 0.001 else {
+                print("temperature-curve-test=sanitize-failed")
+                exit(EXIT_FAILURE)
+            }
+
+            // Legacy profile JSON without smoothing keys must still decode.
+            let legacyJSON = """
+            {"sensor":"maxChip","points":[{"id":"00000000-0000-0000-0000-000000000001","celsius":45,"fraction":0.35},{"id":"00000000-0000-0000-0000-000000000002","celsius":85,"fraction":1.0}]}
+            """.data(using: .utf8)!
+            guard let legacy = try? JSONDecoder().decode(FanCurveProfile.self, from: legacyJSON),
+                  abs(legacy.hysteresisCelsius - FanCurveProfile.defaultHysteresisCelsius) < 0.01,
+                  abs(legacy.maxFractionStepPerUpdate - FanCurveProfile.defaultFractionStep) < 0.001 else {
+                print("temperature-curve-test=legacy-decode-failed")
                 exit(EXIT_FAILURE)
             }
 
@@ -272,10 +318,13 @@ struct FanBarApp: App {
             while controller.isBusy, Date() < enableDeadline {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
+            let hasExpectedRestoreState = controller.automaticRestoreDuration == .never
+                ? controller.automaticRestoreDeadline == nil
+                : controller.automaticRestoreDeadline != nil
             guard controller.mode == .temperatureCurve,
                   let temperature = controller.curveTemperatureCelsius,
                   let fraction = controller.curveOutputFraction,
-                  controller.automaticRestoreDeadline != nil else {
+                  hasExpectedRestoreState else {
                 try? await HelperClient().restoreAutomatic()
                 print("temperature-curve-test=enable-failed")
                 print("message=\(controller.message)")

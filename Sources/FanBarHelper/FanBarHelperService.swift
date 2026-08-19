@@ -116,8 +116,9 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     ) {
         hardwareQueue.async {
             // Keep the root API bounded even if a compromised client sends malformed input.
-            guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
-                reply(false, fanBarText("散热比例必须在 30% 到 100% 之间", "Cooling fraction must be between 30% and 100%"))
+            // 0% is allowed so smart cooling can idle below the low-temp knee.
+            guard fraction.isFinite, (0...1.00).contains(fraction) else {
+                reply(false, fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%"))
                 return
             }
             do {
@@ -162,22 +163,48 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         return newDriver
     }
 
-    /// Limit this root service to the signed FanBar application from the same team.
+    /// Limit this root service to the signed FanBar application from the same
+    /// team as the helper itself. Deriving the team from our own signature
+    /// keeps Development and Developer ID builds aligned without weakening the
+    /// requirement for unsigned/ad-hoc clients, which have no team identifier.
     private static func isAuthorizedClient(_ connection: NSXPCConnection) -> Bool {
         let attributes = [kSecGuestAttributePid: NSNumber(value: connection.processIdentifier)]
             as CFDictionary
         var code: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
-              let code
+              let code,
+              let teamID = ownTeamIdentifier()
         else { return false }
 
         let text =
             "anchor apple generic and identifier \"\(FanBarService.appBundleID)\" " +
-            "and certificate leaf[subject.OU] = \"\(FanBarService.teamID)\""
+            "and certificate leaf[subject.OU] = \"\(teamID)\""
         var requirement: SecRequirement?
         guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess,
               let requirement
         else { return false }
         return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
+    private static func ownTeamIdentifier() -> String? {
+        var ownCode: SecCode?
+        guard SecCodeCopySelf([], &ownCode) == errSecSuccess,
+              let ownCode
+        else { return nil }
+
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(ownCode, [], &staticCode) == errSecSuccess,
+              let staticCode
+        else { return nil }
+
+        var signingInformation: CFDictionary?
+        guard SecCodeCopySigningInformation(
+            staticCode,
+            SecCSFlags(rawValue: kSecCSSigningInformation),
+            &signingInformation
+        ) == errSecSuccess,
+            let information = signingInformation as? [CFString: Any]
+        else { return nil }
+        return information[kSecCodeInfoTeamIdentifier] as? String
     }
 }

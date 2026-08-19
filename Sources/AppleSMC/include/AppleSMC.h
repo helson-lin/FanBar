@@ -15,4 +15,11 @@ void fanbar_smc_close(void);
 int fanbar_smc_read(uint32_t key, FanBarSMCValue *value);
 int fanbar_smc_write(uint32_t key, const FanBarSMCValue *value);
 
+// Returns the average temperature of Apple Silicon NAND channels exposed as
+// Apple-vendor HID temperature sensors. Intel builds report unavailable.
+int fanbar_embedded_nvme_temperature(double *temperature);
+
+// Returns the standard NVMe SMART temperature in Celsius when available.
+int fanbar_nvme_temperature(double *temperature);
+
 #endif

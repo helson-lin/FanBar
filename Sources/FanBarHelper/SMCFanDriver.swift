@@ -88,13 +88,17 @@ final class SMCFanDriver {
     }
 
     func setCoolingFraction(_ fraction: Float) throws {
-        guard fraction.isFinite, (0.30...1.00).contains(fraction) else {
+        // 0% is intentional idle (smart-cooling low-temp segment); still hard-capped at 100%.
+        guard fraction.isFinite, (0...1.00).contains(fraction) else {
             throw FanHardwareError.invalidValue(fanBarText("散热比例", "cooling fraction"))
         }
         let snapshot = try fans()
         try setFans(snapshot) { fan in
-            // Each fan has its own maximum; round to a stable whole-RPM target.
-            min(
+            // Explicit idle: target 0 RPM. Non-zero fractions stay inside hardware Mn/Mx.
+            if fraction <= 0 {
+                return 0
+            }
+            return min(
                 max((fan.maximum * fraction).rounded(), fan.minimum),
                 fan.maximum
             )

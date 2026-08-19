@@ -33,10 +33,14 @@ hdiutil create \
     "${output_path}"
 
 dmg_identity="${FANBAR_DMG_SIGN_IDENTITY:-${FANBAR_SIGN_IDENTITY:-Developer ID Application: JiangLin He (64S5F787T9)}}"
-if [[ "${dmg_identity}" != "-" ]]; then
+if [[ "${dmg_identity}" == "-" ]]; then
+    # Local packages still need an ad-hoc container signature because the
+    # repository's DMG gate verifies both the image and the nested app.
+    codesign --force --sign - "${output_path}"
+else
     codesign --force --timestamp --sign "${dmg_identity}" "${output_path}"
-    codesign --verify --verbose=2 "${output_path}"
 fi
+codesign --verify --verbose=2 "${output_path}"
 
 hdiutil verify "${output_path}"
 print "Built ${output_path}"
