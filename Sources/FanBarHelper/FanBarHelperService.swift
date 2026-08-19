@@ -163,22 +163,48 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         return newDriver
     }
 
-    /// Limit this root service to the signed FanBar application from the same team.
+    /// Limit this root service to the signed FanBar application from the same
+    /// team as the helper itself. Deriving the team from our own signature
+    /// keeps Development and Developer ID builds aligned without weakening the
+    /// requirement for unsigned/ad-hoc clients, which have no team identifier.
     private static func isAuthorizedClient(_ connection: NSXPCConnection) -> Bool {
         let attributes = [kSecGuestAttributePid: NSNumber(value: connection.processIdentifier)]
             as CFDictionary
         var code: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
-              let code
+              let code,
+              let teamID = ownTeamIdentifier()
         else { return false }
 
         let text =
             "anchor apple generic and identifier \"\(FanBarService.appBundleID)\" " +
-            "and certificate leaf[subject.OU] = \"\(FanBarService.teamID)\""
+            "and certificate leaf[subject.OU] = \"\(teamID)\""
         var requirement: SecRequirement?
         guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess,
               let requirement
         else { return false }
         return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
+    private static func ownTeamIdentifier() -> String? {
+        var ownCode: SecCode?
+        guard SecCodeCopySelf([], &ownCode) == errSecSuccess,
+              let ownCode
+        else { return nil }
+
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(ownCode, [], &staticCode) == errSecSuccess,
+              let staticCode
+        else { return nil }
+
+        var signingInformation: CFDictionary?
+        guard SecCodeCopySigningInformation(
+            staticCode,
+            SecCSFlags(rawValue: kSecCSSigningInformation),
+            &signingInformation
+        ) == errSecSuccess,
+            let information = signingInformation as? [CFString: Any]
+        else { return nil }
+        return information[kSecCodeInfoTeamIdentifier] as? String
     }
 }

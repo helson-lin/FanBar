@@ -3,12 +3,12 @@ import FanBarShared
 import SwiftUI
 
 /// Settings panes. The selection persists so the window reopens where the
-/// user left off. Tabs are presented by the window toolbar (the macOS
-/// settings convention); the view only swaps content.
+/// user left off. The native icon navigation is installed by the window
+/// presenter so content can use the full height below the title bar.
 enum SettingsTab: String, CaseIterable, Identifiable {
+    case menuBar
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
-    case menuBar
     case general
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -60,15 +60,20 @@ struct FanBarSettingsView: View {
     var body: some View {
         Group {
             switch currentTab {
-            case .cooling: coolingTab
             case .menuBar: menuBarTab
+            case .cooling: coolingTab
             case .general: generalTab
             }
         }
         .frame(width: SettingsChrome.contentWidth)
+        .background(Color(NSColor.windowBackgroundColor))
+        // Invisible commands preserve fast keyboard navigation while the
+        // visible controls live in AppKit's title-bar toolbar.
+        .background(SettingsTabKeyboardShortcuts(selection: $selectedTabRawValue))
+        .onChange(of: selectedTabRawValue) { _ in
+            SettingsWindowPresenter.shared.resizeToFitContentSoon()
+        }
     }
-
-    // MARK: - Tabs
 
     private var coolingTab: some View {
         VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
@@ -93,6 +98,7 @@ struct FanBarSettingsView: View {
         VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
             notificationsSection
             languageSection
+            softwareUpdateSection
             freeSoftwareNotice
                 .frame(maxWidth: .infinity)
                 .padding(.top, 4)
@@ -159,25 +165,26 @@ struct FanBarSettingsView: View {
 
     private var panelPresetSection: some View {
         SettingsSection(
-            title: fanBarText("面板显示", "Panel visibility"),
+            title: fanBarText("主面板预设", "Main panel presets"),
             trailing: "\(visibleCoolingPresets.count) / 2",
             footer: fanBarText(
-                "勾选最多两个温控预设显示在主面板。曲线在上方编辑；菜单里选中后按该预设曲线调速。",
-                "Show up to two curve presets on the main panel. Edit curves above; choosing one in the menu runs that temperature curve."
+                "这里只决定主面板显示哪些快捷预设；不会删除上方已编辑的曲线。",
+                "This only chooses shortcuts shown on the main panel; it does not remove edited curves above."
             )
         ) {
             ForEach(Array(FanCoolingPreset.allCases.enumerated()), id: \.element.id) { index, preset in
                 if index > 0 { SettingsChrome.rowDivider }
 
+                let selectionIsBlocked = !visibleCoolingPresets.contains(preset)
+                    && visibleCoolingPresets.count >= 2
                 HStack(spacing: 10) {
                     Toggle(isOn: presetSelectionBinding(for: preset)) {
                         Label(preset.title, systemImage: preset.systemImage)
                     }
                     .toggleStyle(.checkbox)
-                    .disabled(
-                        !visibleCoolingPresets.contains(preset)
-                            && visibleCoolingPresets.count >= 2
-                    )
+                    .disabled(selectionIsBlocked)
+                    .help(selectionIsBlocked ? presetLimitMessage : "")
+                    .accessibilityHint(selectionIsBlocked ? presetLimitMessage : "")
 
                     Spacer(minLength: 8)
 
@@ -188,7 +195,23 @@ struct FanBarSettingsView: View {
                 .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
                 .padding(.vertical, 8)
             }
+
+            if visibleCoolingPresets.count >= 2 {
+                SettingsChrome.rowDivider
+                Label(presetLimitMessage, systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                    .padding(.vertical, 8)
+            }
         }
+    }
+
+    private var presetLimitMessage: String {
+        fanBarText(
+            "已达到两个上限；先取消一项即可选择其他预设。",
+            "Two presets are already shown; deselect one to choose another."
+        )
     }
 
     // MARK: - General
@@ -241,6 +264,38 @@ struct FanBarSettingsView: View {
                 }
                 .labelsHidden()
                 .fixedSize()
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+        }
+    }
+
+    private var softwareUpdateSection: some View {
+        let updater = SoftwareUpdateController.shared
+        return SettingsSection(
+            title: fanBarText("软件更新", "Software Update"),
+            trailing: updater.currentVersion
+        ) {
+            Toggle(
+                isOn: Binding(
+                    get: { updater.automaticallyChecksForUpdates },
+                    set: { updater.setAutomaticallyChecksForUpdates($0) }
+                )
+            ) {
+                Text(fanBarText("自动检查更新", "Automatically check for updates"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .toggleStyle(.switch)
+            .padding(SettingsChrome.rowHorizontalPadding)
+
+            SettingsChrome.rowDivider
+
+            HStack {
+                Text(fanBarText("获取最新版本", "Get the latest version"))
+                Spacer(minLength: 12)
+                Button(fanBarText("检查更新…", "Check for Updates…")) {
+                    updater.checkForUpdates()
+                }
             }
             .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
             .padding(.vertical, SettingsChrome.rowVerticalPadding)

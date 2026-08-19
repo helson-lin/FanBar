@@ -105,6 +105,7 @@ struct TemperatureChart: View {
             } else {
                 TemperaturePlot(
                     samples: chartSamples,
+                    series: visibleSeries,
                     yDomain: yDomain,
                     timeRange: timeRange
                 )
@@ -140,7 +141,7 @@ private enum TemperatureSeries: String, CaseIterable, Identifiable {
         switch self {
         case .cpu: "CPU"
         case .gpu: "GPU"
-        case .ssd: fanBarText("SSD", "SSD")
+        case .ssd: fanBarText("硬盘（SSD）", "SSD")
         case .battery: fanBarText("电池", "Battery")
         }
     }
@@ -171,6 +172,7 @@ private enum TemperatureSeries: String, CaseIterable, Identifiable {
 
 private struct TemperaturePlot: View {
     let samples: [ThermalReading]
+    let series: [TemperatureSeries]
     let yDomain: ClosedRange<Double>
     let timeRange: ClosedRange<Date>
 
@@ -218,7 +220,7 @@ private struct TemperaturePlot: View {
                         .position(x: (leftInset - 5) / 2, y: y)
                 }
 
-                ForEach(TemperatureSeries.allCases) { series in
+                ForEach(series) { series in
                     curvePath(
                         values: samples.map { $0[keyPath: series.keyPath] },
                         in: plotRect

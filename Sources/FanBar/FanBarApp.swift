@@ -31,6 +31,9 @@ struct FanBarApp: App {
         if CommandLine.arguments.contains("--temperature-curve-smoke-test") {
             Self.runTemperatureCurveSmokeTestAndExit()
         }
+        // Keep Sparkle alive for the full LSUIElement app lifetime. Diagnostic
+        // command-line modes exit above and never start network update checks.
+        _ = SoftwareUpdateController.shared
         let controller = FanController()
         _controller = StateObject(wrappedValue: controller)
         LegacyStatusItemController.shared.install(controller: controller)
@@ -48,8 +51,8 @@ struct FanBarApp: App {
         }
     }
 
-    /// Renders the settings view to PNG files (light and dark) so layout
-    /// changes can be verified without screen-recording permission. Schedules
+    /// Renders the full settings window to PNG files (light and dark) so title-
+    /// bar navigation and content can be verified without screen-recording permission. Schedules
     /// the capture and lets the app finish launching normally — parking the
     /// main thread in dispatchMain() would drain the main queue on a worker
     /// thread, where AppKit window work crashes.
@@ -57,7 +60,8 @@ struct FanBarApp: App {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             let window = SettingsWindowPresenter.shared.show(controller: controller)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                guard let contentView = window.contentView else {
+                guard let contentView = window.contentView,
+                      let snapshotView = contentView.superview else {
                     print("settings-render-test=no-content-view")
                     exit(EXIT_FAILURE)
                 }
@@ -67,11 +71,11 @@ struct FanBarApp: App {
                 ]
                 for (name, appearance) in appearances {
                     window.appearance = appearance
-                    contentView.layoutSubtreeIfNeeded()
-                    guard let bitmap = contentView.bitmapImageRepForCachingDisplay(
-                        in: contentView.bounds
+                    snapshotView.layoutSubtreeIfNeeded()
+                    guard let bitmap = snapshotView.bitmapImageRepForCachingDisplay(
+                        in: snapshotView.bounds
                     ) else { continue }
-                    contentView.cacheDisplay(in: contentView.bounds, to: bitmap)
+                    snapshotView.cacheDisplay(in: snapshotView.bounds, to: bitmap)
                     guard let data = bitmap.representation(using: .png, properties: [:])
                     else { continue }
                     do {
@@ -314,10 +318,13 @@ struct FanBarApp: App {
             while controller.isBusy, Date() < enableDeadline {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
+            let hasExpectedRestoreState = controller.automaticRestoreDuration == .never
+                ? controller.automaticRestoreDeadline == nil
+                : controller.automaticRestoreDeadline != nil
             guard controller.mode == .temperatureCurve,
                   let temperature = controller.curveTemperatureCelsius,
                   let fraction = controller.curveOutputFraction,
-                  controller.automaticRestoreDeadline != nil else {
+                  hasExpectedRestoreState else {
                 try? await HelperClient().restoreAutomatic()
                 print("temperature-curve-test=enable-failed")
                 print("message=\(controller.message)")

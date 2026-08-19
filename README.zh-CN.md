@@ -18,8 +18,9 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 
 - **一眼掌握状态**：菜单栏可显示图标、CPU 温度、平均风扇 RPM 或组合信息。
 - **实时可视化**：查看 CPU/GPU 温度；设备支持时同时显示 SSD 与电池温度，并提供近十分钟趋势和随 RPM 变化的气流动画。
-- **多种散热方式**：恢复自动控制、设定目标 RPM，或使用静音、均衡、性能、极速预设。
-- **智能温控**：按芯片温度在 35%–100% 之间平滑调速，可随时一键关闭。
+- **多种散热方式**：恢复自动控制、设定目标 RPM，或使用静音、均衡、性能、极速面板预设。
+- **智能温控曲线**：每个面板预设都有独立曲线，按芯片温度平滑调速，可在设置中分别编辑。
+- **温度来源可选**：温控曲线支持 CPU、GPU 或硬盘（SSD）温度作为控制来源；设备未提供对应传感器时会保持安全回退。
 - **高温通知**：可在设置中开启 CPU/GPU 高温通知，达到 90°C 时发送 macOS 通知；同一次高温只提醒一次，降温后会重新提醒。
 - **安全回退**：转速始终限制在硬件报告范围内；退出、断连或服务异常时尽力恢复系统自动控制。
 - **原生授权流程**：首次使用会解释控制服务用途，并自动打开正确的 macOS 设置页面。
@@ -38,9 +39,9 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 
 1. 启动 FanBar 后，从菜单栏查看当前温度和风扇转速。
 2. 需要手动控制时，选择“启用风扇控制”，并按系统提示完成授权。
-3. 从菜单栏选择预设、固定转速或智能温控；完成后可随时恢复“自动”模式。
+3. 从菜单栏选择面板预设或固定转速；完成后可随时恢复“自动”模式。
 
-固定转速、预设和智能温控支持在 15 分钟、30 分钟或 1 小时后自动恢复 macOS 管理，避免忘记关闭手动控制。
+固定转速和面板预设支持在 15 分钟、30 分钟或 1 小时后自动恢复 macOS 管理，避免忘记关闭手动控制。
 
 ### 切换界面语言
 
@@ -84,7 +85,39 @@ Helper 不提供任意 SMC 写入接口，只支持查询、固定/预设/按比
 
 ## 持续集成与发布
 
-GitHub Actions 会在推送和 Pull Request 时验证 universal2 构建；推送与 App 版本一致的 `v*` 标签时，会创建对应的 GitHub Release。
+FanBar 使用 Sparkle 2 检查和安装在线更新。稳定更新源为 GitHub Release 中的
+`appcast.xml`；更新包必须同时通过 Developer ID、公证和 FanBar 专用 EdDSA
+签名验证。
+
+本机首次配置 Apple 公证凭据：
+
+```sh
+xcrun notarytool store-credentials FanBar-notary \
+  --apple-id "你的 Apple ID" \
+  --team-id "64S5F787T9"
+```
+
+将 `CFBundleShortVersionString` 和递增的 `CFBundleVersion` 提交到 `main` 后，执行：
+
+```sh
+gh auth login -h github.com
+FANBAR_NOTARY_PROFILE=FanBar-notary zsh scripts/release-local.sh
+```
+
+本地发布脚本要求工作区干净且位于 `main`，会依次完成 universal2 构建、签名、
+公证、DMG 验证、校验和、签名 Appcast、Git 标签和 GitHub Release 上传。已有
+Release 默认不会被覆盖；仅在明确重试时使用 `--replace-assets`。
+
+Sparkle 私钥保存在登录钥匙串的 `FanBar` 账户中。首次发布后不要重新生成该密钥，
+否则已安装版本无法验证后续更新。CI 发布还需将导出的私钥保存为
+`SPARKLE_PRIVATE_KEY` GitHub Actions secret。
+
+GitHub Actions 同样会在推送和 Pull Request 时验证 universal2 构建。本地发布是
+默认方式；如果要改由标签触发 CI 发布，需要设置仓库变量
+`FANBAR_PUBLISH_FROM_CI=true`，并配置 `SPARKLE_PRIVATE_KEY` 等 Release secrets。
+不要同时启用 CI 发布和运行本地发布脚本。
+
+启用 CI 发布模式后，推送与 App 版本匹配的标签：
 
 ```sh
 git tag -a v0.4.1 -m "FanBar 0.4.1"

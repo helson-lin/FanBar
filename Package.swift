@@ -8,6 +8,10 @@ let package = Package(
         .executable(name: "FanBar", targets: ["FanBar"]),
         .executable(name: "FanBarHelper", targets: ["FanBarHelper"])
     ],
+    dependencies: [
+        // Pin release tooling and the embedded updater to the same audited build.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6")
+    ],
     targets: [
         .target(
             name: "AppleSMC",
@@ -26,8 +30,17 @@ let package = Package(
         ),
         .executableTarget(
             name: "FanBar",
-            dependencies: ["AppleSMC", "FanBarShared"],
+            dependencies: [
+                "AppleSMC",
+                "FanBarShared",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/FanBar"
+        ),
+        .testTarget(
+            name: "FanBarTests",
+            dependencies: ["FanBar", "FanBarShared"],
+            path: "Tests/FanBarTests"
         )
     ]
 )

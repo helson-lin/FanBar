@@ -6,6 +6,7 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
     case maxChip
     case cpu
     case gpu
+    case ssd
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
         case .maxChip: fanBarText("CPU/GPU 较高者", "Higher of CPU/GPU")
         case .cpu: fanBarText("仅 CPU", "CPU only")
         case .gpu: fanBarText("仅 GPU", "GPU only")
+        case .ssd: fanBarText("硬盘（SSD）", "SSD")
         }
     }
 }
@@ -174,6 +176,32 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
                 Self.maximumFractionStep
             )
         )
+    }
+
+    /// Returns the selected preset's factory sensor and anchors while keeping
+    /// the user's advanced hysteresis and step-limit tuning intact.
+    func resettingCurveToFactory(for preset: FanCoolingPreset) -> FanCurveProfile {
+        let factory = preset.factoryCurve.sanitized()
+        return FanCurveProfile(
+            sensor: factory.sensor,
+            points: factory.points.map {
+                FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
+            },
+            hysteresisCelsius: hysteresisCelsius,
+            maxFractionStepPerUpdate: maxFractionStepPerUpdate
+        ).sanitized()
+    }
+
+    /// UUIDs identify editable anchors and intentionally differ each time a
+    /// factory curve is created, so compare only the user-visible curve shape.
+    func hasFactoryCurve(for preset: FanCoolingPreset) -> Bool {
+        let factory = preset.factoryCurve.sanitized()
+        guard sensor == factory.sensor, points.count == factory.points.count else {
+            return false
+        }
+        return zip(points, factory.points).allSatisfy { current, expected in
+            current.celsius == expected.celsius && current.fraction == expected.fraction
+        }
     }
 }
 

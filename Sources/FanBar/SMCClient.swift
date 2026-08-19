@@ -88,11 +88,11 @@ final class SMCClient {
         "Tg0U", "Tg0X", "Tg0g", "Tg1Y", "Tg1c", "Tg1g"
     ]
 
-    // These labels are not part of Apple's public SMC API. Probe common keys
-    // and keep the series optional so unsupported Mac models simply hide it.
-    private static let ssdTemperatureCandidates = [
-        "TH0P", "TH0V", "TH1P", "TH1V", "TH2P", "TH2V", "TH3P", "TH3V"
-    ]
+    // These labels are not part of Apple's public SMC API. Intel generations
+    // use different A/B/C/P/V suffixes, so probe the complete common family.
+    private static let ssdTemperatureCandidates = (0..<10).flatMap { index in
+        ["TH\(index)A", "TH\(index)B", "TH\(index)C", "TH\(index)P", "TH\(index)V"]
+    }
 
     private static let batteryTemperatureCandidates = [
         "TB0T", "TB1T", "TB2T", "TB3T", "TB4T", "TB5T", "TB6T", "TB7T"
@@ -175,6 +175,18 @@ final class SMCClient {
         return values.reduce(0, +) / Double(values.count)
     }
 
+    private func nvmeTemperature() -> Double? {
+        var celsius = 0.0
+        guard fanbar_nvme_temperature(&celsius) == 0 else { return nil }
+        return celsius
+    }
+
+    private func embeddedNVMeTemperature() -> Double? {
+        var celsius = 0.0
+        guard fanbar_embedded_nvme_temperature(&celsius) == 0 else { return nil }
+        return celsius
+    }
+
     func fans() throws -> [FanReading] {
         let countValue = try read("FNum")
         let count = Int(countValue.bytes.0)
@@ -209,8 +221,29 @@ final class SMCClient {
             sampledAt: date,
             cpuCelsius: average(cpuValues),
             gpuCelsius: average(gpuValues),
-            ssdCelsius: average(ssdValues),
+            // Preserve Intel SMC readings, then use Apple Silicon's embedded
+            // NAND HID sensors, with standard NVMe SMART as the final fallback.
+            ssdCelsius: StorageTemperatureResolver.resolve(
+                smcValues: ssdValues,
+                embeddedNVMe: embeddedNVMeTemperature,
+                smart: nvmeTemperature
+            ),
             batteryCelsius: average(batteryValues)
         )
+    }
+}
+
+enum StorageTemperatureResolver {
+    /// Keeps source selection deterministic across Intel and Apple Silicon,
+    /// and avoids touching slower fallback APIs when an earlier source works.
+    static func resolve(
+        smcValues: [Double],
+        embeddedNVMe: () -> Double?,
+        smart: () -> Double?
+    ) -> Double? {
+        if !smcValues.isEmpty {
+            return smcValues.reduce(0, +) / Double(smcValues.count)
+        }
+        return embeddedNVMe() ?? smart()
     }
 }

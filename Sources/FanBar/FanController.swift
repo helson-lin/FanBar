@@ -3,6 +3,20 @@ import FanBarShared
 import Foundation
 import UserNotifications
 
+/// Determines whether launchd still points at the current embedded helper.
+/// Moving an app invalidates a BundleProgram registration just as surely as
+/// replacing its helper binary, even when the build number stays unchanged.
+enum HelperMigrationPolicy {
+    static func requiresMigration(
+        currentBuildVersion: String,
+        currentBundlePath: String,
+        savedBuildVersion: String?,
+        savedBundlePath: String?
+    ) -> Bool {
+        savedBuildVersion != currentBuildVersion || savedBundlePath != currentBundlePath
+    }
+}
+
 @MainActor
 final class FanController: ObservableObject {
     enum AutomaticRestoreDuration: Int, CaseIterable, Identifiable {
@@ -35,6 +49,27 @@ final class FanController: ObservableObject {
     enum SwitchFeedbackSignal: Equatable {
         case began
         case ended(successfully: Bool)
+    }
+
+    /// Feedback scoped to the mode controls. The global header keeps the same
+    /// message as a fallback, while this state lets the menu present it beside
+    /// the preset that caused the action.
+    struct ModeActionFeedback: Equatable {
+        enum Kind: Equatable {
+            case inProgress
+            case failure
+        }
+
+        let kind: Kind
+        let message: String
+        /// Connection failures can be resolved from Login Items settings.
+        let offersHelperSettings: Bool
+
+        init(kind: Kind, message: String, offersHelperSettings: Bool = false) {
+            self.kind = kind
+            self.message = message
+            self.offersHelperSettings = offersHelperSettings
+        }
     }
 
     enum HelperState: Equatable {
@@ -75,6 +110,7 @@ final class FanController: ObservableObject {
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
+    @Published private(set) var modeActionFeedback: ModeActionFeedback?
 
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
@@ -94,22 +130,30 @@ final class FanController: ObservableObject {
     private var thermalAlertMonitor = ThermalAlertMonitor(
         thresholdCelsius: ThermalAlertSettings.thresholdCelsius
     )
-    private let notificationCenter = UNUserNotificationCenter.current()
+    /// Optional for unit-test hosts that are not application bundles; the app
+    /// always uses the system notification center through the default value.
+    private let notificationCenter: UNUserNotificationCenter?
     private let notificationDelegate = ThermalNotificationDelegate()
     private let automaticRestoreTestInterval: TimeInterval?
     // Ten minutes of readings at the two-second refresh cadence used below.
     private let maximumTemperatureSamples = 300
     private let automaticRestorePreferenceKey = "fanbar.automaticRestoreDuration"
     private let helperBuildVersionPreferenceKey = "fanbar.helperBuildVersion"
+    private let helperBundlePathPreferenceKey = "fanbar.helperBundlePath"
     private let helperBuildVersion: String
+    private let helperBundlePath: String
     private let curveUpdateDeadband: Float = 0.02
 
     var statusIcon: String {
         mode == .automatic ? "fan" : "fan.fill"
     }
 
-    init(automaticRestoreTestInterval: TimeInterval? = nil) {
+    init(
+        automaticRestoreTestInterval: TimeInterval? = nil,
+        notificationCenter: UNUserNotificationCenter? = UNUserNotificationCenter.current()
+    ) {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
+        self.notificationCenter = notificationCenter
         let curveSnapshot = FanCurvePreferences.load()
         curveProfile = curveSnapshot.profile
         curveCoolingPreset = curveSnapshot.coolingPreset
@@ -120,6 +164,9 @@ final class FanController: ObservableObject {
         helperBuildVersion = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleVersion"
         ) as? String ?? "unknown"
+        helperBundlePath = Bundle.main.bundleURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL.path
         if let savedValue = UserDefaults.standard.object(
             forKey: automaticRestorePreferenceKey
         ) as? Int,
@@ -127,7 +174,7 @@ final class FanController: ObservableObject {
         {
             automaticRestoreDuration = savedDuration
         }
-        notificationCenter.delegate = notificationDelegate
+        notificationCenter?.delegate = notificationDelegate
         refreshHelperStatus()
         refreshLaunchAtLoginStatus()
         connectAndRefresh()
@@ -240,12 +287,19 @@ final class FanController: ObservableObject {
 
     private func applyFixedRPM(_ rpm: Int, resetsAutomaticRestore: Bool) {
         guard helperState == .enabled, !isBusy else {
-            message = fanBarText("请先启用并批准控制服务", "Enable and approve the control service first")
+            let failure = fanBarText(
+                "请先启用并批准控制服务",
+                "Enable and approve the control service first"
+            )
+            message = failure
+            failModeAction(failure)
             return
         }
         isBusy = true
         if resetsAutomaticRestore { switchFeedback = .began }
-        message = fanBarFormat("正在切换到 %d RPM…", "Switching to %d RPM…", rpm)
+        let progress = fanBarFormat("正在切换到 %d RPM…", "Switching to %d RPM…", rpm)
+        message = progress
+        beginModeAction(progress)
         Task {
             do {
                 await finishPendingCurveUpdate()
@@ -259,9 +313,19 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                clearModeActionFeedback()
                 if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
             } catch {
-                message = fanBarFormat("控制失败：%@", "Control failed: %@", error.localizedDescription)
+                let failure = fanBarFormat(
+                    "控制失败：%@",
+                    "Control failed: %@",
+                    error.localizedDescription
+                )
+                message = failure
+                failModeAction(
+                    failure,
+                    offersHelperSettings: helperSettingsActionNeeded(for: error)
+                )
                 if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
             }
             isBusy = false
@@ -292,11 +356,54 @@ final class FanController: ObservableObject {
 
     /// Updates the active panel preset’s curve in place and persists that slot.
     func setCurveProfile(_ profile: FanCurveProfile) {
+        setCurveProfile(profile, for: curveCoolingPreset)
+    }
+
+    /// Returns a preset's latest curve without changing which preset is shown.
+    func curveProfile(for preset: FanCoolingPreset) -> FanCurveProfile {
+        if preset == curveCoolingPreset {
+            return curveProfile
+        }
+        return (curvePresetSlots[preset] ?? preset.factoryCurve).sanitized()
+    }
+
+    /// Replaces one stored preset without unexpectedly switching the editor.
+    /// This is used by Undo when the user has moved to another preset meanwhile.
+    func setCurveProfile(_ profile: FanCurveProfile, for preset: FanCoolingPreset) {
         let sanitized = profile.sanitized()
-        curveProfile = sanitized
-        curvePresetSlots[curveCoolingPreset] = sanitized
+        curvePresetSlots[preset] = sanitized
+        if preset == curveCoolingPreset {
+            curveProfile = sanitized
+        }
         FanCurvePreferences.save(slots: curvePresetSlots, selection: curveCoolingPreset)
-        scheduleCurveHardwareApply()
+        if preset == curveCoolingPreset {
+            scheduleCurveHardwareApply()
+        }
+    }
+
+    /// Applies a curve replacement and registers its inverse so the standard
+    /// macOS Undo/Redo commands remain available after an automatic save.
+    func replaceCurveProfile(
+        _ profile: FanCurveProfile,
+        for preset: FanCoolingPreset,
+        registeringUndoWith undoManager: UndoManager?,
+        actionName: String
+    ) {
+        let previous = curveProfile(for: preset)
+        let replacement = profile.sanitized()
+        guard previous != replacement else { return }
+
+        setCurveProfile(replacement, for: preset)
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            target.replaceCurveProfile(
+                previous,
+                for: preset,
+                registeringUndoWith: undoManager,
+                actionName: actionName
+            )
+        }
+        undoManager.setActionName(actionName)
     }
 
     /// Switch which panel preset’s curve is being edited (settings). Optionally start control.
@@ -323,17 +430,17 @@ final class FanController: ObservableObject {
     }
 
     /// Restores the factory curve for the active panel preset only.
-    func resetActiveCurvePresetToFactory() {
-        let factory = curveCoolingPreset.factoryCurve.sanitized()
-        let restored = FanCurveProfile(
-            sensor: factory.sensor,
-            points: factory.points.map {
-                FanCurvePoint(celsius: $0.celsius, fraction: $0.fraction)
-            },
-            hysteresisCelsius: curveProfile.hysteresisCelsius,
-            maxFractionStepPerUpdate: curveProfile.maxFractionStepPerUpdate
-        ).sanitized()
-        setCurveProfile(restored)
+    func resetActiveCurvePresetToFactory(
+        undoManager: UndoManager? = nil,
+        actionName: String = ""
+    ) {
+        let preset = curveCoolingPreset
+        replaceCurveProfile(
+            curveProfile.resettingCurveToFactory(for: preset),
+            for: preset,
+            registeringUndoWith: undoManager,
+            actionName: actionName
+        )
     }
 
     func setCurveHysteresisCelsius(_ value: Double) {
@@ -412,6 +519,11 @@ final class FanController: ObservableObject {
         }
 
         isRequestingHighTemperatureNotificationPermission = true
+        guard let notificationCenter else {
+            isRequestingHighTemperatureNotificationPermission = false
+            highTemperatureNotificationsEnabled = false
+            return
+        }
         notificationCenter.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -447,23 +559,36 @@ final class FanController: ObservableObject {
 
     private func enableTemperatureCurve(resetsAutomaticRestore: Bool = true) {
         guard helperState == .enabled, !isBusy else {
-            message = fanBarText("请先启用并批准控制服务", "Enable and approve the control service first")
+            let failure = fanBarText(
+                "请先启用并批准控制服务",
+                "Enable and approve the control service first"
+            )
+            message = failure
+            failModeAction(failure)
             return
         }
         guard let reading = latestThermalReading(),
               let temperature = controlTemperature(from: reading) else {
-            message = fanBarText("未读取到可用于智能温控的芯片温度", "No chip temperature is available for smart cooling")
+            let failure = fanBarFormat(
+                "未读取到可用于%@温控的温度来源",
+                "No temperature is available for %@ curve control",
+                curveProfile.sensor.title
+            )
+            message = failure
+            failModeAction(failure)
             return
         }
 
         let fraction = targetCurveFraction(for: temperature, force: true)
         isBusy = true
         if resetsAutomaticRestore { switchFeedback = .began }
-        message = fanBarFormat(
+        let progress = fanBarFormat(
             "正在切换到%@温控…",
             "Switching to %@ curve…",
             curveCoolingPreset.title
         )
+        message = progress
+        beginModeAction(progress)
         Task {
             do {
                 await finishPendingCurveUpdate()
@@ -479,14 +604,20 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                clearModeActionFeedback()
                 if resetsAutomaticRestore { switchFeedback = .ended(successfully: true) }
             } catch {
                 clearTemperatureCurveState()
-                message = fanBarFormat(
+                let failure = fanBarFormat(
                     "%@温控开启失败：%@",
                     "Unable to enable %@ curve: %@",
                     curveCoolingPreset.title,
                     error.localizedDescription
+                )
+                message = failure
+                failModeAction(
+                    failure,
+                    offersHelperSettings: helperSettingsActionNeeded(for: error)
                 )
                 if resetsAutomaticRestore { switchFeedback = .ended(successfully: false) }
             }
@@ -572,6 +703,8 @@ final class FanController: ObservableObject {
             return reading.cpuCelsius
         case .gpu:
             return reading.gpuCelsius
+        case .ssd:
+            return reading.ssdCelsius
         }
     }
 
@@ -608,7 +741,7 @@ final class FanController: ObservableObject {
             content: content,
             trigger: nil
         )
-        notificationCenter.add(request) { error in
+        notificationCenter?.add(request) { error in
             if let error {
                 NSLog("FanBar high-temperature notification failed: %@", error.localizedDescription)
             }
@@ -670,7 +803,9 @@ final class FanController: ObservableObject {
         }
         isBusy = true
         switchFeedback = .began
-        message = fanBarText("正在恢复系统控制…", "Restoring system control…")
+        let progress = fanBarText("正在恢复系统控制…", "Restoring system control…")
+        message = progress
+        beginModeAction(progress)
         Task {
             do {
                 await finishPendingCurveUpdate()
@@ -684,9 +819,19 @@ final class FanController: ObservableObject {
                 if let readings = try? await helperClient.fans() {
                     fans = readings
                 }
+                clearModeActionFeedback()
                 switchFeedback = .ended(successfully: true)
             } catch {
-                message = fanBarFormat("恢复失败：%@", "Restore failed: %@", error.localizedDescription)
+                let failure = fanBarFormat(
+                    "恢复失败：%@",
+                    "Restore failed: %@",
+                    error.localizedDescription
+                )
+                message = failure
+                failModeAction(
+                    failure,
+                    offersHelperSettings: helperSettingsActionNeeded(for: error)
+                )
                 switchFeedback = .ended(successfully: false)
                 if triggeredByTimer {
                     scheduleAutomaticRestoreRetry(after: 5)
@@ -746,6 +891,30 @@ final class FanController: ObservableObject {
         automaticRestoreDeadline = nil
     }
 
+    /// Starts/replaces local mode feedback so a second attempt immediately
+    /// supersedes an older error instead of stacking transient banners.
+    func beginModeAction(_ message: String) {
+        modeActionFeedback = ModeActionFeedback(kind: .inProgress, message: message)
+    }
+
+    func failModeAction(_ message: String, offersHelperSettings: Bool = false) {
+        modeActionFeedback = ModeActionFeedback(
+            kind: .failure,
+            message: message,
+            offersHelperSettings: offersHelperSettings
+        )
+    }
+
+    /// Only transport failures point to authorization. SMC validation errors
+    /// remain ordinary failures and should not send users to System Settings.
+    private func helperSettingsActionNeeded(for error: Error) -> Bool {
+        (error as? HelperClientError)?.isConnectionFailure == true
+    }
+
+    func clearModeActionFeedback() {
+        modeActionFeedback = nil
+    }
+
     func quit() {
         Task {
             await finishPendingCurveUpdate()
@@ -790,7 +959,15 @@ final class FanController: ObservableObject {
             return
         }
         let savedVersion = UserDefaults.standard.string(forKey: helperBuildVersionPreferenceKey)
-        guard savedVersion != helperBuildVersion else {
+        let savedBundlePath = UserDefaults.standard.string(
+            forKey: helperBundlePathPreferenceKey
+        )
+        guard HelperMigrationPolicy.requiresMigration(
+            currentBuildVersion: helperBuildVersion,
+            currentBundlePath: helperBundlePath,
+            savedBuildVersion: savedVersion,
+            savedBundlePath: savedBundlePath
+        ) else {
             helperMigrationAttempted = true
             return
         }
@@ -802,6 +979,10 @@ final class FanController: ObservableObject {
             UserDefaults.standard.set(
                 helperBuildVersion,
                 forKey: helperBuildVersionPreferenceKey
+            )
+            UserDefaults.standard.set(
+                helperBundlePath,
+                forKey: helperBundlePathPreferenceKey
             )
             helperMigrationAttempted = true
             return
@@ -821,6 +1002,10 @@ final class FanController: ObservableObject {
                 UserDefaults.standard.set(
                     self.helperBuildVersion,
                     forKey: self.helperBuildVersionPreferenceKey
+                )
+                UserDefaults.standard.set(
+                    self.helperBundlePath,
+                    forKey: self.helperBundlePathPreferenceKey
                 )
                 self.refreshHelperStatus()
             } catch {
