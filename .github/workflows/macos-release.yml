@@ -181,8 +181,16 @@ jobs:
       - name: Publish GitHub Release
         run: |
           release_files=(dist/FanBar-*.dmg dist/FanBar-*.dmg.sha256 dist/appcast.xml)
+          notes_file="docs/releases/${GITHUB_REF_NAME}.md"
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" "${release_files[@]}" --clobber
+            if [[ -f "${notes_file}" ]]; then
+              gh release edit "${GITHUB_REF_NAME}" --notes-file "${notes_file}"
+            fi
+          elif [[ -f "${notes_file}" ]]; then
+            gh release create "${GITHUB_REF_NAME}" "${release_files[@]}" \
+              --title "FanBar ${GITHUB_REF_NAME#v}" \
+              --notes-file "${notes_file}"
           else
             gh release create "${GITHUB_REF_NAME}" "${release_files[@]}" \
               --title "FanBar ${GITHUB_REF_NAME#v}" \

@@ -175,10 +175,14 @@ release_files=(
     "${x86_dmg}.sha256"
     "${appcast_path}"
 )
+notes_file="${project_root}/docs/releases/v${version}.md"
 if gh release view "${tag}" --repo "${repository}" >/dev/null 2>&1; then
     gh release upload "${tag}" "${release_files[@]}" \
         --repo "${repository}" \
         --clobber
+    if [[ -f "${notes_file}" ]]; then
+        gh release edit "${tag}" --repo "${repository}" --notes-file "${notes_file}"
+    fi
 else
     create_arguments=(
         "${tag}"
@@ -186,8 +190,12 @@ else
         --repo "${repository}"
         --verify-tag
         --title "FanBar ${version}"
-        --generate-notes
     )
+    if [[ -f "${notes_file}" ]]; then
+        create_arguments+=(--notes-file "${notes_file}")
+    else
+        create_arguments+=(--generate-notes)
+    fi
     if (( draft )); then create_arguments+=(--draft); fi
     gh release create "${create_arguments[@]}"
 fi

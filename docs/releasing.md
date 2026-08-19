@@ -45,6 +45,11 @@ gh secret set APPLE_TEAM_ID
 
 ## 创建发布
 
+在打标签之前，把该版本的中英双语说明写到
+`docs/releases/vX.Y.Z.md`（与 `CFBundleShortVersionString` 一致）。本地发布
+脚本和 CI 会优先用这份文件作为 GitHub Release 正文；没有文件时才回退到
+`gh` 自动生成的英文提交列表。
+
 标签必须与 `App/Info.plist` 的版本完全一致。例如版本为 `0.3.0`：
 
 ```sh
