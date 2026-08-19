@@ -8,11 +8,13 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 
 ## 截图
 
-以下截图展示简体中文界面。FanBar 同时支持英文，可以在 **设置 → 语言** 中切换，修改会立即生效。
+以下为深色外观下的简体中文界面。可在 **设置 → 语言** 中切换到英文，无需重启。
 
 ![FanBar 深色菜单栏面板](docs/screenshots/fanbar-menu-dark.jpg)
 
-![FanBar 设置窗口](docs/screenshots/fanbar-settings-dark.jpg)
+设置默认打开「散热」页。每个面板预设都有独立的温度→转速曲线，可直接拖锚点编辑。
+
+![FanBar 智能温控曲线设置](docs/screenshots/fanbar-settings-dark.jpg)
 
 ## 亮点
 
@@ -25,6 +27,14 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 - **安全回退**：转速始终限制在硬件报告范围内；退出、断连或服务异常时尽力恢复系统自动控制。
 - **原生授权流程**：首次使用会解释控制服务用途，并自动打开正确的 macOS 设置页面。
 - **中英文界面**：可在设置中选择系统语言、English 或简体中文。
+
+## 下载
+
+最新已公证版本见 [GitHub Releases](https://github.com/helson-lin/FanBar/releases/latest)：
+
+- Apple Silicon → `FanBar-<version>-arm64.dmg`
+- Intel → `FanBar-<version>-x86_64.dmg`
+- Universal（Sparkle 在线更新使用）→ `FanBar-<version>.dmg`
 
 ## 系统要求
 
@@ -121,8 +131,8 @@ GitHub Actions 同样会在推送和 Pull Request 时验证 universal2 构建。
 启用 CI 发布模式后，推送与 App 版本匹配的标签：
 
 ```sh
-git tag -a v0.4.1 -m "FanBar 0.4.1"
-git push origin v0.4.1
+git tag -a v0.4.3 -m "FanBar 0.4.3"
+git push origin v0.4.3
 ```
 
 ## 致谢与许可
