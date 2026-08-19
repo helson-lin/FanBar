@@ -393,13 +393,17 @@ final class FanController: ObservableObject {
 
         setCurveProfile(replacement, for: preset)
         guard let undoManager else { return }
+        // NSUndoManager runs this @Sendable handler on the registering thread
+        // (main for UI). Assume the main actor so Swift 6 accepts the hop.
         undoManager.registerUndo(withTarget: self) { target in
-            target.replaceCurveProfile(
-                previous,
-                for: preset,
-                registeringUndoWith: undoManager,
-                actionName: actionName
-            )
+            MainActor.assumeIsolated {
+                target.replaceCurveProfile(
+                    previous,
+                    for: preset,
+                    registeringUndoWith: undoManager,
+                    actionName: actionName
+                )
+            }
         }
         undoManager.setActionName(actionName)
     }

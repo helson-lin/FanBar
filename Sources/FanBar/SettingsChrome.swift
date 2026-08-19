@@ -4,6 +4,9 @@ import SwiftUI
 
 /// Shared chrome for the settings window — system-settings style section headers,
 /// inset cards, footers, and row dividers. Keeps Menu Bar / Cooling / General in sync.
+/// View builders must be main-actor isolated: SwiftUI types such as `Spacer`
+/// are `@MainActor` under Swift 6.
+@MainActor
 enum SettingsChrome {
     static let contentWidth: CGFloat = 460
     static let horizontalPadding: CGFloat = 20
