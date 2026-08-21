@@ -106,7 +106,7 @@ write_checksum() {
 }
 
 package_signed_dmg() {
-    local architecture="$1"
+    local architecture="${1:-}"
     local app_output dmg_output
     if [[ -z "${architecture}" ]]; then
         export FANBAR_ARCHS="arm64 x86_64"
