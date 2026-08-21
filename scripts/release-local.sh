@@ -144,7 +144,7 @@ x86_dmg="${packaged_dmg}"
 updates_root="$(mktemp -d)"
 cleanup() { rm -rf "${updates_root}" }
 trap cleanup EXIT
-ditto "${dmg_path}" "${updates_root}/${dmg_name}"
+ditto "${dmg_path}" "${updates_root}/${dmg_path:t}"
 
 download_prefix="https://github.com/${repository}/releases/download/${tag}/"
 "${generate_appcast}" \
