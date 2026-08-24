@@ -13,6 +13,8 @@ final class LegacyStatusItemController: NSObject {
     private var observation: AnyCancellable?
     private var feedbackObservation: AnyCancellable?
     private var defaultsObservation: NSObjectProtocol?
+    private var localMouseMonitor: Any?
+    private var globalMouseMonitor: Any?
     private let iconAnimator = MenuBarIconAnimator()
 
     func install(controller: FanController) {
@@ -29,6 +31,7 @@ final class LegacyStatusItemController: NSObject {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         let hostingController = NSHostingController(
             rootView: FanMenu(controller: controller)
         )
@@ -80,13 +83,73 @@ final class LegacyStatusItemController: NSObject {
     @objc private func togglePopover(_ sender: Any?) {
         guard let button = statusItem?.button, let popover else { return }
         if popover.isShown {
-            popover.performClose(sender)
+            closePopover(sender)
         } else {
+            // A status-item action does not reliably activate an LSUIElement app.
+            // Activate before presentation so dynamic AppKit/SwiftUI colors do not
+            // change the first time the user clicks inside the popover.
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            popover.appearance = NSApplication.shared.effectiveAppearance
             popover.show(
                 relativeTo: button.bounds,
                 of: button,
                 preferredEdge: .minY
             )
+            popover.contentViewController?.view.window?.makeKey()
+            startOutsideClickMonitoring()
+        }
+    }
+
+    private func startOutsideClickMonitoring() {
+        stopOutsideClickMonitoring()
+        let mouseDownEvents: NSEvent.EventTypeMask = [
+            .leftMouseDown,
+            .rightMouseDown,
+            .otherMouseDown
+        ]
+
+        // Local monitoring handles clicks in FanBar's own windows. Preserve
+        // clicks inside the popover and on its status button for normal actions.
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: mouseDownEvents
+        ) { [weak self] event in
+            guard let self, self.shouldClosePopover(for: event) else { return event }
+            self.closePopover(event)
+            return event
+        }
+
+        // Global monitoring covers the desktop, menu bar, and other apps. This
+        // explicitly closes the panel on systems where .transient misses them.
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: mouseDownEvents
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.closePopover(nil)
+            }
+        }
+    }
+
+    private func shouldClosePopover(for event: NSEvent) -> Bool {
+        guard popover?.isShown == true else { return false }
+        let clickedWindow = event.window
+        let popoverWindow = popover?.contentViewController?.view.window
+        let statusItemWindow = statusItem?.button?.window
+        return clickedWindow !== popoverWindow && clickedWindow !== statusItemWindow
+    }
+
+    private func closePopover(_ sender: Any?) {
+        popover?.performClose(sender)
+        stopOutsideClickMonitoring()
+    }
+
+    private func stopOutsideClickMonitoring() {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+            self.localMouseMonitor = nil
+        }
+        if let globalMouseMonitor {
+            NSEvent.removeMonitor(globalMouseMonitor)
+            self.globalMouseMonitor = nil
         }
     }
 
@@ -176,5 +239,12 @@ final class LegacyStatusItemController: NSObject {
         let total = controller.fans.map(\.currentRPM).reduce(0, +)
         let average = Int((Double(total) / Double(controller.fans.count)).rounded())
         return FanBarNumberFormatter.grouped(average)
+    }
+}
+
+extension LegacyStatusItemController: NSPopoverDelegate {
+    func popoverDidClose(_ notification: Notification) {
+        // Also clean up when AppKit closes the transient popover itself.
+        stopOutsideClickMonitoring()
     }
 }
