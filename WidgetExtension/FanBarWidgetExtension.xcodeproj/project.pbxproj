@@ -1,0 +1,641 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15BA906ADE5F86FB79DE050F /* FanBarLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C3C791EFC602F759607EBE0 /* FanBarLocalization.swift */; };
+		1F7711404DEAD0B0659C14B4 /* FanRotorGraphic.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68E66A5FCC1BBE8B65F0526 /* FanRotorGraphic.swift */; };
+		2CB7D494029D93095B046AE1 /* FanBarHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A957640307F9ED72D57FAD2 /* FanBarHelperProtocol.swift */; };
+		60B95F432D8C3B176A6E4A34 /* libFanBarShared.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD83C0E7D1B982770DFBCC37 /* libFanBarShared.a */; };
+		6178E666074980B688B8C0D9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 81E7F023B70DA3EEFB2CED83 /* Localizable.strings */; };
+		7182D44FA873ECBA9685884E /* FanBarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97784821F2D14033EF845CB1 /* FanBarWidget.swift */; };
+		B714236B779246B84C35650D /* FanCoolingPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF642B6B04CBC5F67042A9D /* FanCoolingPreset.swift */; };
+		EEC171E860A9772FA3437EB5 /* libFanBarUI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 26B6E3A8D802E609B6A7FB57 /* libFanBarUI.a */; };
+		F153551F202B24CA7E1285BE /* FanBarWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6276DCECF184DF8F8B970D0A /* FanBarWidgetSnapshot.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		07CCD47EA5EBCDD4F7FBFDD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 486331CC4A62076FFF2CA6B2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1B00DA0CE5FF1916C50ADDFF;
+			remoteInfo = FanBarShared;
+		};
+		766D8D66927271CC64F9E2CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 486331CC4A62076FFF2CA6B2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1B00DA0CE5FF1916C50ADDFF;
+			remoteInfo = FanBarShared;
+		};
+		A183D643098D232C03C30303 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 486331CC4A62076FFF2CA6B2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 96DAA2C0327D746A439034DC;
+			remoteInfo = FanBarUI;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1A957640307F9ED72D57FAD2 /* FanBarHelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanBarHelperProtocol.swift; sourceTree = "<group>"; };
+		26B6E3A8D802E609B6A7FB57 /* libFanBarUI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libFanBarUI.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FF642B6B04CBC5F67042A9D /* FanCoolingPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanCoolingPreset.swift; sourceTree = "<group>"; };
+		6276DCECF184DF8F8B970D0A /* FanBarWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanBarWidgetSnapshot.swift; sourceTree = "<group>"; };
+		8C3C791EFC602F759607EBE0 /* FanBarLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanBarLocalization.swift; sourceTree = "<group>"; };
+		97784821F2D14033EF845CB1 /* FanBarWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanBarWidget.swift; sourceTree = "<group>"; };
+		9B032E80DAEC693E5D8B5C8E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		9CB0153673E40FB503D274F0 /* FanBarWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FanBarWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6FFB63D7A95840BA6E0A9F1 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		F68E66A5FCC1BBE8B65F0526 /* FanRotorGraphic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanRotorGraphic.swift; sourceTree = "<group>"; };
+		FD83C0E7D1B982770DFBCC37 /* libFanBarShared.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libFanBarShared.a; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5607E38B54AAC0E2DB58738F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				60B95F432D8C3B176A6E4A34 /* libFanBarShared.a in Frameworks */,
+				EEC171E860A9772FA3437EB5 /* libFanBarUI.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1EF2ED4C49E824B54C260233 = {
+			isa = PBXGroup;
+			children = (
+				BE53211B3C4489EC56481505 /* noise */,
+				46D1D1DFFA5F70C6AB4E088B /* Resources */,
+				7921F160D9AF120042967280 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		46D1D1DFFA5F70C6AB4E088B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				81E7F023B70DA3EEFB2CED83 /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		4CEB1E49765B7835D1938D4F /* FanBarWidget */ = {
+			isa = PBXGroup;
+			children = (
+				97784821F2D14033EF845CB1 /* FanBarWidget.swift */,
+			);
+			path = FanBarWidget;
+			sourceTree = "<group>";
+		};
+		71188FE988ED0E06A1A9C811 /* FanBarShared */ = {
+			isa = PBXGroup;
+			children = (
+				1A957640307F9ED72D57FAD2 /* FanBarHelperProtocol.swift */,
+				8C3C791EFC602F759607EBE0 /* FanBarLocalization.swift */,
+				6276DCECF184DF8F8B970D0A /* FanBarWidgetSnapshot.swift */,
+				5FF642B6B04CBC5F67042A9D /* FanCoolingPreset.swift */,
+			);
+			path = FanBarShared;
+			sourceTree = "<group>";
+		};
+		7921F160D9AF120042967280 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9CB0153673E40FB503D274F0 /* FanBarWidget.appex */,
+				FD83C0E7D1B982770DFBCC37 /* libFanBarShared.a */,
+				26B6E3A8D802E609B6A7FB57 /* libFanBarUI.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BE53211B3C4489EC56481505 /* noise */ = {
+			isa = PBXGroup;
+			children = (
+				EE62490B4C5CB51AB44B67ED /* Sources */,
+			);
+			name = noise;
+			path = ..;
+			sourceTree = "<group>";
+		};
+		DB4729C42A2A62C168DFC1EF /* FanBarUI */ = {
+			isa = PBXGroup;
+			children = (
+				F68E66A5FCC1BBE8B65F0526 /* FanRotorGraphic.swift */,
+			);
+			path = FanBarUI;
+			sourceTree = "<group>";
+		};
+		EE62490B4C5CB51AB44B67ED /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				71188FE988ED0E06A1A9C811 /* FanBarShared */,
+				DB4729C42A2A62C168DFC1EF /* FanBarUI */,
+				4CEB1E49765B7835D1938D4F /* FanBarWidget */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1B00DA0CE5FF1916C50ADDFF /* FanBarShared */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 317D09DD377763011B6E73A2 /* Build configuration list for PBXNativeTarget "FanBarShared" */;
+			buildPhases = (
+				94808A2770B1B337B4DFE355 /* Sources */,
+				95C439F0A7AED787859B8DF7 /* Copy Swift Objective-C Interface Header */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FanBarShared;
+			packageProductDependencies = (
+			);
+			productName = FanBarShared;
+			productReference = FD83C0E7D1B982770DFBCC37 /* libFanBarShared.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		96DAA2C0327D746A439034DC /* FanBarUI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 07C3A3FC86291CB1A917C3BE /* Build configuration list for PBXNativeTarget "FanBarUI" */;
+			buildPhases = (
+				39FA73B934EEFA368B014C3A /* Sources */,
+				B18C7D2A25848DEE65C69AB7 /* Copy Swift Objective-C Interface Header */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4F5D2CDBA9A029ABB55ACCDF /* PBXTargetDependency */,
+			);
+			name = FanBarUI;
+			packageProductDependencies = (
+			);
+			productName = FanBarUI;
+			productReference = 26B6E3A8D802E609B6A7FB57 /* libFanBarUI.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		A35039931D868A0E83E03CC2 /* FanBarWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 50003C83805E31CC90AC1C5D /* Build configuration list for PBXNativeTarget "FanBarWidget" */;
+			buildPhases = (
+				E58A9626B63C1E7D1691703A /* Sources */,
+				566C6FB490DB1A80B442A0BE /* Resources */,
+				5607E38B54AAC0E2DB58738F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				30A9760942F91D1693C53FB0 /* PBXTargetDependency */,
+				0FFF93887A9DBCCD8DE4ACE2 /* PBXTargetDependency */,
+			);
+			name = FanBarWidget;
+			packageProductDependencies = (
+			);
+			productName = FanBarWidget;
+			productReference = 9CB0153673E40FB503D274F0 /* FanBarWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		486331CC4A62076FFF2CA6B2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 22B821131B01A1A5076610C6 /* Build configuration list for PBXProject "FanBarWidgetExtension" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = 1EF2ED4C49E824B54C260233;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 7921F160D9AF120042967280 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1B00DA0CE5FF1916C50ADDFF /* FanBarShared */,
+				96DAA2C0327D746A439034DC /* FanBarUI */,
+				A35039931D868A0E83E03CC2 /* FanBarWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		566C6FB490DB1A80B442A0BE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6178E666074980B688B8C0D9 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		95C439F0A7AED787859B8DF7 /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+		B18C7D2A25848DEE65C69AB7 /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		39FA73B934EEFA368B014C3A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F7711404DEAD0B0659C14B4 /* FanRotorGraphic.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94808A2770B1B337B4DFE355 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2CB7D494029D93095B046AE1 /* FanBarHelperProtocol.swift in Sources */,
+				15BA906ADE5F86FB79DE050F /* FanBarLocalization.swift in Sources */,
+				F153551F202B24CA7E1285BE /* FanBarWidgetSnapshot.swift in Sources */,
+				B714236B779246B84C35650D /* FanCoolingPreset.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E58A9626B63C1E7D1691703A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7182D44FA873ECBA9685884E /* FanBarWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0FFF93887A9DBCCD8DE4ACE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 96DAA2C0327D746A439034DC /* FanBarUI */;
+			targetProxy = A183D643098D232C03C30303 /* PBXContainerItemProxy */;
+		};
+		30A9760942F91D1693C53FB0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1B00DA0CE5FF1916C50ADDFF /* FanBarShared */;
+			targetProxy = 766D8D66927271CC64F9E2CD /* PBXContainerItemProxy */;
+		};
+		4F5D2CDBA9A029ABB55ACCDF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1B00DA0CE5FF1916C50ADDFF /* FanBarShared */;
+			targetProxy = 07CCD47EA5EBCDD4F7FBFDD8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		81E7F023B70DA3EEFB2CED83 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				9B032E80DAEC693E5D8B5C8E /* en */,
+				E6FFB63D7A95840BA6E0A9F1 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		313636C191432CA4E73936C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = FanBarWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.app.widget;
+				PRODUCT_MODULE_NAME = FanBarWidget;
+				PRODUCT_NAME = FanBarWidget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5B55D586F0A9056F240F5B35 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.FanBarShared;
+				PRODUCT_MODULE_NAME = FanBarShared;
+				PRODUCT_NAME = FanBarShared;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		628A90BD9711016A85E4D61F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = FanBarWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.app.widget;
+				PRODUCT_MODULE_NAME = FanBarWidget;
+				PRODUCT_NAME = FanBarWidget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		7302AA64D32EDCFE84D1A705 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.FanBarUI;
+				PRODUCT_MODULE_NAME = FanBarUI;
+				PRODUCT_NAME = FanBarUI;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		8539592FB53F5594B9AF1151 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.FanBarUI;
+				PRODUCT_MODULE_NAME = FanBarUI;
+				PRODUCT_NAME = FanBarUI;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		BA8DF89CFD4A6E3EC73C9B03 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.fanbar.FanBarShared;
+				PRODUCT_MODULE_NAME = FanBarShared;
+				PRODUCT_NAME = FanBarShared;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		DCDE9BA28555E189336B9F1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F30BFAB5634D406F44064C67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		07C3A3FC86291CB1A917C3BE /* Build configuration list for PBXNativeTarget "FanBarUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8539592FB53F5594B9AF1151 /* Debug */,
+				7302AA64D32EDCFE84D1A705 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		22B821131B01A1A5076610C6 /* Build configuration list for PBXProject "FanBarWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F30BFAB5634D406F44064C67 /* Debug */,
+				DCDE9BA28555E189336B9F1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		317D09DD377763011B6E73A2 /* Build configuration list for PBXNativeTarget "FanBarShared" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B55D586F0A9056F240F5B35 /* Debug */,
+				BA8DF89CFD4A6E3EC73C9B03 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		50003C83805E31CC90AC1C5D /* Build configuration list for PBXNativeTarget "FanBarWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				628A90BD9711016A85E4D61F /* Debug */,
+				313636C191432CA4E73936C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 486331CC4A62076FFF2CA6B2 /* Project object */;
+}

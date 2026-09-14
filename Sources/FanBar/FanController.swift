@@ -1,6 +1,9 @@
 import AppKit
 import FanBarShared
 import Foundation
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 import UserNotifications
 
 /// Determines whether launchd still points at the current embedded helper.
@@ -117,6 +120,12 @@ final class FanController: ObservableObject {
     private let helperService = FanBarServiceManager()
     private let loginItemService = FanBarLoginItemManager()
     private var refreshTimer: Timer?
+    private let widgetSnapshotDestination: WidgetSnapshotDestination
+    private var lastWidgetTimelineReloadDate: Date?
+    private var lastWidgetSnapshotPublishDate: Date?
+    /// Last snapshot actually written to disk, ignoring `updatedAt`, so the
+    /// 2s refresh timer does not re-write an unchanged snapshot every tick.
+    private var lastPublishedWidgetSnapshot: FanBarWidgetSnapshot?
     private var automaticRestoreTask: Task<Void, Never>?
     private var curveUpdateTask: Task<Void, Never>?
     /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
@@ -146,12 +155,24 @@ final class FanController: ObservableObject {
         mode == .automatic ? "fan" : "fan.fill"
     }
 
+    /// Where refresh ticks publish the widget snapshot. A test run must pass
+    /// `.disabled` (or a temporary directory): the default writes into the
+    /// real `~/Library/Group Containers` App Group container, and `swift test`
+    /// must not leave anything behind outside the build directory.
+    enum WidgetSnapshotDestination {
+        case sharedContainer
+        case directory(URL)
+        case disabled
+    }
+
     init(
         automaticRestoreTestInterval: TimeInterval? = nil,
-        notificationCenter: UNUserNotificationCenter? = UNUserNotificationCenter.current()
+        notificationCenter: UNUserNotificationCenter? = UNUserNotificationCenter.current(),
+        widgetSnapshotDestination: WidgetSnapshotDestination = .sharedContainer
     ) {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
         self.notificationCenter = notificationCenter
+        self.widgetSnapshotDestination = widgetSnapshotDestination
         let curveSnapshot = FanCurvePreferences.load()
         curveProfile = curveSnapshot.profile
         curveCoolingPreset = curveSnapshot.coolingPreset
@@ -213,6 +234,7 @@ final class FanController: ObservableObject {
             let thermal = localClient.thermalReading()
             appendTemperature(thermal)
             evaluateThermalAlerts(using: thermal)
+            publishWidgetSnapshot(thermal: thermal)
             if mode == .temperatureCurve {
                 updateTemperatureCurve(using: thermal)
             }
@@ -223,6 +245,7 @@ final class FanController: ObservableObject {
             }
         } catch {
             isAvailable = false
+            publishUnavailableWidgetSnapshot()
             message = error.localizedDescription
         }
     }
@@ -1052,6 +1075,142 @@ final class FanController: ObservableObject {
         loginItemService.refresh()
         launchAtLoginEnabled = loginItemService.status == .enabled
         launchAtLoginRequiresApproval = loginItemService.status == .requiresApproval
+    }
+
+    /// Shared by `publishWidgetSnapshot` and `publishUnavailableWidgetSnapshot`
+    /// so the fan-mode -> widget-mode mapping only lives in one place.
+    private func widgetSnapshotMode(for mode: Mode) -> FanBarWidgetSnapshot.Mode {
+        switch mode {
+        case .automatic:
+            return .automatic
+        case .temperatureCurve:
+            return .temperatureCurve
+        case .fixed:
+            return .fixed
+        }
+    }
+
+    private func publishWidgetSnapshot(thermal: ThermalReading) {
+        let snapshot = FanBarWidgetSnapshot(
+            updatedAt: thermal.sampledAt,
+            fans: fans.map {
+                FanBarWidgetSnapshot.Fan(
+                    index: $0.index,
+                    currentRPM: $0.currentRPM,
+                    minimumRPM: $0.minimumRPM,
+                    maximumRPM: $0.maximumRPM,
+                    isManual: $0.isManual
+                )
+            },
+            cpuCelsius: thermal.cpuCelsius,
+            mode: widgetSnapshotMode(for: mode),
+            isAvailable: true,
+            isEnglish: FanBarLanguage.current.isEnglish
+        )
+        publishWidgetSnapshotIfNeeded(snapshot)
+    }
+
+    private func publishUnavailableWidgetSnapshot() {
+        let snapshot = FanBarWidgetSnapshot(
+            fans: fans.map {
+                FanBarWidgetSnapshot.Fan(
+                    index: $0.index,
+                    currentRPM: $0.currentRPM,
+                    minimumRPM: $0.minimumRPM,
+                    maximumRPM: $0.maximumRPM,
+                    isManual: $0.isManual
+                )
+            },
+            cpuCelsius: temperatureHistory.last?.cpuCelsius,
+            mode: widgetSnapshotMode(for: mode),
+            isAvailable: false,
+            isEnglish: FanBarLanguage.current.isEnglish
+        )
+        publishWidgetSnapshotIfNeeded(snapshot)
+    }
+
+    /// The snapshot file must be current at the instant WidgetKit reloads the
+    /// timeline, so the write is deliberately NOT tied to the reload cadence:
+    /// gating both on the same multi-minute window made the widget render data
+    /// that was already one full window old, which reads as "the RPM is stuck".
+    /// The write is a ~300-byte atomic file write, so a short floor is enough
+    /// to keep the 2s refresh timer from rewriting on every tick; only
+    /// `reloadTimelines` stays throttled, because it draws on a WidgetKit
+    /// budget. Availability transitions bypass the floor entirely.
+    private static let widgetSnapshotMinimumWriteInterval: TimeInterval = 5
+    /// While FanBar is running, ask WidgetKit to render a fresh snapshot at a
+    /// useful telemetry cadence. WidgetKit may still coalesce requests, but a
+    /// one-minute floor avoids the previous five-minute lag without sending a
+    /// reload for every two-second sensor sample.
+    private static let widgetTimelineMinimumReloadInterval: TimeInterval = 60
+
+    private func publishWidgetSnapshotIfNeeded(_ snapshot: FanBarWidgetSnapshot) {
+        if case .disabled = widgetSnapshotDestination { return }
+
+        let previous = lastPublishedWidgetSnapshot
+        let isAvailabilityTransition = previous?.isAvailable != snapshot.isAvailable
+        let contentUnchanged = previous.map { isWidgetSnapshotContentEqual($0, snapshot) } ?? false
+
+        guard isAvailabilityTransition || !contentUnchanged else { return }
+
+        if !isAvailabilityTransition,
+            let lastPublish = lastWidgetSnapshotPublishDate,
+            Date().timeIntervalSince(lastPublish) < Self.widgetSnapshotMinimumWriteInterval {
+            return
+        }
+
+        do {
+            switch widgetSnapshotDestination {
+            case .sharedContainer:
+                try snapshot.save()
+            case .directory(let containerDirectory):
+                try snapshot.save(containerDirectory: containerDirectory)
+            case .disabled:
+                return
+            }
+        } catch {
+            NSLog("FanBar widget snapshot save failed: %@", String(describing: error))
+            return
+        }
+        lastPublishedWidgetSnapshot = snapshot
+        lastWidgetSnapshotPublishDate = Date()
+        if case .sharedContainer = widgetSnapshotDestination {
+            let shouldReloadImmediately = previous == nil
+                || isAvailabilityTransition
+                || previous?.mode != snapshot.mode
+                || previous?.isEnglish != snapshot.isEnglish
+            requestWidgetTimelineReloadIfNeeded(force: shouldReloadImmediately)
+        }
+    }
+
+    /// Compares snapshot content while ignoring `updatedAt`, which changes on
+    /// every refresh tick and would otherwise defeat the write floor above.
+    /// The CPU temperature is compared at the whole-degree precision the
+    /// widget actually renders, so sensor noise below that does not count as
+    /// a change worth writing.
+    private func isWidgetSnapshotContentEqual(
+        _ lhs: FanBarWidgetSnapshot,
+        _ rhs: FanBarWidgetSnapshot
+    ) -> Bool {
+        lhs.fans == rhs.fans
+            && lhs.cpuCelsius?.rounded() == rhs.cpuCelsius?.rounded()
+            && lhs.mode == rhs.mode
+            && lhs.isAvailable == rhs.isAvailable
+            && lhs.isEnglish == rhs.isEnglish
+    }
+
+    private func requestWidgetTimelineReloadIfNeeded(force: Bool = false) {
+#if canImport(WidgetKit)
+        let now = Date()
+        guard force
+            || lastWidgetTimelineReloadDate == nil
+            || now.timeIntervalSince(lastWidgetTimelineReloadDate!)
+                >= Self.widgetTimelineMinimumReloadInterval else {
+            return
+        }
+        lastWidgetTimelineReloadDate = now
+        WidgetCenter.shared.reloadTimelines(ofKind: FanBarWidgetSnapshot.kind)
+#endif
     }
 
     private func appendTemperature(_ reading: ThermalReading) {

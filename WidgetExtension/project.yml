@@ -1,0 +1,63 @@
+name: FanBarWidgetExtension
+options:
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  bundleIdPrefix: local.fanbar
+
+targets:
+  FanBarShared:
+    type: library.static
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: ../Sources/FanBarShared
+    settings:
+      base:
+        PRODUCT_NAME: FanBarShared
+        PRODUCT_MODULE_NAME: FanBarShared
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGNING_ALLOWED: false
+
+  FanBarUI:
+    type: library.static
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: ../Sources/FanBarUI
+    dependencies:
+      - target: FanBarShared
+    settings:
+      base:
+        PRODUCT_NAME: FanBarUI
+        PRODUCT_MODULE_NAME: FanBarUI
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGNING_ALLOWED: false
+
+  FanBarWidget:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: ../Sources/FanBarWidget
+      - path: Resources
+        buildPhase: resources
+    dependencies:
+      - target: FanBarShared
+      - target: FanBarUI
+    settings:
+      base:
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: FanBarWidget.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: local.fanbar.app.widget
+        PRODUCT_NAME: FanBarWidget
+        PRODUCT_MODULE_NAME: FanBarWidget
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        APPLICATION_EXTENSION_API_ONLY: true
+        ENABLE_APP_SANDBOX: true
+        CODE_SIGNING_ALLOWED: false
+        GENERATE_INFOPLIST_FILE: false
+        SKIP_INSTALL: true

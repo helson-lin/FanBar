@@ -19,6 +19,7 @@ Settings opens on the Cooling tab. Each panel preset has its own editable temper
 ## Highlights
 
 - **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
+- **Desktop widget** — On macOS 14 or later, add FanBar to the desktop to see average RPM, per-fan speeds, CPU temperature, and control mode. WidgetKit refreshes are system-scheduled and are not second-by-second.
 - **Live visualization** — Monitor CPU/GPU temperatures plus SSD and battery temperatures when the Mac exposes them, with a rolling ten-minute chart and airflow motion that follows actual RPM.
 - **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose the Silent, Balanced, Performance, or Extreme panel preset.
 - **Smart temperature curves** — Each panel preset has its own editable curve that smoothly adjusts fan output from chip temperature.
@@ -52,6 +53,8 @@ The latest notarized build is on the [GitHub Releases](https://github.com/helson
 3. Choose a panel preset or fixed RPM from the popover. Use **Automatic** at any time to return control to macOS.
 
 Fixed RPM and panel presets can restore macOS control after 15 minutes, 30 minutes, or one hour.
+
+On macOS 14 or later, open the Notification Center widget editor and add **FanBar**. The widget displays the latest snapshot published by the main app; WidgetKit controls refresh timing, so use the menu-bar popover when you need second-level telemetry.
 
 ### Change the interface language
 

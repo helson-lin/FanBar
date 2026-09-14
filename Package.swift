@@ -23,6 +23,11 @@ let package = Package(
             name: "FanBarShared",
             path: "Sources/FanBarShared"
         ),
+        .target(
+            name: "FanBarUI",
+            dependencies: ["FanBarShared"],
+            path: "Sources/FanBarUI"
+        ),
         .executableTarget(
             name: "FanBarHelper",
             dependencies: ["AppleSMC", "FanBarShared"],
@@ -33,9 +38,15 @@ let package = Package(
             dependencies: [
                 "AppleSMC",
                 "FanBarShared",
+                "FanBarUI",
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/FanBar"
+        ),
+        .executableTarget(
+            name: "FanBarWidget",
+            dependencies: ["FanBarShared", "FanBarUI"],
+            path: "Sources/FanBarWidget"
         ),
         .testTarget(
             name: "FanBarTests",

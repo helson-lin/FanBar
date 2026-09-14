@@ -20,7 +20,7 @@ final class FanCurveInteractionTests: XCTestCase {
         }
         UserDefaults.standard.set(true, forKey: onboardingKey)
 
-        let controller = FanController(notificationCenter: nil)
+        let controller = FanController(notificationCenter: nil, widgetSnapshotDestination: .disabled)
         controller.refresh()
         XCTAssertTrue(controller.isAvailable)
 
@@ -149,7 +149,7 @@ final class FanCurveInteractionTests: XCTestCase {
     /// Undo/Redo chain so a factory reset is forgiving rather than destructive.
     @MainActor
     func testCurveReplacementSupportsUndoAndRedo() {
-        let controller = FanController(notificationCenter: nil)
+        let controller = FanController(notificationCenter: nil, widgetSnapshotDestination: .disabled)
         let preset = controller.curveCoolingPreset
         let original = controller.curveProfile
         var edited = original
@@ -186,7 +186,7 @@ final class FanCurveInteractionTests: XCTestCase {
 
     @MainActor
     func testModeActionFeedbackReplacesProgressWithFailureAndDismisses() {
-        let controller = FanController(notificationCenter: nil)
+        let controller = FanController(notificationCenter: nil, widgetSnapshotDestination: .disabled)
 
         controller.beginModeAction("Switching to Silent curve…")
         XCTAssertEqual(
@@ -263,7 +263,7 @@ final class FanCurveInteractionTests: XCTestCase {
     /// active curve untouched so the UI never claims a mode the Mac did not enter.
     @MainActor
     func testFailedCurveActivationDoesNotCommitPresetSelection() {
-        let controller = FanController(notificationCenter: nil)
+        let controller = FanController(notificationCenter: nil, widgetSnapshotDestination: .disabled)
         let originalPreset = controller.curveCoolingPreset
         let originalProfile = controller.curveProfile
         let targetPreset = FanCoolingPreset.allCases.first { $0 != originalPreset }!
