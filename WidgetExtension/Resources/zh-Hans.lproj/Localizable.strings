@@ -1,0 +1,5 @@
+/* Widget gallery display name shown in the "Add Widget" picker. */
+"widget.displayName" = "FanBar";
+
+/* Widget gallery description shown under the display name in the "Add Widget" picker. */
+"widget.description" = "查看风扇转速和 CPU 温度。";

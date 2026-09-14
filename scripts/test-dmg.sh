@@ -28,14 +28,17 @@ test "$(readlink "${mount_path}/Applications")" = "/Applications"
 
 codesign --verify --deep --strict --verbose=2 "${app_path}"
 app_archs="$(lipo -archs "${app_path}/Contents/MacOS/FanBar")"
-helper_archs="$(lipo -archs "${app_path}/Contents/Resources/FanBarHelper")"
+helper_archs="$(lipo -archs "${app_path}/Contents/Library/LaunchServices/local.fanbar.helper")"
+widget_archs="$(lipo -archs "${app_path}/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget")"
 expected_archs="${FANBAR_EXPECTED_ARCHS:-}"
 if [[ -z "${expected_archs}" ]]; then
     [[ "${app_archs}" == "x86_64 arm64" || "${app_archs}" == "arm64 x86_64" ]]
     [[ "${helper_archs}" == "x86_64 arm64" || "${helper_archs}" == "arm64 x86_64" ]]
+    [[ "${widget_archs}" == "x86_64 arm64" || "${widget_archs}" == "arm64 x86_64" ]]
 else
     [[ "${app_archs}" == "${expected_archs}" ]]
     [[ "${helper_archs}" == "${expected_archs}" ]]
+    [[ "${widget_archs}" == "${expected_archs}" ]]
 fi
 
 version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
@@ -43,5 +46,6 @@ version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
 print "version=${version}"
 print "app-architectures=${app_archs}"
 print "helper-architectures=${helper_archs}"
+print "widget-architectures=${widget_archs}"
 "${app_path}/Contents/MacOS/FanBar" --telemetry-test
 print "dmg-test=success"

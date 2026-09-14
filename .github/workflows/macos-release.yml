@@ -37,6 +37,7 @@ jobs:
         env:
           FANBAR_ARCHS: arm64 x86_64
           FANBAR_SIGN_IDENTITY: "-"
+          FANBAR_ALLOW_ADHOC: "1"
         run: zsh scripts/package-app.sh
 
       - name: Build verification DMG
@@ -48,9 +49,11 @@ jobs:
         run: |
           codesign --verify --deep --strict --verbose=2 dist/FanBar.app
           app_archs="$(lipo -archs dist/FanBar.app/Contents/MacOS/FanBar)"
-          helper_archs="$(lipo -archs dist/FanBar.app/Contents/Resources/FanBarHelper)"
+          helper_archs="$(lipo -archs dist/FanBar.app/Contents/Library/LaunchServices/local.fanbar.helper)"
+          widget_archs="$(lipo -archs dist/FanBar.app/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget)"
           [[ "${app_archs}" == "x86_64 arm64" || "${app_archs}" == "arm64 x86_64" ]]
           [[ "${helper_archs}" == "x86_64 arm64" || "${helper_archs}" == "arm64 x86_64" ]]
+          [[ "${widget_archs}" == "x86_64 arm64" || "${widget_archs}" == "arm64 x86_64" ]]
           hdiutil verify dist/FanBar-*.dmg
 
       - name: Upload CI artifact
@@ -140,7 +143,8 @@ jobs:
           codesign --verify --deep --strict --verbose=2 dist/FanBar.app
           codesign --verify --verbose=2 dist/FanBar-*.dmg
           lipo -archs dist/FanBar.app/Contents/MacOS/FanBar
-          lipo -archs dist/FanBar.app/Contents/Resources/FanBarHelper
+          lipo -archs dist/FanBar.app/Contents/Library/LaunchServices/local.fanbar.helper
+          lipo -archs dist/FanBar.app/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget
 
       - name: Notarize and staple
         run: zsh scripts/notarize-dmg.sh dist/FanBar-*.dmg

@@ -139,7 +139,8 @@ private enum LegacyLaunchd {
         let plistURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("local.fanbar.helper.\(ProcessInfo.processInfo.processIdentifier).plist")
         let helperPath = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Resources/FanBarHelper").path
+            .appendingPathComponent("Contents/Library/LaunchServices/local.fanbar.helper")
+            .path
         let plist: [String: Any] = [
             "Label": FanBarService.helperPlistName,
             "ProgramArguments": [helperPath],
