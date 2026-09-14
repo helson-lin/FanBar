@@ -3,3 +3,14 @@
 
 /* Widget gallery description shown under the display name in the "Add Widget" picker. */
 "widget.description" = "查看风扇转速和 CPU 温度。";
+
+"widget.title" = "风扇";
+"widget.updated" = "更新于";
+"widget.averageRPM" = "平均转速";
+"widget.fan" = "风扇 %d";
+"widget.more" = "更多";
+"widget.moreFansAverage" = "另外 %d 个风扇，平均 %d RPM";
+"widget.unavailable" = "风扇数据不可用";
+"widget.mode.automatic" = "自动";
+"widget.mode.smart" = "智能";
+"widget.mode.manual" = "手动";

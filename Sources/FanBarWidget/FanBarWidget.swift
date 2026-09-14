@@ -43,6 +43,10 @@ struct FanBarWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: FanBarWidgetEntry
 
+    private var strings: WidgetStrings {
+        WidgetStrings(isEnglish: entry.snapshot.isEnglish)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
@@ -60,13 +64,15 @@ struct FanBarWidgetView: View {
             }
             Spacer(minLength: 0)
             HStack(spacing: 3) {
-                Text(entry.snapshot.isEnglish ? "Updated" : "更新于")
+                Text(strings.text("widget.updated"))
                 Text(entry.snapshot.updatedAt, style: .relative)
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
+        .padding(.top, family == .systemMedium ? 6 : 0)
+        .environment(\.locale, strings.locale)
         .containerBackground(.background, for: .widget)
     }
 
@@ -75,7 +81,7 @@ struct FanBarWidgetView: View {
             Image(systemName: "fan.fill")
                 .font(.headline)
                 .foregroundStyle(.tint)
-            Text(entry.snapshot.isEnglish ? "Fans" : "风扇")
+            Text(strings.text("widget.title"))
                 .font(.headline)
             Spacer()
             Text(modeLabel)
@@ -102,7 +108,7 @@ struct FanBarWidgetView: View {
             Text(rpmLabel)
                 .font(.system(.title2, design: .rounded, weight: .semibold))
                 .minimumScaleFactor(0.7)
-            Text(entry.snapshot.isEnglish ? "Average RPM" : "平均转速")
+            Text(strings.text("widget.averageRPM"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let temperature = entry.snapshot.cpuCelsius {
@@ -122,12 +128,22 @@ struct FanBarWidgetView: View {
     private static let largeFanLimit = 4
 
     private var mediumContent: some View {
-        fanRow(limit: Self.mediumFanLimit, spacing: 8, graphicSize: 66)
+        fanRow(
+            limit: Self.mediumFanLimit,
+            spacing: 16,
+            graphicSize: 66,
+            showsRange: false
+        )
     }
 
     private var largeContent: some View {
         VStack(spacing: 6) {
-            fanRow(limit: Self.largeFanLimit, spacing: 14, graphicSize: 90)
+            fanRow(
+                limit: Self.largeFanLimit,
+                spacing: 14,
+                graphicSize: 90,
+                showsRange: true
+            )
             if let temperature = entry.snapshot.cpuCelsius {
                 Text(temperatureLabel(temperature))
                     .font(.caption)
@@ -136,7 +152,12 @@ struct FanBarWidgetView: View {
         }
     }
 
-    private func fanRow(limit: Int, spacing: CGFloat, graphicSize: CGFloat) -> some View {
+    private func fanRow(
+        limit: Int,
+        spacing: CGFloat,
+        graphicSize: CGFloat,
+        showsRange: Bool
+    ) -> some View {
         let fans = entry.snapshot.fans
         let visibleFans = Array(fans.prefix(limit))
         let hiddenFans = Array(fans.dropFirst(limit))
@@ -145,14 +166,15 @@ struct FanBarWidgetView: View {
             ForEach(visibleFans) { fan in
                 WidgetFanGauge(
                     fan: fan,
-                    isEnglish: entry.snapshot.isEnglish,
-                    graphicSize: graphicSize
+                    strings: strings,
+                    graphicSize: graphicSize,
+                    showsRange: showsRange
                 )
             }
             if !hiddenFans.isEmpty {
                 WidgetHiddenFanSummary(
                     hiddenFans: hiddenFans,
-                    isEnglish: entry.snapshot.isEnglish,
+                    strings: strings,
                     graphicSize: graphicSize
                 )
             }
@@ -163,7 +185,7 @@ struct FanBarWidgetView: View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(.secondary)
-            Text(entry.snapshot.isEnglish ? "Fan data unavailable" : "风扇数据不可用")
+            Text(strings.text("widget.unavailable"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -203,11 +225,11 @@ struct FanBarWidgetView: View {
     private var modeLabel: String {
         switch entry.snapshot.mode {
         case .automatic:
-            return entry.snapshot.isEnglish ? "Automatic" : "自动"
+            return strings.text("widget.mode.automatic")
         case .temperatureCurve:
-            return entry.snapshot.isEnglish ? "Smart" : "智能"
+            return strings.text("widget.mode.smart")
         case .fixed:
-            return entry.snapshot.isEnglish ? "Manual" : "手动"
+            return strings.text("widget.mode.manual")
         }
     }
 
@@ -220,8 +242,9 @@ struct FanBarWidgetView: View {
 @available(macOS 14.0, *)
 private struct WidgetFanGauge: View {
     let fan: FanBarWidgetSnapshot.Fan
-    let isEnglish: Bool
+    let strings: WidgetStrings
     let graphicSize: CGFloat
+    let showsRange: Bool
 
     private var tint: Color {
         let intensity = fan.maximumRPM > 0
@@ -245,21 +268,23 @@ private struct WidgetFanGauge: View {
             .scaleEffect(graphicSize / 104)
             .frame(width: graphicSize, height: graphicSize * 96 / 104)
 
-            Text(isEnglish ? "Fan \(fan.index + 1)" : "风扇 \(fan.index + 1)")
+            Text(strings.format("widget.fan", fan.index + 1))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text("\(fan.currentRPM) RPM")
                 .font(.system(.callout, design: .rounded, weight: .semibold))
                 .monospacedDigit()
                 .minimumScaleFactor(0.7)
-            Text("\(fan.minimumRPM)–\(fan.maximumRPM)")
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            if showsRange {
+                Text("\(fan.minimumRPM)–\(fan.maximumRPM)")
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isEnglish ? "Fan \(fan.index + 1)" : "风扇 \(fan.index + 1)")
+        .accessibilityLabel(strings.format("widget.fan", fan.index + 1))
         .accessibilityValue("\(fan.currentRPM) RPM")
     }
 }
@@ -289,7 +314,7 @@ struct FanBarWidget: Widget {
 @available(macOS 14.0, *)
 private struct WidgetHiddenFanSummary: View {
     let hiddenFans: [FanBarWidgetSnapshot.Fan]
-    let isEnglish: Bool
+    let strings: WidgetStrings
     let graphicSize: CGFloat
 
     private var averageRPM: Int {
@@ -299,9 +324,11 @@ private struct WidgetHiddenFanSummary: View {
     }
 
     private var accessibilityLabelText: String {
-        isEnglish
-            ? "\(hiddenFans.count) more fans, average \(averageRPM) RPM"
-            : "另外 \(hiddenFans.count) 个风扇，平均 \(averageRPM) RPM"
+        strings.format(
+            "widget.moreFansAverage",
+            hiddenFans.count,
+            averageRPM
+        )
     }
 
     var body: some View {
@@ -315,7 +342,7 @@ private struct WidgetHiddenFanSummary: View {
             }
             .frame(width: graphicSize * 0.6, height: graphicSize * 0.6)
 
-            Text(isEnglish ? "More" : "更多")
+            Text(strings.text("widget.more"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text("\(averageRPM) RPM")
@@ -326,6 +353,39 @@ private struct WidgetHiddenFanSummary: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabelText)
+    }
+}
+
+/// Resolves widget copy from the extension's localized resources while still
+/// honoring FanBar's in-app language preference carried by the snapshot.
+@available(macOS 14.0, *)
+private struct WidgetStrings {
+    let isEnglish: Bool
+
+    var locale: Locale {
+        Locale(identifier: localizationName)
+    }
+
+    private var localizationName: String {
+        isEnglish ? "en" : "zh-Hans"
+    }
+
+    private var bundle: Bundle {
+        guard let path = Bundle.main.path(
+            forResource: localizationName,
+            ofType: "lproj"
+        ), let localizedBundle = Bundle(path: path) else {
+            return .main
+        }
+        return localizedBundle
+    }
+
+    func text(_ key: String) -> String {
+        bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+
+    func format(_ key: String, _ arguments: CVarArg...) -> String {
+        String(format: text(key), locale: locale, arguments: arguments)
     }
 }
 

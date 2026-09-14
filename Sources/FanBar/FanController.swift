@@ -1138,6 +1138,11 @@ final class FanController: ObservableObject {
     /// `reloadTimelines` stays throttled, because it draws on a WidgetKit
     /// budget. Availability transitions bypass the floor entirely.
     private static let widgetSnapshotMinimumWriteInterval: TimeInterval = 5
+    /// While FanBar is running, ask WidgetKit to render a fresh snapshot at a
+    /// useful telemetry cadence. WidgetKit may still coalesce requests, but a
+    /// one-minute floor avoids the previous five-minute lag without sending a
+    /// reload for every two-second sensor sample.
+    private static let widgetTimelineMinimumReloadInterval: TimeInterval = 60
 
     private func publishWidgetSnapshotIfNeeded(_ snapshot: FanBarWidgetSnapshot) {
         if case .disabled = widgetSnapshotDestination { return }
@@ -1170,7 +1175,11 @@ final class FanController: ObservableObject {
         lastPublishedWidgetSnapshot = snapshot
         lastWidgetSnapshotPublishDate = Date()
         if case .sharedContainer = widgetSnapshotDestination {
-            requestWidgetTimelineReloadIfNeeded()
+            let shouldReloadImmediately = previous == nil
+                || isAvailabilityTransition
+                || previous?.mode != snapshot.mode
+                || previous?.isEnglish != snapshot.isEnglish
+            requestWidgetTimelineReloadIfNeeded(force: shouldReloadImmediately)
         }
     }
 
@@ -1190,11 +1199,13 @@ final class FanController: ObservableObject {
             && lhs.isEnglish == rhs.isEnglish
     }
 
-    private func requestWidgetTimelineReloadIfNeeded() {
+    private func requestWidgetTimelineReloadIfNeeded(force: Bool = false) {
 #if canImport(WidgetKit)
         let now = Date()
-        guard lastWidgetTimelineReloadDate == nil
-            || now.timeIntervalSince(lastWidgetTimelineReloadDate!) >= 5 * 60 else {
+        guard force
+            || lastWidgetTimelineReloadDate == nil
+            || now.timeIntervalSince(lastWidgetTimelineReloadDate!)
+                >= Self.widgetTimelineMinimumReloadInterval else {
             return
         }
         lastWidgetTimelineReloadDate = now
