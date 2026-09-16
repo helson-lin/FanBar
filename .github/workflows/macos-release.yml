@@ -20,6 +20,13 @@ defaults:
   run:
     shell: zsh {0}
 
+env:
+  # Pin the exact Xcode/SDK used for local development builds. Standard
+  # AppKit controls (NSToolbar, NSSegmentedControl, window materials) render
+  # differently depending on which macOS SDK the app links against, so an
+  # unpinned CI Xcode version silently produces a visually different app.
+  DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+
 jobs:
   build:
     name: Build universal DMG
