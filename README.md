@@ -1,12 +1,46 @@
+<div align="center">
+
+<img src="Assets/FanBarIcon-modern-1024.png" alt="FanBar logo" width="120" height="120">
+
 # FanBar
 
 > A native macOS menu-bar utility for reading temperatures and managing fan cooling when you need it.
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+<p align="center">
+  <a href="README.md"><strong>English</strong></a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/helson-lin/FanBar?color=brightgreen" alt="license">
+  </a><!--
+  --><a href="https://github.com/helson-lin/FanBar/releases/latest">
+    <img src="https://img.shields.io/github/v/release/helson-lin/FanBar?color=brightgreen" alt="release">
+  </a><!--
+  --><a href="https://github.com/helson-lin/FanBar/releases">
+    <img src="https://img.shields.io/github/downloads/helson-lin/FanBar/total?color=blue" alt="downloads">
+  </a><!--
+  --><a href="https://github.com/helson-lin/FanBar/stargazers">
+    <img src="https://img.shields.io/github/stars/helson-lin/FanBar?color=yellow" alt="stars">
+  </a>
+</p>
+
+<p align="center">
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-highlights">Highlights</a> •
+  <a href="#️-download">Download</a> •
+  <a href="#-usage">Usage</a> •
+  <a href="#️-build-and-run">Build</a> •
+  <a href="#️-architecture">Architecture</a> •
+  <a href="#-continuous-integration-and-releases">Releases</a>
+</p>
+
+</div>
 
 FanBar supports macOS 11 Big Sur and later on Apple Silicon Macs and Intel Macs that expose readable AppleSMC fan data. It keeps everyday use safe and quiet with macOS automatic management, while making manual control available only after the signed control service is approved.
 
-## Screenshots
+## 📸 Screenshots
 
 English interface. Switch to Simplified Chinese from **Settings → Language** without restarting.
 
@@ -16,7 +50,7 @@ Settings opens on the Cooling tab. Each panel preset has its own editable temper
 
 ![FanBar English cooling curve settings](docs/screenshots/fanbar-settings-light-en.jpg)
 
-## Highlights
+## ✨ Highlights
 
 - **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
 - **Desktop widget** — On macOS 14 or later, add FanBar to the desktop to see average RPM, per-fan speeds, CPU temperature, and control mode. WidgetKit refreshes are system-scheduled and are not second-by-second.
@@ -29,15 +63,17 @@ Settings opens on the Cooling tab. Each panel preset has its own editable temper
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
 - **English and Simplified Chinese** — Choose System, English, or 简体中文 in FanBar Settings.
 
-## Download
+## ⬇️ Download
 
 The latest notarized build is on the [GitHub Releases](https://github.com/helson-lin/FanBar/releases/latest) page:
 
-- Apple Silicon → `FanBar-<version>-arm64.dmg`
-- Intel → `FanBar-<version>-x86_64.dmg`
-- Universal (Sparkle updates use this) → `FanBar-<version>.dmg`
+| Chip | File |
+|:--|:--|
+| Apple Silicon | `FanBar-<version>-arm64.dmg` |
+| Intel | `FanBar-<version>-x86_64.dmg` |
+| Universal (Sparkle updates use this) | `FanBar-<version>.dmg` |
 
-## Requirements
+### Requirements
 
 - macOS 11 Big Sur or later
 - A Mac that exposes fan data through AppleSMC
@@ -46,7 +82,7 @@ The latest notarized build is on the [GitHub Releases](https://github.com/helson
 > [!WARNING]
 > AppleSMC is an undocumented hardware interface. Lowering fan speed can increase temperature; sustained high speed can increase noise, power use, and mechanical wear. Use manual control only when you understand the trade-offs, and prefer Automatic or Smart cooling for normal use.
 
-## Usage
+## 🚀 Usage
 
 1. Launch FanBar and read the current temperature and fan speeds from the menu bar.
 2. To control fans, choose **Enable fan control** and follow the macOS authorization prompt.
@@ -66,7 +102,7 @@ Open **Settings → Language** and choose:
 
 The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, and helper errors.
 
-## Build and run
+## 🛠️ Build and run
 
 Clone the repository, then build a local app bundle:
 
@@ -102,7 +138,7 @@ Verify a DMG's signature, architecture, and installation structure with:
 zsh scripts/test-dmg.sh dist/FanBar-0.4.3.dmg
 ```
 
-## Architecture
+## 🏗️ Architecture
 
 FanBar separates the UI from privileged writes:
 
@@ -112,7 +148,7 @@ FanBar.app → privileged XPC → FanBarHelper (root) → AppleSMC
 
 The helper does not expose arbitrary SMC writes. It only supports reading fans, setting a bounded target/preset/fraction, and restoring automatic control. macOS 13 and later use `SMAppService`; macOS 11–12 use a compatible launchd registration path.
 
-## Continuous integration and releases
+## 📦 Continuous integration and releases
 
 FanBar uses Sparkle 2 for online updates. The stable feed is the `appcast.xml`
 asset in the latest GitHub Release. Every update must pass Developer ID,
@@ -158,6 +194,14 @@ git tag -a v0.4.3 -m "FanBar 0.4.3"
 git push origin v0.4.3
 ```
 
-## Acknowledgements and license
+## ⭐ Star History
+
+<div align="center">
+
+[![Star History Chart](https://api.star-history.com/svg?repos=helson-lin/FanBar&type=Date)](https://star-history.com/#helson-lin/FanBar&Date)
+
+</div>
+
+## 🙏 Acknowledgements and license
 
 The Apple Silicon control sequence references the MIT-licensed [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete third-party attribution.
