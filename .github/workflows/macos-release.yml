@@ -133,34 +133,62 @@ jobs:
           security find-identity -v -p codesigning "${keychain_path}"
           print "FANBAR_CI_KEYCHAIN=${keychain_path}" >> "${GITHUB_ENV}"
 
-      - name: Build Developer ID app and DMG
+      - name: Build Developer ID app and DMG (universal)
         run: |
           zsh scripts/package-app.sh
           zsh scripts/build-dmg.sh
 
+      - name: Build Developer ID app and DMG (arm64)
+        env:
+          FANBAR_ARCHS: arm64
+          FANBAR_APP_OUTPUT: dist/FanBar-arm64.app
+          FANBAR_DMG_OUTPUT: dist/FanBar-${{ github.ref_name }}-arm64.dmg
+        run: |
+          zsh scripts/package-app.sh
+          zsh scripts/build-dmg.sh dist/FanBar-arm64.app
+
+      - name: Build Developer ID app and DMG (x86_64)
+        env:
+          FANBAR_ARCHS: x86_64
+          FANBAR_APP_OUTPUT: dist/FanBar-x86_64.app
+          FANBAR_DMG_OUTPUT: dist/FanBar-${{ github.ref_name }}-x86_64.dmg
+        run: |
+          zsh scripts/package-app.sh
+          zsh scripts/build-dmg.sh dist/FanBar-x86_64.app
+
       - name: Verify signed release
         run: |
-          codesign --verify --deep --strict --verbose=2 dist/FanBar.app
+          for app_path in dist/FanBar.app dist/FanBar-arm64.app dist/FanBar-x86_64.app; do
+            codesign --verify --deep --strict --verbose=2 "${app_path}"
+            lipo -archs "${app_path}/Contents/MacOS/FanBar"
+            lipo -archs "${app_path}/Contents/Library/LaunchServices/local.fanbar.helper"
+            lipo -archs "${app_path}/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget"
+          done
           codesign --verify --verbose=2 dist/FanBar-*.dmg
-          lipo -archs dist/FanBar.app/Contents/MacOS/FanBar
-          lipo -archs dist/FanBar.app/Contents/Library/LaunchServices/local.fanbar.helper
-          lipo -archs dist/FanBar.app/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget
 
       - name: Notarize and staple
-        run: zsh scripts/notarize-dmg.sh dist/FanBar-*.dmg
-
-      - name: Create checksum
         run: |
-          dmg_path=(dist/FanBar-*.dmg)
-          dmg_name="$(basename "${dmg_path[1]}")"
-          (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+          for dmg_path in dist/FanBar-*.dmg; do
+            zsh scripts/notarize-dmg.sh "${dmg_path}"
+          done
+
+      - name: Create checksums
+        run: |
+          for dmg_path in dist/FanBar-*.dmg; do
+            dmg_name="$(basename "${dmg_path}")"
+            (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+          done
 
       - name: Generate signed Sparkle appcast
         run: |
           updates_dir="${RUNNER_TEMP}/fanbar-updates"
           mkdir -p "${updates_dir}"
-          dmg_path=(dist/FanBar-*.dmg)
-          cp "${dmg_path[1]}" "${updates_dir}/"
+          # Sparkle updates only ship the universal DMG; the arch-specific
+          # DMGs are for manual downloads and are excluded from the appcast.
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" App/Info.plist)
+          universal_dmg="dist/FanBar-${version}.dmg"
+          test -f "${universal_dmg}"
+          cp "${universal_dmg}" "${updates_dir}/"
           print -n "${SPARKLE_PRIVATE_KEY}" | \
             .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
               --ed-key-file - \
