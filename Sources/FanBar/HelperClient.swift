@@ -79,9 +79,27 @@ final class HelperClient: @unchecked Sendable {
     private var connection: NSXPCConnection?
     private var connectionGenerations = HelperConnectionGenerations()
     private let requestTimeout: TimeInterval
+    /// Until the caller reports the real count, assume the most fans the helper accepts.
+    private var expectedFanCount = FanControlTiming.maximumFanCount
 
     init(requestTimeout: TimeInterval = 3) {
         self.requestTimeout = max(requestTimeout, 0.01)
+    }
+
+    func setExpectedFanCount(_ count: Int) {
+        guard count > 0 else { return }
+        lock.lock()
+        expectedFanCount = count
+        lock.unlock()
+    }
+
+    /// A write that times out tears down the connection, and the helper then restores
+    /// automatic control, so the timeout must outlast the driver's unlock retries.
+    private var writeTimeout: TimeInterval {
+        lock.lock()
+        let count = expectedFanCount
+        lock.unlock()
+        return FanControlTiming.writeReplyTimeout(fanCount: count, base: requestTimeout)
     }
 
     deinit {
@@ -208,7 +226,7 @@ final class HelperClient: @unchecked Sendable {
         try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<Void, Error>) in
             let gate = ReplyGate()
-            scheduleTimeout(for: gate, continuation: continuation)
+            scheduleTimeout(for: gate, continuation: continuation, after: writeTimeout)
             guard let proxy = proxy(error: { error in
                 gate.once { continuation.resume(throwing: error) }
             }) else {
@@ -236,9 +254,10 @@ final class HelperClient: @unchecked Sendable {
 
     private func scheduleTimeout<Value>(
         for gate: ReplyGate,
-        continuation: CheckedContinuation<Value, Error>
+        continuation: CheckedContinuation<Value, Error>,
+        after timeout: TimeInterval? = nil
     ) {
-        gate.scheduleTimeout(after: requestTimeout) { [weak self] in
+        gate.scheduleTimeout(after: timeout ?? requestTimeout) { [weak self] in
             self?.invalidateConnection()
             continuation.resume(
                 throwing: HelperClientError(

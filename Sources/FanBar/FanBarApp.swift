@@ -193,8 +193,11 @@ struct FanBarApp: App {
             let client = HelperClient()
             do {
                 let before = try await client.fans()
+                client.setExpectedFanCount(before.count)
                 print("before=\(before.map(\.currentRPM))")
+                let writeStart = Date()
                 try await client.setAllFans(rpm: 3500)
+                print(String(format: "set-all-fans-seconds=%.2f", Date().timeIntervalSince(writeStart)))
                 try await Task.sleep(nanoseconds: 5_000_000_000)
                 let afterFixed = try await client.fans()
                 print("after-fixed=\(afterFixed.map(\.currentRPM))")
