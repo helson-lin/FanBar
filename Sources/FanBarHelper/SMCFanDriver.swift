@@ -1,6 +1,7 @@
 import AppleSMC
 import FanBarShared
 import Foundation
+import os
 
 enum FanHardwareError: LocalizedError {
     case unavailable(Int32)
@@ -36,6 +37,7 @@ struct HardwareFan {
 /// The mode probing, Float32 encoding, and Ftst retry sequence are based on the
 /// MIT-licensed macos-smc-fan interoperability research by Alexander Goodkind.
 final class SMCFanDriver {
+    private static let log = Logger(subsystem: FanBarService.helperBundleID, category: "driver")
     private let modeKeyFormat: String
     private let hasForceTest: Bool
 
@@ -156,16 +158,20 @@ final class SMCFanDriver {
             throw FanHardwareError.operation(key, -1)
         }
 
+        let unlockStart = Date()
         try Self.writeBytes("Ftst", bytes: [1])
-        Thread.sleep(forTimeInterval: 0.5)
+        Thread.sleep(forTimeInterval: FanControlTiming.manualModeUnlockSettle)
 
-        let deadline = Date().addingTimeInterval(10)
+        let deadline = Date().addingTimeInterval(FanControlTiming.manualModeUnlockDeadline)
         while Date() < deadline {
             if (try? Self.writeBytes(key, bytes: [1])) != nil {
+                let elapsed = Date().timeIntervalSince(unlockStart)
+                Self.log.notice("Fan \(index) manual mode needed Ftst unlock: \(elapsed, format: .fixed(precision: 2))s")
                 return
             }
             Thread.sleep(forTimeInterval: 0.1)
         }
+        Self.log.error("Fan \(index) manual mode unlock timed out")
         throw FanHardwareError.unlockTimeout(index)
     }
 

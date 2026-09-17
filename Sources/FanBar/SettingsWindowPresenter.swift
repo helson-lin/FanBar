@@ -112,8 +112,8 @@ final class SettingsWindowPresenter: NSObject {
     // MARK: - Toolbar
 
     /// Restores the compact 0.4.1 navigation pattern using the native macOS
-    /// segmented control. Fixed-width icon segments cannot be truncated by a
-    /// localized title and keep the content area free for settings.
+    /// segmented control. Segment widths come from `sizeToFit()` so each macOS
+    /// release applies its own control metrics.
     private func installToolbar(on window: NSWindow) {
         let toolbar = NSToolbar(identifier: "fanbar.settings")
         toolbar.delegate = self
@@ -247,7 +247,6 @@ extension SettingsWindowPresenter: NSToolbarDelegate {
             )?.withSymbolConfiguration(imageConfiguration) ?? NSImage()
             control.setImage(image, forSegment: index)
             control.setToolTip(tab.title, forSegment: index)
-            control.setWidth(36, forSegment: index)
         }
 
         let savedTab = UserDefaults.standard.string(forKey: SettingsTab.preferenceKey)

@@ -1,10 +1,12 @@
 import FanBarShared
 import Foundation
+import os
 import Security
 
 final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperProtocol,
     @unchecked Sendable
 {
+    private static let log = Logger(subsystem: FanBarService.helperBundleID, category: "service")
     private let listener = NSXPCListener(machServiceName: FanBarService.helperBundleID)
     private let hardwareQueue = DispatchQueue(label: "local.fanbar.helper.hardware")
     private var driver: SMCFanDriver?
@@ -31,7 +33,10 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         _ listener: NSXPCListener,
         shouldAcceptNewConnection connection: NSXPCConnection
     ) -> Bool {
-        guard Self.isAuthorizedClient(connection) else { return false }
+        guard Self.isAuthorizedClient(connection) else {
+            Self.log.error("Rejected XPC client pid \(connection.processIdentifier)")
+            return false
+        }
         hardwareQueue.sync {
             activeConnections += 1
         }
@@ -41,8 +46,9 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
             guard let self else { return }
             hardwareQueue.async {
                 self.activeConnections = max(0, self.activeConnections - 1)
-                if self.activeConnections == 0 {
-                    try? self.driver?.restoreAutomatic()
+                if self.activeConnections == 0, let driver = self.driver {
+                    Self.log.notice("Last client disconnected; restoring automatic fan control")
+                    try? driver.restoreAutomatic()
                 }
             }
         }
@@ -82,13 +88,8 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         rpm: Float,
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
-        hardwareQueue.async {
-            do {
-                try self.connectedDriver().setAllFans(rpm: rpm)
-                reply(true, nil)
-            } catch {
-                reply(false, error.localizedDescription)
-            }
+        performWrite("setAllFans", reply: reply) { driver in
+            try driver.setAllFans(rpm: rpm)
         }
     }
 
@@ -96,17 +97,12 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         _ rawValue: Int,
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
-        hardwareQueue.async {
-            guard let preset = FanCoolingPreset(rawValue: rawValue) else {
-                reply(false, fanBarText("未知的散热预设", "Unknown cooling preset"))
-                return
-            }
-            do {
-                try self.connectedDriver().setCoolingPreset(preset)
-                reply(true, nil)
-            } catch {
-                reply(false, error.localizedDescription)
-            }
+        guard let preset = FanCoolingPreset(rawValue: rawValue) else {
+            reply(false, fanBarText("未知的散热预设", "Unknown cooling preset"))
+            return
+        }
+        performWrite("setCoolingPreset", reply: reply) { driver in
+            try driver.setCoolingPreset(preset)
         }
     }
 
@@ -114,43 +110,50 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         _ fraction: Float,
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
-        hardwareQueue.async {
-            // Keep the root API bounded even if a compromised client sends malformed input.
-            // 0% is allowed so smart cooling can idle below the low-temp knee.
-            guard fraction.isFinite, (0...1.00).contains(fraction) else {
-                reply(false, fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%"))
-                return
-            }
-            do {
-                try self.connectedDriver().setCoolingFraction(fraction)
-                reply(true, nil)
-            } catch {
-                reply(false, error.localizedDescription)
-            }
+        // Keep the root API bounded even if a compromised client sends malformed input.
+        // 0% is allowed so smart cooling can idle below the low-temp knee.
+        guard fraction.isFinite, (0...1.00).contains(fraction) else {
+            reply(false, fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%"))
+            return
+        }
+        performWrite("setCoolingFraction", reply: reply) { driver in
+            try driver.setCoolingFraction(fraction)
         }
     }
 
     func setAllFansToEightyPercent(
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
-        hardwareQueue.async {
-            do {
-                try self.connectedDriver().setAllFansToEightyPercent()
-                reply(true, nil)
-            } catch {
-                reply(false, error.localizedDescription)
-            }
+        performWrite("setAllFansToEightyPercent", reply: reply) { driver in
+            try driver.setAllFansToEightyPercent()
         }
     }
 
     func restoreAutomatic(
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
+        performWrite("restoreAutomatic", reply: reply) { driver in
+            try driver.restoreAutomatic()
+        }
+    }
+
+    /// Serializes a hardware write and records its duration and real error, which
+    /// the client cannot see once its reply timeout has already fired.
+    private func performWrite(
+        _ operation: StaticString,
+        reply: @escaping @Sendable (Bool, String?) -> Void,
+        _ body: @escaping @Sendable (SMCFanDriver) throws -> Void
+    ) {
         hardwareQueue.async {
+            let start = Date()
             do {
-                try self.connectedDriver().restoreAutomatic()
+                try body(self.connectedDriver())
+                let elapsed = Date().timeIntervalSince(start)
+                Self.log.notice("\(operation, privacy: .public) succeeded in \(elapsed, format: .fixed(precision: 2))s")
                 reply(true, nil)
             } catch {
+                let elapsed = Date().timeIntervalSince(start)
+                Self.log.error("\(operation, privacy: .public) failed after \(elapsed, format: .fixed(precision: 2))s: \(error.localizedDescription, privacy: .public)")
                 reply(false, error.localizedDescription)
             }
         }

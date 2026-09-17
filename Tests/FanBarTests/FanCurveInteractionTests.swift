@@ -248,6 +248,27 @@ final class FanCurveInteractionTests: XCTestCase {
         wait(for: [timeoutFired], timeout: 0.05)
     }
 
+    /// A write reply timeout shorter than the driver's sequential unlock retries
+    /// tears down the connection mid-write, and the helper then reverts the fans.
+    func testWriteReplyTimeoutOutlastsSequentialManualModeUnlock() {
+        let perFanUnlock = FanControlTiming.manualModeUnlockSettle
+            + FanControlTiming.manualModeUnlockDeadline
+        for fanCount in 1...FanControlTiming.maximumFanCount {
+            XCTAssertGreaterThan(
+                FanControlTiming.writeReplyTimeout(fanCount: fanCount, base: 3),
+                Double(fanCount) * perFanUnlock
+            )
+        }
+        XCTAssertEqual(
+            FanControlTiming.writeReplyTimeout(fanCount: 0, base: 3),
+            FanControlTiming.writeReplyTimeout(fanCount: 1, base: 3)
+        )
+        XCTAssertEqual(
+            FanControlTiming.writeReplyTimeout(fanCount: 99, base: 3),
+            FanControlTiming.writeReplyTimeout(fanCount: FanControlTiming.maximumFanCount, base: 3)
+        )
+    }
+
     /// A delayed invalidation callback belongs to the connection generation
     /// that installed it and must not clear a later retry connection.
     func testStaleConnectionGenerationCannotClearReplacement() {

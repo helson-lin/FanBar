@@ -231,6 +231,7 @@ final class FanController: ObservableObject {
         guard let localClient else { connectAndRefresh(); return }
         do {
             fans = try localClient.fans()
+            helperClient.setExpectedFanCount(fans.count)
             let thermal = localClient.thermalReading()
             appendTemperature(thermal)
             evaluateThermalAlerts(using: thermal)
@@ -956,6 +957,11 @@ final class FanController: ObservableObject {
     }
 
     func quit() {
+        // Our exit closes the XPC connection and the helper restores automatic
+        // control itself, so a slow unlock reply must not hold Quit open.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            NSApplication.shared.terminate(nil)
+        }
         Task {
             await finishPendingCurveUpdate()
             if helperState == .enabled {
