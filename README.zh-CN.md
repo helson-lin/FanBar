@@ -185,3 +185,14 @@ git push origin v0.4.3
 ## 🙏 致谢与许可
 
 Apple Silicon 的控制序列参考了 MIT 许可的 [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan)。完整的第三方归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+感谢以下朋友反馈 bug，帮助 FanBar 变得更好：
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/contributors/qingcang.png" width="64" height="64" alt="倾藏的头像"><br>
+      <sub><b>倾藏</b></sub>
+    </td>
+  </tr>
+</table>

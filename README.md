@@ -205,3 +205,14 @@ git push origin v0.4.3
 ## 🙏 Acknowledgements and license
 
 The Apple Silicon control sequence references the MIT-licensed [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete third-party attribution.
+
+Thanks to these people for reporting bugs and helping make FanBar better:
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/contributors/qingcang.png" width="64" height="64" alt="倾藏's avatar"><br>
+      <sub><b>倾藏</b></sub>
+    </td>
+  </tr>
+</table>
