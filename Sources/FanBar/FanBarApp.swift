@@ -12,11 +12,52 @@ import SwiftUI
 @MainActor
 final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
     static var pendingController: FanController?
+    private var controller: FanController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let controller = Self.pendingController else { return }
         Self.pendingController = nil
+        self.controller = controller
         LegacyStatusItemController.shared.install(controller: controller)
+    }
+
+    /// The only SwiftUI scene is an empty `Settings` placeholder. Opening the
+    /// app again from Finder, Launchpad or Spotlight sends a reopen event, and
+    /// SwiftUI's default handling presents that placeholder as a blank
+    /// "FanBar Settings" window. Show the real AppKit settings window instead.
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        if let controller {
+            SettingsWindowPresenter.shared.show(controller: controller)
+        }
+        return false
+    }
+}
+
+/// SwiftUI requires at least one scene, but FanBar presents its real settings
+/// through `SettingsWindowPresenter`. Recent macOS releases open a lone
+/// `Settings` scene at launch; the window stays behind other apps until the
+/// status item activates FanBar, and then appears as a blank "FanBar Settings"
+/// window. The placeholder removes its own window as soon as it is attached.
+private struct SettingsScenePlaceholder: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        WindowDismissingView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class WindowDismissingView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            window.orderOut(nil)
+            // Closing while SwiftUI is still attaching the hierarchy is unsafe.
+            DispatchQueue.main.async { [weak window] in
+                window?.close()
+            }
+        }
     }
 }
 
@@ -66,7 +107,16 @@ struct FanBarApp: App {
 
     var body: some Scene {
         Settings {
-            EmptyView()
+            SettingsScenePlaceholder()
+        }
+        .commands {
+            // Route ⌘, to the real settings window rather than the placeholder scene.
+            CommandGroup(replacing: .appSettings) {
+                Button(fanBarText("设置…", "Settings…")) {
+                    SettingsWindowPresenter.shared.show(controller: controller)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 
