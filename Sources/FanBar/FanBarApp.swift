@@ -2,8 +2,27 @@ import AppKit
 import FanBarShared
 import SwiftUI
 
+/// Creating an NSStatusItem asks AppKit/SkyLight for the process's WindowServer
+/// connection. When FanBar is auto-launched as a login item, launchd can start
+/// it before that connection exists yet, so `+[NSStatusItem
+/// _registerNotificationHandlersIfNeeded]` aborts inside `CGSConnectionByID`.
+/// `App.init()` runs before AppKit's own launch sequence finishes, so the
+/// status item must wait for `applicationDidFinishLaunching`, where the
+/// connection is guaranteed to be live.
+@MainActor
+final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
+    static var pendingController: FanController?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let controller = Self.pendingController else { return }
+        Self.pendingController = nil
+        LegacyStatusItemController.shared.install(controller: controller)
+    }
+}
+
 @main
 struct FanBarApp: App {
+    @NSApplicationDelegateAdaptor(FanBarAppDelegate.self) private var appDelegate
     @StateObject private var controller: FanController
     @AppStorage(MenuBarDisplayMode.preferenceKey)
     private var menuBarDisplayModeRawValue = MenuBarDisplayMode.defaultMode.rawValue
@@ -36,7 +55,7 @@ struct FanBarApp: App {
         _ = SoftwareUpdateController.shared
         let controller = FanController()
         _controller = StateObject(wrappedValue: controller)
-        LegacyStatusItemController.shared.install(controller: controller)
+        FanBarAppDelegate.pendingController = controller
         if CommandLine.arguments.contains("--settings-window-smoke-test") {
             Self.runSettingsWindowSmokeTest(controller: controller)
         }
