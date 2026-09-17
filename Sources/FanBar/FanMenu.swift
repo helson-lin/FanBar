@@ -27,6 +27,10 @@ struct FanMenu: View {
         return false
     }
 
+    private var isShowingModeFailureBanner: Bool {
+        controller.modeActionFeedback?.kind == .failure
+    }
+
     private var modeLabel: String {
         switch controller.mode {
         case .automatic: fanBarText("系统", "Automatic")
@@ -264,8 +268,11 @@ struct FanMenu: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.primary.opacity(0.055))
             )
-            // Failure replaces the control strip visually but remains outside
-            // layout, so success and failure paths share the same popover size.
+            // The failure banner covers the strip without changing popover size;
+            // hide the strip (not remove it) so its labels can't show through.
+            .opacity(isShowingModeFailureBanner ? 0 : 1)
+            .allowsHitTesting(!isShowingModeFailureBanner)
+            .accessibilityHidden(isShowingModeFailureBanner)
             .overlay(
                 Group {
                     if let feedback = controller.modeActionFeedback,
@@ -287,7 +294,7 @@ struct FanMenu: View {
         let isFailure = feedback.kind == .failure
         let tint = isFailure ? Color.red : Color.accentColor
 
-        return HStack(alignment: .top, spacing: 9) {
+        return HStack(alignment: .center, spacing: 9) {
             Group {
                 if isFailure {
                     Image(systemName: "exclamationmark.circle.fill")
@@ -301,11 +308,15 @@ struct FanMenu: View {
             .frame(width: 16, height: 16)
             .accessibilityHidden(true)
 
+            // The banner overlays the fixed-height control strip, so it must not grow.
             Text(feedback.message)
                 .font(.caption)
                 .foregroundColor(isFailure ? .primary : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .help(feedback.message)
 
             if isFailure {
                 if feedback.offersHelperSettings {
@@ -338,7 +349,8 @@ struct FanMenu: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(tint.opacity(isFailure ? 0.09 : 0.06))
