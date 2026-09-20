@@ -7,6 +7,28 @@ import SwiftUI
 enum TemperatureChartTimeAxis {
     static let historyDuration: TimeInterval = 10 * 60
 
+    /// Samples arrive every two seconds. Anything beyond this is a real break in
+    /// the trace (sleep, lock screen, app restart) and must not be bridged.
+    static let maximumSampleGap: TimeInterval = 15
+
+    /// Splits sample dates into runs of consecutive indices that are close
+    /// enough in time to be drawn and smoothed as one continuous curve.
+    static func segments(for dates: [Date]) -> [ClosedRange<Int>] {
+        guard !dates.isEmpty else { return [] }
+
+        var result: [ClosedRange<Int>] = []
+        var start = dates.startIndex
+
+        for index in dates.indices.dropFirst() {
+            if dates[index].timeIntervalSince(dates[index - 1]) > maximumSampleGap {
+                result.append(start...(index - 1))
+                start = index
+            }
+        }
+        result.append(start...(dates.endIndex - 1))
+        return result
+    }
+
     /// The x-axis is always the ten minutes ending at the newest sample (or now
     /// while no sample exists). Keeping the full span makes the axis predictable
     /// and preserves the "last ten minutes" contract across app launches.
@@ -84,29 +106,38 @@ struct TemperatureChart: View {
 
     private let smoothingRadius = 3
 
+    private var sampleSegments: [ClosedRange<Int>] {
+        TemperatureChartTimeAxis.segments(for: samples.map(\.sampledAt))
+    }
+
     /// Applies a short low-pass window only to the rendered trace. The raw
-    /// readings remain the source of the legend and control logic.
+    /// readings remain the source of the legend and control logic. The window
+    /// never reaches across a break, so a resumed trace cannot drag the
+    /// pre-break readings toward it.
     private var chartSamples: [ThermalReading] {
         guard samples.count > smoothingRadius * 2 else { return samples }
 
-        return samples.indices.map { index in
-            let sample = samples[index]
-            return ThermalReading(
-                sampledAt: sample.sampledAt,
-                cpuCelsius: smoothedValue(at: index, keyPath: \.cpuCelsius),
-                gpuCelsius: smoothedValue(at: index, keyPath: \.gpuCelsius),
-                ssdCelsius: smoothedValue(at: index, keyPath: \.ssdCelsius),
-                batteryCelsius: smoothedValue(at: index, keyPath: \.batteryCelsius)
-            )
+        return sampleSegments.flatMap { segment in
+            segment.map { index in
+                let sample = samples[index]
+                return ThermalReading(
+                    sampledAt: sample.sampledAt,
+                    cpuCelsius: smoothedValue(at: index, within: segment, keyPath: \.cpuCelsius),
+                    gpuCelsius: smoothedValue(at: index, within: segment, keyPath: \.gpuCelsius),
+                    ssdCelsius: smoothedValue(at: index, within: segment, keyPath: \.ssdCelsius),
+                    batteryCelsius: smoothedValue(at: index, within: segment, keyPath: \.batteryCelsius)
+                )
+            }
         }
     }
 
     private func smoothedValue(
         at index: Int,
+        within segment: ClosedRange<Int>,
         keyPath: KeyPath<ThermalReading, Double?>
     ) -> Double? {
-        let lowerBound = max(0, index - smoothingRadius)
-        let upperBound = min(samples.count - 1, index + smoothingRadius)
+        let lowerBound = max(segment.lowerBound, index - smoothingRadius)
+        let upperBound = min(segment.upperBound, index + smoothingRadius)
         let values = (lowerBound...upperBound).compactMap {
             samples[$0][keyPath: keyPath]
         }
@@ -322,11 +353,15 @@ private struct TemperaturePlot: View {
         let timeSpan = max(timeRange.upperBound.timeIntervalSince(firstDate), 1)
 
         for (index, value) in values.enumerated() {
+            let date = samples[index].sampledAt
+            if index > 0,
+               date.timeIntervalSince(samples[index - 1].sampledAt) > TemperatureChartTimeAxis.maximumSampleGap {
+                flushSegment()
+            }
             guard let value else {
                 flushSegment()
                 continue
             }
-            let date = samples[index].sampledAt
             let position = min(1, max(0, date.timeIntervalSince(firstDate) / timeSpan))
             let x = rect.minX + CGFloat(position) * rect.width
             segment.append(CGPoint(x: x, y: yPosition(value, in: rect)))

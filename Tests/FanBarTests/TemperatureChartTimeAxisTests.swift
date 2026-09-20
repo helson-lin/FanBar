@@ -84,6 +84,36 @@ final class TemperatureChartTimeAxisTests: XCTestCase {
         XCTAssertEqual(loaded.first?.cpuCelsius, 50)
     }
 
+    func testSegmentsKeepTwoSecondCadenceAsOneRun() {
+        let start = date(hour: 18, minute: 0, second: 0)
+        let dates = (0..<5).map { start.addingTimeInterval(Double($0) * 2) }
+
+        XCTAssertEqual(TemperatureChartTimeAxis.segments(for: dates), [0...4])
+    }
+
+    /// A lock screen or app restart leaves a hole in the samples; the trace has
+    /// to break there instead of being bridged by a straight line.
+    func testSegmentsSplitAcrossRestartGap() {
+        let start = date(hour: 18, minute: 0, second: 0)
+        let dates = [
+            start,
+            start.addingTimeInterval(2),
+            start.addingTimeInterval(4),
+            start.addingTimeInterval(4 + 300),
+            start.addingTimeInterval(6 + 300)
+        ]
+
+        XCTAssertEqual(TemperatureChartTimeAxis.segments(for: dates), [0...2, 3...4])
+    }
+
+    func testSegmentsHandleEmptyAndSingleSample() {
+        XCTAssertTrue(TemperatureChartTimeAxis.segments(for: []).isEmpty)
+        XCTAssertEqual(
+            TemperatureChartTimeAxis.segments(for: [date(hour: 18, minute: 0, second: 0)]),
+            [0...0]
+        )
+    }
+
     private func date(hour: Int, minute: Int, second: Int) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
