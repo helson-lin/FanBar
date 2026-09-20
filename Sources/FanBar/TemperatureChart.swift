@@ -1,10 +1,64 @@
 import FanBarShared
 import SwiftUI
 
+/// Formats the ten-minute chart's x-axis as wall-clock hour:minute:second.
+/// `mm:ss` drops the hour, so a window ending at 17:09:52 would read
+/// `59:52  04:52  09:52` when it crosses an hour boundary.
+enum TemperatureChartTimeAxis {
+    static let historyDuration: TimeInterval = 10 * 60
+
+    /// The x-axis is always the ten minutes ending at the newest sample (or now
+    /// while no sample exists). Keeping the full span makes the axis predictable
+    /// and preserves the "last ten minutes" contract across app launches.
+    static func displayRange(lastSample: Date?, now: Date = Date()) -> ClosedRange<Date> {
+        let end = lastSample ?? now
+        return end.addingTimeInterval(-historyDuration)...end
+    }
+
+    static func tickDates(in timeRange: ClosedRange<Date>) -> [Date] {
+        let start = timeRange.lowerBound
+        let end = timeRange.upperBound
+        let midpoint = start.addingTimeInterval(end.timeIntervalSince(start) / 2)
+        return [start, midpoint, end]
+    }
+
+    static func labels(
+        in timeRange: ClosedRange<Date>,
+        timeZone: TimeZone = .current
+    ) -> [String] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm:ss"
+        return tickDates(in: timeRange).map { formatter.string(from: $0) }
+    }
+}
+
+enum TemperatureHistoryStore {
+    static let preferenceKey = "fanbar.temperatureHistory"
+
+    static func load(
+        from defaults: UserDefaults = .standard,
+        now: Date = Date()
+    ) -> [ThermalReading] {
+        guard let data = defaults.data(forKey: preferenceKey),
+              let decoded = try? JSONDecoder().decode([ThermalReading].self, from: data) else {
+            return []
+        }
+        let cutoff = now.addingTimeInterval(-TemperatureChartTimeAxis.historyDuration)
+        return decoded.filter { $0.sampledAt >= cutoff }
+    }
+
+    static func save(_ samples: [ThermalReading], to defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(samples) else { return }
+        defaults.set(data, forKey: preferenceKey)
+    }
+}
+
 /// A ten-minute rolling trace built from the CPU, GPU, SSD, and battery sensors available on this Mac.
 /// The plot is drawn with SwiftUI paths so it works on macOS 11 without Charts.framework.
 struct TemperatureChart: View {
-    static let historyDuration: TimeInterval = 10 * 60
+    static let historyDuration = TemperatureChartTimeAxis.historyDuration
 
     let samples: [ThermalReading]
 
@@ -16,10 +70,10 @@ struct TemperatureChart: View {
         }
     }
 
-    /// Keeps the x-axis stable at ten minutes even while the initial history fills in.
     private var timeRange: ClosedRange<Date> {
-        let end = latest?.sampledAt ?? Date()
-        return end.addingTimeInterval(-Self.historyDuration)...end
+        TemperatureChartTimeAxis.displayRange(
+            lastSample: latest?.sampledAt
+        )
     }
 
     private var plottedValues: [Double] {
@@ -181,12 +235,6 @@ private struct TemperaturePlot: View {
     private let topInset: CGFloat = 5
     private let bottomInset: CGFloat = 21
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "mm:ss"
-        return formatter
-    }()
-
     private var yTicks: [Double] {
         let midpoint = (yDomain.lowerBound + yDomain.upperBound) / 2
         return [yDomain.upperBound, midpoint, yDomain.lowerBound]
@@ -238,21 +286,14 @@ private struct TemperaturePlot: View {
     }
 
     private func xAxisLabels(in plotRect: CGRect, width: CGFloat) -> some View {
-        let midpoint = timeRange.lowerBound.addingTimeInterval(
-            timeRange.upperBound.timeIntervalSince(timeRange.lowerBound) / 2
-        )
-        let dates = [
-            timeRange.lowerBound,
-            midpoint,
-            timeRange.upperBound
-        ]
+        let labels = TemperatureChartTimeAxis.labels(in: timeRange)
 
         return HStack {
-            ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
-                Text(Self.timeFormatter.string(from: date))
+            ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
+                Text(label)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: index == 0 ? .leading : (index == dates.count - 1 ? .trailing : .center))
+                    .frame(maxWidth: .infinity, alignment: index == 0 ? .leading : (index == labels.count - 1 ? .trailing : .center))
             }
         }
         .padding(.leading, plotRect.minX)

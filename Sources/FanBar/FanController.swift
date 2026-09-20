@@ -186,6 +186,11 @@ final class FanController: ObservableObject {
         helperBundlePath = Bundle.main.bundleURL
             .resolvingSymlinksInPath()
             .standardizedFileURL.path
+        if case .disabled = widgetSnapshotDestination {
+            temperatureHistory = []
+        } else {
+            temperatureHistory = TemperatureHistoryStore.load()
+        }
         if let savedValue = UserDefaults.standard.object(
             forKey: automaticRestorePreferenceKey
         ) as? Int,
@@ -1230,5 +1235,11 @@ final class FanController: ObservableObject {
         if temperatureHistory.count > maximumTemperatureSamples {
             temperatureHistory.removeFirst(temperatureHistory.count - maximumTemperatureSamples)
         }
+        persistTemperatureHistoryIfNeeded()
+    }
+
+    private func persistTemperatureHistoryIfNeeded() {
+        if case .disabled = widgetSnapshotDestination { return }
+        TemperatureHistoryStore.save(temperatureHistory)
     }
 }
