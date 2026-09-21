@@ -9,8 +9,25 @@ iconset_path="${temporary_root}/FanBar.iconset"
 normalized_path="${temporary_root}/FanBar-1024.png"
 mkdir -p "${iconset_path}"
 
-# Normalize generated RGB artwork to the RGBA PNG format iconutil expects.
-magick "${source_path}" -resize 1024x1024! -alpha on "${normalized_path}"
+# The master is full-bleed with black corners and a dark rim that only macOS 26+
+# masks away; cut a transparent rounded shape 4px inside the rim (built at 4x).
+mask_path="${temporary_root}/mask.png"
+magick "${source_path}" -alpha off -resize 4096x4096! \
+    -fuzz 4% -fill '#FF0000' \
+    -draw 'color 0,0 floodfill' -draw 'color 4095,0 floodfill' \
+    -draw 'color 0,4095 floodfill' -draw 'color 4095,4095 floodfill' +fuzz \
+    -fill white +opaque '#FF0000' -fill black -opaque '#FF0000' \
+    -colorspace Gray -bordercolor black -border 32 \
+    -morphology Erode Disk:16 -shave 32 -resize 1024x1024! "${mask_path}"
+cutout_path="${temporary_root}/FanBar-cutout.png"
+magick "${source_path}" -resize 1024x1024! -alpha off "${mask_path}" \
+    -compose CopyOpacity -composite "${cutout_path}"
+
+# The cutout squircle is full-bleed (edge-to-edge), but Apple's icon grid expects
+# the shape inset within a safe area (~824pt of 1024pt, matching the system's own
+# app icons) so FanBar doesn't read larger than its neighbors in Finder/Launchpad.
+magick -size 1024x1024 xc:none -gravity center \
+    \( "${cutout_path}" -resize 824x824 \) -composite -depth 8 "${normalized_path}"
 magick "${normalized_path}" -resize 16x16! "${iconset_path}/icon_16x16.png"
 magick "${normalized_path}" -resize 32x32! "${iconset_path}/icon_16x16@2x.png"
 magick "${normalized_path}" -resize 32x32! "${iconset_path}/icon_32x32.png"
