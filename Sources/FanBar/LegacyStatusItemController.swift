@@ -81,30 +81,20 @@ final class LegacyStatusItemController: NSObject {
     }
 
     @objc private func togglePopover(_ sender: Any?) {
-        guard let button = statusItem?.button, let popover else { return }
-        if popover.isShown {
+        if popover?.isShown == true {
             closePopover(sender)
         } else {
-            // A status-item action does not reliably activate an LSUIElement app.
-            // Activate before presentation so dynamic AppKit/SwiftUI colors do not
-            // change the first time the user clicks inside the popover.
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            popover.appearance = NSApplication.shared.effectiveAppearance
-            popover.show(
-                relativeTo: button.bounds,
-                of: button,
-                preferredEdge: .minY
-            )
-            popover.contentViewController?.view.window?.makeKey()
-            startOutsideClickMonitoring()
+            showPopover()
         }
     }
 
-    /// Opens the real panel from onboarding so the first successful action is
-    /// performed in FanBar itself instead of a disconnected tutorial.
+    /// Presents the panel. Also used by onboarding so the first successful
+    /// action is performed in FanBar itself instead of a disconnected tutorial.
     func showPopover() {
-        guard let button = statusItem?.button, let popover else { return }
-        guard !popover.isShown else { return }
+        guard let button = statusItem?.button, let popover, !popover.isShown else { return }
+        // A status-item action does not reliably activate an LSUIElement app.
+        // Activate before presentation so dynamic AppKit/SwiftUI colors do not
+        // change the first time the user clicks inside the popover.
         NSApplication.shared.activate(ignoringOtherApps: true)
         popover.appearance = NSApplication.shared.effectiveAppearance
         popover.show(

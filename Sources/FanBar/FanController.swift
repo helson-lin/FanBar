@@ -120,18 +120,12 @@ final class FanController: ObservableObject {
     /// hardware limits while making clear that this is a target, not a live
     /// RPM reading.
     var curveOutputSummary: String? {
-        guard let fraction = curveOutputFraction, !fans.isEmpty else { return nil }
-        let targets = fans.map { fan -> Int in
-            guard fraction > 0 else { return 0 }
-            let target = Double(fan.maximumRPM) * Double(fraction)
-            return min(
-                max(Int(target.rounded()), fan.minimumRPM),
-                fan.maximumRPM
-            )
-        }
-        guard let minimum = targets.min(), let maximum = targets.max() else {
+        guard let fraction = curveOutputFraction,
+              let range = Self.curveTargetRange(fraction: fraction, fans: fans) else {
             return nil
         }
+        let minimum = range.lowerBound
+        let maximum = range.upperBound
         let rpm = minimum == maximum
             ? fanBarFormat("%@ RPM", "%@ RPM", FanBarNumberFormatter.grouped(minimum))
             : fanBarFormat(
@@ -146,6 +140,25 @@ final class FanController: ObservableObject {
             rpm,
             fraction * 100
         )
+    }
+
+    /// Lowest and highest per-fan target the helper will write for a curve
+    /// fraction, using the same rule as the hardware driver.
+    nonisolated static func curveTargetRange(
+        fraction: Float,
+        fans: [FanReading]
+    ) -> ClosedRange<Int>? {
+        let targets = fans.map {
+            Int(FanCoolingTarget.targetRPM(
+                fraction: fraction,
+                minimum: Float($0.minimumRPM),
+                maximum: Float($0.maximumRPM)
+            ))
+        }
+        guard let minimum = targets.min(), let maximum = targets.max() else {
+            return nil
+        }
+        return minimum...maximum
     }
 
     private var localClient: SMCClient?
@@ -570,33 +583,8 @@ final class FanController: ObservableObject {
         setCurveProfile(next)
     }
 
-    /// Inserts a control point after an existing point, keeping the curve's
-    /// temperature ordering and choosing the midpoint when possible.
     func insertCurvePoint(after id: UUID) {
-        var next = curveProfile
-        guard next.points.count < FanCurveProfile.maximumPointCount,
-              let index = next.points.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-
-        let current = next.points[index]
-        let following = next.points.dropFirst(index + 1).first
-        let celsius: Double
-        let fraction: Float
-        if let following {
-            guard following.celsius - current.celsius > 1 else { return }
-            celsius = ((current.celsius + following.celsius) / 2).rounded()
-            fraction = (current.fraction + following.fraction) / 2
-        } else {
-            guard current.celsius < FanCurveProfile.maximumCelsius else { return }
-            celsius = min(current.celsius + 5, FanCurveProfile.maximumCelsius)
-            fraction = current.fraction
-        }
-
-        next.points.insert(
-            FanCurvePoint(celsius: celsius, fraction: fraction),
-            at: index + 1
-        )
+        guard let next = curveProfile.insertingPoint(after: id) else { return }
         setCurveProfile(next)
     }
 

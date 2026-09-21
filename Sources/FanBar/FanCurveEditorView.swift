@@ -322,8 +322,8 @@ struct FanCurveEditorView: View {
             .padding(.top, 10)
             .padding(.bottom, 4)
 
-            ForEach(profile.points) { point in
-                curvePointRow(point)
+            ForEach(Array(profile.points.enumerated()), id: \.element.id) { index, point in
+                curvePointRow(point, index: index)
             }
 
             HStack {
@@ -346,7 +346,7 @@ struct FanCurveEditorView: View {
         }
     }
 
-    private func curvePointRow(_ point: FanCurvePoint) -> some View {
+    private func curvePointRow(_ point: FanCurvePoint, index: Int) -> some View {
         HStack(spacing: 12) {
             Stepper(
                 value: Binding(
@@ -390,7 +390,12 @@ struct FanCurveEditorView: View {
             }
             .buttonStyle(.plain)
             .disabled(profile.points.count >= FanCurveProfile.maximumPointCount)
-            .help(fanBarText("在此锚点后插入控制点", "Insert a control point after this one"))
+            .help(fanBarText("在此控制点后插入控制点", "Insert a control point after this one"))
+            .accessibilityLabel(fanBarFormat(
+                "在控制点 %d 后插入控制点",
+                "Insert a control point after point %d",
+                index + 1
+            ))
 
             Button {
                 controller.removeCurvePoint(id: point.id)
@@ -402,6 +407,11 @@ struct FanCurveEditorView: View {
             .buttonStyle(.plain)
             .disabled(profile.points.count <= FanCurveProfile.minimumPointCount)
             .help(fanBarText("删除控制点", "Remove control point"))
+            .accessibilityLabel(fanBarFormat(
+                "删除控制点 %d",
+                "Remove control point %d",
+                index + 1
+            ))
         }
         .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
         .padding(.vertical, 4)

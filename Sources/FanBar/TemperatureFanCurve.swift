@@ -104,6 +104,37 @@ struct FanCurveProfile: Codable, Equatable, Sendable {
         points.map(\.fraction).max() ?? 0
     }
 
+    /// Returns a copy with a control point inserted after `id`, keeping the
+    /// temperature ordering: the midpoint of the gap when a later point
+    /// exists, otherwise 5°C above the last point. Returns nil when the point
+    /// is unknown, the curve is full, or there is no room left.
+    func insertingPoint(after id: UUID) -> FanCurveProfile? {
+        guard points.count < Self.maximumPointCount,
+              let index = points.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
+
+        let current = points[index]
+        let celsius: Double
+        let fraction: Float
+        if let following = points.dropFirst(index + 1).first {
+            guard following.celsius - current.celsius > 1 else { return nil }
+            celsius = ((current.celsius + following.celsius) / 2).rounded()
+            fraction = (current.fraction + following.fraction) / 2
+        } else {
+            guard current.celsius < Self.maximumCelsius else { return nil }
+            celsius = min(current.celsius + 5, Self.maximumCelsius)
+            fraction = current.fraction
+        }
+
+        var next = self
+        next.points.insert(
+            FanCurvePoint(celsius: celsius, fraction: fraction),
+            at: index + 1
+        )
+        return next
+    }
+
     /// Smooth monotone cubic interpolation through the anchors.
     func fraction(at celsius: Double) -> Float {
         TemperatureFanCurve(points: points.map {

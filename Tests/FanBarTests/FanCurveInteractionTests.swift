@@ -9,17 +9,6 @@ final class FanCurveInteractionTests: XCTestCase {
     /// follows the hosting view's fitting size, so any delta is visible jitter.
     @MainActor
     func testModeProgressDoesNotChangeMenuHeight() {
-        let onboardingKey = OnboardingPreferences.completionKey
-        let originalValue = UserDefaults.standard.object(forKey: onboardingKey)
-        defer {
-            if let originalValue {
-                UserDefaults.standard.set(originalValue, forKey: onboardingKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: onboardingKey)
-            }
-        }
-        UserDefaults.standard.set(true, forKey: onboardingKey)
-
         let controller = FanController(notificationCenter: nil, widgetSnapshotDestination: .disabled)
         controller.refresh()
         XCTAssertTrue(controller.isAvailable)
