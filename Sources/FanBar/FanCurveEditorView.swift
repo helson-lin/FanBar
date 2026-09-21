@@ -268,7 +268,7 @@ struct FanCurveEditorView: View {
         }
         .padding(.horizontal, SettingsChrome.rowHorizontalPadding + 2)
         .padding(.vertical, 8)
-        .overlay(alignment: .top) { Divider() }
+        .overlay(Divider(), alignment: .top)
     }
 
     // MARK: - Advanced (collapsed by default)
@@ -298,7 +298,7 @@ struct FanCurveEditorView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .top) { Divider() }
+        .overlay(Divider(), alignment: .top)
         .accessibilityValue(showAdvanced ? fanBarText("已展开", "Expanded") : fanBarText("已收起", "Collapsed"))
         .accessibilityHint(fanBarText(
             "展开以编辑降温缓冲与每步最大变化",
@@ -605,35 +605,35 @@ struct FanCurveCanvas: View {
 
             Color.clear
                 .frame(width: plot.width, height: 20)
-                .overlay(alignment: labelOnLeft ? .trailing : .leading) {
-                    // Wraps to two lines so the RPM range never runs off the plot.
-                    Text(label)
-                        .font(.system(size: 10, design: .monospaced))
-                        .multilineTextAlignment(labelOnLeft ? .trailing : .leading)
-                        .lineLimit(2)
-                        .frame(maxWidth: 200, alignment: labelOnLeft ? .trailing : .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color(NSColor.controlBackgroundColor))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
-                        )
-                        .padding(
-                            labelOnLeft ? .trailing : .leading,
-                            labelOnLeft
-                                ? plot.maxX - location.x + 6
-                                : location.x - plot.minX + 6
-                        )
-                }
+                .overlay(currentLabel(label, onLeft: labelOnLeft, inset: labelOnLeft
+                    ? plot.maxX - location.x + 6
+                    : location.x - plot.minX + 6),
+                    alignment: labelOnLeft ? .trailing : .leading)
                 .position(x: plot.midX, y: plot.minY + 22)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    /// The live-reading chip. Wraps to two lines so the RPM range never runs off the plot.
+    private func currentLabel(_ text: String, onLeft: Bool, inset: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: 10, design: .monospaced))
+            .multilineTextAlignment(onLeft ? .trailing : .leading)
+            .lineLimit(2)
+            .frame(maxWidth: 200, alignment: onLeft ? .trailing : .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color(NSColor.controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+            )
+            .padding(onLeft ? .trailing : .leading, inset)
     }
 
     private func highTemperatureBand(plot: CGRect) -> some View {
