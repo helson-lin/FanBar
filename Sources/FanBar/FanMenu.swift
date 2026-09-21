@@ -562,7 +562,7 @@ struct FanMenu: View {
 
     private var helperNotice: some View {
         HStack(spacing: 10) {
-            Image(systemName: helperNoticeIcon)
+            Image(systemName: controller.helperState.symbolName)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(helperNoticeTint)
                 .frame(width: 28, height: 28)
@@ -570,9 +570,9 @@ struct FanMenu: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(helperNoticeTitle)
+                Text(controller.helperState.noticeTitle)
                     .font(.caption.weight(.semibold))
-                Text(helperNoticeDetail)
+                Text(controller.helperState.noticeDetail)
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -580,16 +580,8 @@ struct FanMenu: View {
 
             Spacer(minLength: 8)
 
-            if controller.helperState == .requiresApproval {
-                helperActionButton(
-                    fanBarText("打开系统设置", "Open System Settings"),
-                    action: controller.openHelperSettings
-                )
-            } else if controller.helperState == .notRegistered {
-                helperActionButton(
-                    fanBarText("启用", "Enable"),
-                    action: controller.enableHelper
-                )
+            if let actionTitle = controller.helperState.actionTitle {
+                helperActionButton(actionTitle, action: controller.performHelperAction)
             }
         }
         .padding(10)
@@ -624,38 +616,8 @@ struct FanMenu: View {
         .foregroundColor(Color.accentColor)
     }
 
-    private var helperNoticeIcon: String {
-        switch controller.helperState {
-        case .requiresApproval: "lock.open"
-        case .notRegistered: "lock.shield"
-        case .unavailable: "exclamationmark.triangle"
-        case .enabled: "checkmark.shield"
-        }
-    }
-
     private var helperNoticeTint: Color {
         controller.helperState == .unavailable ? .red : .orange
-    }
-
-    private var helperNoticeTitle: String {
-        switch controller.helperState {
-        case .requiresApproval: fanBarText("批准控制服务", "Approve control service")
-        case .notRegistered: fanBarText("控制服务未启用", "Control service is off")
-        case .unavailable: fanBarText("控制服务不可用", "Control service unavailable")
-        case .enabled: fanBarText("控制服务已启用", "Control service enabled")
-        }
-    }
-
-    private var helperNoticeDetail: String {
-        switch controller.helperState {
-        case .requiresApproval: fanBarText("在“登录项与扩展”中允许 FanBar", "Allow FanBar in Login Items & Extensions")
-        case .notRegistered: fanBarText(
-            "启用后可使用温控预设和手动控制",
-            "Enable it for cooling presets and manual control"
-        )
-        case .unavailable: fanBarText("请重新安装已签名的 FanBar", "Reinstall the signed FanBar app")
-        case .enabled: fanBarText("仅接受同一开发者签名的请求", "Only requests signed by the same developer are accepted")
-        }
     }
 
     private var footer: some View {

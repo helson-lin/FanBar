@@ -343,11 +343,22 @@ final class FanCurveInteractionTests: XCTestCase {
 
     func testSettingsWindowHeightIsClampedToVisibleScreen() {
         let contentSize = SettingsWindowSizing.contentSize(
-            fittingSize: NSSize(width: 460, height: 1_200),
+            fittingSize: NSSize(width: SettingsWindowSizing.contentWidth, height: 1_200),
             visibleScreenSize: NSSize(width: 1_440, height: 800)
         )
 
-        XCTAssertEqual(contentSize.width, 460)
+        XCTAssertEqual(contentSize.width, SettingsWindowSizing.contentWidth)
         XCTAssertLessThanOrEqual(contentSize.height, 720)
+    }
+
+    /// Tall panes scroll inside the window instead of growing it past the
+    /// preferred height, even on a large display.
+    func testSettingsWindowHeightIsCappedOnLargeScreens() {
+        let contentSize = SettingsWindowSizing.contentSize(
+            fittingSize: NSSize(width: SettingsWindowSizing.contentWidth, height: 1_200),
+            visibleScreenSize: NSSize(width: 2_560, height: 1_400)
+        )
+
+        XCTAssertEqual(contentSize.height, SettingsWindowSizing.preferredMaximumHeight)
     }
 }

@@ -7,9 +7,10 @@ struct SettingsTabKeyboardShortcuts: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            shortcutButton(for: .menuBar, key: "1")
-            shortcutButton(for: .cooling, key: "2")
-            shortcutButton(for: .general, key: "3")
+            // ⌘1…⌘3 follow the order of the toolbar items.
+            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
+                shortcutButton(for: tab, key: Character(String(index + 1)))
+            }
         }
         .frame(width: 0, height: 0)
         .opacity(0)

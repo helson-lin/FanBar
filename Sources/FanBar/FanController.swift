@@ -583,9 +583,13 @@ final class FanController: ObservableObject {
         setCurveProfile(next)
     }
 
-    func insertCurvePoint(after id: UUID) {
-        guard let next = curveProfile.insertingPoint(after: id) else { return }
+    /// Inserts a control point after `id` and returns the new point's id.
+    @discardableResult
+    func insertCurvePoint(after id: UUID) -> UUID? {
+        guard let next = curveProfile.insertingPoint(after: id) else { return nil }
+        let existing = Set(curveProfile.points.map(\.id))
         setCurveProfile(next)
+        return next.points.first { !existing.contains($0.id) }?.id
     }
 
     func removeCurvePoint(id: UUID) {

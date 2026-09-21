@@ -8,13 +8,13 @@ import SwiftUI
 /// are `@MainActor` under Swift 6.
 @MainActor
 enum SettingsChrome {
-    static let contentWidth: CGFloat = 460
+    static let contentWidth: CGFloat = SettingsWindowSizing.contentWidth
     static let horizontalPadding: CGFloat = 20
     static let topPadding: CGFloat = 14
     static let bottomPadding: CGFloat = 18
     static let sectionSpacing: CGFloat = 20
     static let headerToCardSpacing: CGFloat = 6
-    static let cardCornerRadius: CGFloat = 10
+    static let cardCornerRadius: CGFloat = 12
     static let rowHorizontalPadding: CGFloat = 12
     static let rowVerticalPadding: CGFloat = 9
 
@@ -101,5 +101,24 @@ struct SettingsSection<Card: View>: View {
                 SettingsChrome.sectionFooter(footer)
             }
         }
+    }
+}
+
+/// Title with an optional secondary line, the standard label of a settings row.
+struct SettingsRowText: View {
+    let title: String
+    var detail: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            if let detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
