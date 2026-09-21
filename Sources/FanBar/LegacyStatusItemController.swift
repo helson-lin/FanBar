@@ -103,7 +103,20 @@ final class LegacyStatusItemController: NSObject {
             preferredEdge: .minY
         )
         popover.contentViewController?.view.window?.makeKey()
+        clearInitialFocus(in: popover)
         startOutsideClickMonitoring()
+    }
+
+    /// AppKit hands initial focus to the first control, which draws a focus
+    /// ring before the user has touched the keyboard. Start on the panel
+    /// itself instead; Tab still reaches every control. SwiftUI may assign
+    /// focus once more after the first layout, so clear it again then.
+    private func clearInitialFocus(in popover: NSPopover) {
+        let window = popover.contentViewController?.view.window
+        window?.makeFirstResponder(nil)
+        DispatchQueue.main.async { [weak window] in
+            window?.makeFirstResponder(nil)
+        }
     }
 
     private func startOutsideClickMonitoring() {
