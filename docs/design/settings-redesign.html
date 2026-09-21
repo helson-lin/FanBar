@@ -198,23 +198,25 @@ svg { display: block; }
 
 /* ───────────────────────── Cooling: preset tiles ───────────────────────── */
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.tile { position: relative; border-radius: 12px; background: var(--card); box-shadow: var(--shadow-card);
+.tile { position: relative; border-radius: 12px; overflow: hidden; background: var(--card); box-shadow: var(--shadow-card);
   outline: .5px solid var(--sep); outline-offset: -.5px; transition: outline-color .15s, background .15s; }
 .tile:hover { background: color-mix(in srgb, var(--card) 92%, var(--label) 8%); }
 .tile.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tile-main { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 10px 10px 9px; text-align: left; border: 0; background: transparent; border-radius: 12px; }
-.tile-top { display: flex; align-items: center; gap: 6px; padding-right: 26px; }
+.tile-main { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 10px 10px 8px; text-align: left; border: 0; background: transparent; border-radius: 12px; }
+.tile-top { display: flex; align-items: center; gap: 6px; }
 .tile-top svg { width: 15px; height: 15px; color: var(--label-2); flex: none; }
 .tile.sel .tile-top svg { color: var(--accent); }
 .tile-name { font-weight: 600; font-size: 13px; color: var(--label); }
 .thumb { width: 100%; height: 34px; }
 .tile-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--label-2); min-height: 15px; }
 .tile-meta .mono { color: var(--label-2); }
-.pin { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 7px; border: 0; background: transparent; color: var(--label-3); display: grid; place-items: center; }
-.pin svg { width: 14px; height: 14px; }
-.pin:hover:not([aria-disabled="true"]) { background: var(--fill); color: var(--label-2); }
-.pin[aria-pressed="true"] { color: var(--accent); }
-.pin[aria-disabled="true"] { opacity: .4; }
+.menu-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 10px; border: 0; border-top: .5px solid var(--sep);
+  background: transparent; border-radius: 0 0 12px 12px; font-size: 11px; color: var(--label-2); text-align: left; white-space: nowrap; }
+.menu-toggle svg { width: 14px; height: 14px; flex: none; color: var(--label-2); }
+.menu-toggle:hover:not([aria-disabled="true"]) { background: var(--fill); }
+.menu-toggle[aria-checked="true"] { color: var(--label); }
+.menu-toggle[aria-checked="true"] svg { color: var(--accent); }
+.menu-toggle[aria-disabled="true"] { opacity: .45; }
 .pin-note { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--label-2); padding: 2px 4px 0; min-height: 17px; }
 .pin-note svg { width: 12px; height: 12px; flex: none; }
 
@@ -289,6 +291,8 @@ svg { display: block; }
     <symbol id="i-balanced" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4z" fill="currentColor"/></symbol>
     <symbol id="i-performance" viewBox="0 0 24 24"><path d="M4.6 17a8 8 0 1 1 14.8 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 15.2 15.6 9.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="15.4" r="1.6" fill="currentColor"/></symbol>
     <symbol id="i-extreme" viewBox="0 0 24 24"><path d="M13.4 2.6 5.2 13.4h5.6l-1 8 8.4-11h-5.8z" fill="currentColor"/></symbol>
+    <symbol id="i-check-on" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor"/><path d="m4.4 8.2 2.5 2.5 4.7-5" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check-off" viewBox="0 0 16 16"><rect x="1.6" y="1.6" width="12.8" height="12.8" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6l-.8 5.2 3 3.1v1.7h-4.7V20l-.5.6-.5-.6v-6.5H6.8v-1.7l3-3.1z" fill="currentColor"/></symbol>
     <symbol id="i-pin-o" viewBox="0 0 24 24"><path d="M9 3.5h6l-.8 5.2 3 3.1v1.7h-4.7V20l-.5.6-.5-.6v-6.5H6.8v-1.7l3-3.1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.6c0 4.4 3 8 7.5 9.4 4.5-1.4 7.5-5 7.5-9.4V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -503,14 +507,14 @@ svg { display: block; }
     </div></div>
 
     <div class="note"><span class="n">2</span><div>
-      <h3>预设：把「编辑哪条曲线」和「菜单里显示哪些」合成一处</h3>
-      <p>四张预设卡片：点按 = 编辑该曲线（选中态用系统强调色描边），图钉 = 固定到菜单面板（最多 2 个）。卡片自带缩略曲线与峰值转速，「运行中」用文字标出——编辑对象不等于当前运行对象，一眼可分。</p>
-      <span class="was"><b>之前：</b>顶部分段控件 + 底部一张带 2/2 上限、置灰复选框的独立列表，两处关系不直观。</span>
+      <h3>预设：「编辑哪条曲线」和「菜单里显示哪些」放进同一张卡片</h3>
+      <p>四张预设卡片：点按卡片 = 编辑该曲线（选中态用系统强调色描边）；卡片底部的「☑ 显示在菜单」复选框 = 是否作为快捷按钮出现在菜单面板（最多 2 个，勾满后其余置灰并给出提示）。文字直接说明用途，不再依赖图钉图标猜含义。卡片自带缩略曲线与峰值转速，「运行中」用文字标出。</p>
+      <span class="was"><b>之前：</b>顶部分段控件 + 底部一张带 2/2 上限、置灰复选框的独立列表，两处关系不直观；上一版原型的纯图钉图标也无法看出用途。</span>
     </div></div>
 
     <div class="note"><span class="n">3</span><div>
       <h3>曲线：读得懂、调得准</h3>
-      <p>加入当前温度标记（「当前 61°C → 24%」）、悬停读数、RPM 估算，90°C 高温提醒区间轻量标出；温度来源移到图上方，因为它定义了横轴。选中控制点后，<b>检查器</b>提供温度/转速步进器，方向键也可微调——满足「拖拽必须有精确替代」。</p>
+      <p>加入当前温度标记（「当前 61°C → 24%」）、悬停读数、RPM 估算，90°C 高温提醒区间轻量标出；温度来源移到图上方，因为它定义了横轴。选中控制点后，<b>检查器</b>提供温度/转速步进器，并显示对应的目标 RPM——满足「拖拽必须有精确替代」。</p>
       <span class="was"><b>之前：</b>只有图；温度来源在图下方；精确编辑藏在「高级」里的控制点长表。</span>
     </div></div>
 
@@ -547,10 +551,10 @@ const I18N = {
   zh: {
     'win.title':'FanBar 设置','tab.cooling':'散热','tab.menubar':'菜单栏','tab.general':'通用',
     'preset.silent':'静音','preset.balanced':'均衡','preset.performance':'性能','preset.extreme':'极速',
-    'presets.title':'预设','presets.aria':'选择要编辑的预设','presets.count':'菜单面板 %d / 2',
-    'pin.on':'已固定到菜单面板，点按取消','pin.off':'固定到菜单面板',
-    'pin.full':'菜单面板最多显示 2 个预设，请先取消固定一个。',
-    'pin.default':'点按预设编辑它的曲线；图钉决定哪些预设作为快捷方式出现在菜单面板。',
+    'presets.title':'预设','presets.aria':'选择要编辑的预设','presets.count':'菜单里显示 %d / 2','menu.show':'显示在菜单',
+    'pin.on':'已在菜单面板显示，点按取消','pin.off':'在菜单面板显示',
+    'pin.full':'菜单面板最多显示 2 个预设，请先取消勾选另一个。',
+    'pin.default':'点按预设编辑它的曲线。勾选“显示在菜单”后，该预设会作为快捷按钮出现在菜单面板里，最多 2 个。',
     'running':'运行中',
     'curve.title':'%s曲线','source':'温度来源',
     'sensor.maxChip':'CPU/GPU 较高者','sensor.cpu':'仅 CPU','sensor.gpu':'仅 GPU','sensor.ssd':'硬盘（SSD）',
@@ -558,7 +562,7 @@ const I18N = {
     'pt.n':'控制点 %d / %d','pt.temp':'温度','pt.speed':'转速','pt.add':'添加','pt.remove':'删除',
     'pt.add.h':'在所选控制点之后添加','pt.remove.h':'删除所选控制点','pt.aria':'控制点 %d，%d°C，%d%%',
     'rpm':'≈ %s RPM','rpm.idle':'怠速 %s RPM',
-    'hint':'拖动控制点，或选中后用方向键微调（Shift 步进 5）。0% 表示风扇回到怠速。',
+    'hint':'拖动控制点，或选中后用上方步进器微调。0% 表示风扇回到怠速。',
     'reset':'恢复默认','adv':'高级','adv.sum':'缓冲 %d°C · 步进 %d%%',
     'adv.buffer':'降温缓冲','adv.buffer.d':'降温时保持较高转速，减少来回抖动。',
     'adv.step':'每步最大变化','adv.step.d':'限制转速一次更新可变化的幅度。',
@@ -586,10 +590,10 @@ const I18N = {
   en: {
     'win.title':'FanBar Settings','tab.cooling':'Cooling','tab.menubar':'Menu Bar','tab.general':'General',
     'preset.silent':'Silent','preset.balanced':'Balanced','preset.performance':'Performance','preset.extreme':'Extreme',
-    'presets.title':'Presets','presets.aria':'Choose a preset to edit','presets.count':'In menu %d / 2',
-    'pin.on':'Pinned to the menu panel. Click to unpin','pin.off':'Pin to the menu panel',
-    'pin.full':'The menu panel shows up to two presets. Unpin one first.',
-    'pin.default':'Select a preset to edit its curve. Pin presets to show them as shortcuts in the menu panel.',
+    'presets.title':'Presets','presets.aria':'Choose a preset to edit','presets.count':'Shown in menu %d / 2','menu.show':'Show in menu',
+    'pin.on':'Shown in the menu panel. Click to remove','pin.off':'Show in the menu panel',
+    'pin.full':'The menu panel shows up to two presets. Uncheck another one first.',
+    'pin.default':'Select a preset to edit its curve. Check “Show in menu” to add it as a shortcut button in the menu panel, up to two.',
     'running':'Running',
     'curve.title':'%s curve','source':'Temperature source',
     'sensor.maxChip':'Higher of CPU/GPU','sensor.cpu':'CPU only','sensor.gpu':'GPU only','sensor.ssd':'SSD',
@@ -597,7 +601,7 @@ const I18N = {
     'pt.n':'Point %d of %d','pt.temp':'Temp','pt.speed':'Speed','pt.add':'Add','pt.remove':'Remove',
     'pt.add.h':'Add a point after the selected one','pt.remove.h':'Remove the selected point','pt.aria':'Control point %d, %d°C, %d%%',
     'rpm':'≈ %s RPM','rpm.idle':'Idle %s RPM',
-    'hint':'Drag points, or select one and use arrow keys (Shift for ±5). 0% returns fans to idle.',
+    'hint':'Drag a control point, or select one and fine-tune it above. 0% returns the fans to idle.',
     'reset':'Reset to Default','adv':'Advanced','adv.sum':'buffer %d°C · step %d%%',
     'adv.buffer':'Cooling buffer','adv.buffer.d':'Holds higher RPM while cooling to reduce chatter.',
     'adv.step':'Max step per update','adv.step.d':'Limits how far speed can change in one update.',
@@ -712,11 +716,11 @@ function renderTiles() {
           <path d="${thumbPath(p)}" fill="none" stroke="${sel ? 'var(--accent)' : 'var(--label-3)'}" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
         <span class="tile-meta"><span class="mono">≤${peak}%</span>${state.running === p ? `<span class="tag"><span class="dot"></span>${t('running')}</span>` : ''}</span>
       </button>
-      <button class="pin" data-pin="${p}" aria-pressed="${pinned}" aria-disabled="${blocked}" aria-label="${t('preset.' + p)} — ${pinned ? t('pin.on') : t('pin.off')}" title="${pinned ? t('pin.on') : (blocked ? t('pin.full') : t('pin.off'))}">
-        <svg><use href="#i-pin${pinned ? '' : '-o'}"/></svg></button>
+      <button class="menu-toggle" role="checkbox" data-pin="${p}" aria-checked="${pinned}" aria-disabled="${blocked}" aria-label="${t('preset.' + p)} — ${t('pin.off')}" title="${blocked ? t('pin.full') : (pinned ? t('pin.on') : t('pin.off'))}">
+        <svg><use href="#i-check-${pinned ? 'on' : 'off'}"/></svg><span>${t('menu.show')}</span></button>
     </div>`;
   }).join('');
-  $('#pin-count').innerHTML = `<svg width="11" height="11" style="display:inline"><use href="#i-pin"/></svg>${t('presets.count', state.pinned.length)}`;
+  $('#pin-count').textContent = t('presets.count', state.pinned.length);
   if (!$('#pin-note').dataset.flash) setPinNote(t('pin.default'), false);
 }
 let pinTimer;
@@ -941,14 +945,6 @@ window.addEventListener('pointermove', e => {
 window.addEventListener('pointerup', () => { if (drag != null) { drag = null; $(`.pt[data-i="${state.sel}"]`)?.focus({ preventScroll: true }); } });
 $('#chart-wrap').addEventListener('pointermove', e => { if (drag == null) hoverAt(e.clientX); });
 $('#chart-wrap').addEventListener('pointerleave', () => { const h = $('#hv'); if (h) h.style.display = 'none'; });
-$('#chart-wrap').addEventListener('keydown', e => {
-  const g = e.target.closest('.pt'); if (!g) return;
-  const i = +g.dataset.i, big = e.shiftKey ? 5 : 1, p = prof().pts[i];
-  const map = { ArrowLeft: () => setPoint(i, p.c - big), ArrowRight: () => setPoint(i, p.c + big), ArrowUp: () => setPoint(i, null, p.f + big), ArrowDown: () => setPoint(i, null, p.f - big),
-    Delete: () => removePoint(), Backspace: () => removePoint() };
-  if (map[e.key]) { e.preventDefault(); state.sel = i; map[e.key](); afterEdit(true); }
-});
-
 /* Inspector */
 function addPoint() {
   const pts = prof().pts, i = state.sel; if (pts.length >= LIM.maxPts) return;
