@@ -100,6 +100,22 @@ final class LegacyStatusItemController: NSObject {
         }
     }
 
+    /// Opens the real panel from onboarding so the first successful action is
+    /// performed in FanBar itself instead of a disconnected tutorial.
+    func showPopover() {
+        guard let button = statusItem?.button, let popover else { return }
+        guard !popover.isShown else { return }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        popover.appearance = NSApplication.shared.effectiveAppearance
+        popover.show(
+            relativeTo: button.bounds,
+            of: button,
+            preferredEdge: .minY
+        )
+        popover.contentViewController?.view.window?.makeKey()
+        startOutsideClickMonitoring()
+    }
+
     private func startOutsideClickMonitoring() {
         stopOutsideClickMonitoring()
         let mouseDownEvents: NSEvent.EventTypeMask = [

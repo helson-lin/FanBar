@@ -19,6 +19,11 @@ final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
         Self.pendingController = nil
         self.controller = controller
         LegacyStatusItemController.shared.install(controller: controller)
+        if !OnboardingPreferences.hasCompleted {
+            DispatchQueue.main.async {
+                OnboardingWindowPresenter.shared.show()
+            }
+        }
     }
 
     /// The only SwiftUI scene is an empty `Settings` placeholder. Opening the

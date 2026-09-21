@@ -9,7 +9,7 @@ final class FanCurveInteractionTests: XCTestCase {
     /// follows the hosting view's fitting size, so any delta is visible jitter.
     @MainActor
     func testModeProgressDoesNotChangeMenuHeight() {
-        let onboardingKey = "fanbar.onboarding.v1.completed"
+        let onboardingKey = OnboardingPreferences.completionKey
         let originalValue = UserDefaults.standard.object(forKey: onboardingKey)
         defer {
             if let originalValue {

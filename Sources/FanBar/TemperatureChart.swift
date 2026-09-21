@@ -183,7 +183,7 @@ private struct TemperaturePlot: View {
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "mm:ss"
+        formatter.dateFormat = "HH:mm"
         return formatter
     }()
 

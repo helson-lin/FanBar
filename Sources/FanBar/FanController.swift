@@ -115,6 +115,39 @@ final class FanController: ObservableObject {
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
     @Published private(set) var modeActionFeedback: ModeActionFeedback?
 
+    /// Describes the per-fan target produced by the active curve output.
+    /// A single range keeps the compact UI useful when fans have different
+    /// hardware limits while making clear that this is a target, not a live
+    /// RPM reading.
+    var curveOutputSummary: String? {
+        guard let fraction = curveOutputFraction, !fans.isEmpty else { return nil }
+        let targets = fans.map { fan -> Int in
+            guard fraction > 0 else { return 0 }
+            let target = Double(fan.maximumRPM) * Double(fraction)
+            return min(
+                max(Int(target.rounded()), fan.minimumRPM),
+                fan.maximumRPM
+            )
+        }
+        guard let minimum = targets.min(), let maximum = targets.max() else {
+            return nil
+        }
+        let rpm = minimum == maximum
+            ? fanBarFormat("%@ RPM", "%@ RPM", FanBarNumberFormatter.grouped(minimum))
+            : fanBarFormat(
+                "%@–%@ RPM",
+                "%@–%@ RPM",
+                FanBarNumberFormatter.grouped(minimum),
+                FanBarNumberFormatter.grouped(maximum)
+            )
+        return fanBarFormat(
+            "目标 %@（曲线输出 %.0f%%）",
+            "Target %@ (curve output %.0f%%)",
+            rpm,
+            fraction * 100
+        )
+    }
+
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
     private let helperService = FanBarServiceManager()
@@ -534,6 +567,36 @@ final class FanController: ObservableObject {
             FanCurveProfile.maximumFraction
         )
         next.points.append(FanCurvePoint(celsius: celsius, fraction: fraction))
+        setCurveProfile(next)
+    }
+
+    /// Inserts a control point after an existing point, keeping the curve's
+    /// temperature ordering and choosing the midpoint when possible.
+    func insertCurvePoint(after id: UUID) {
+        var next = curveProfile
+        guard next.points.count < FanCurveProfile.maximumPointCount,
+              let index = next.points.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        let current = next.points[index]
+        let following = next.points.dropFirst(index + 1).first
+        let celsius: Double
+        let fraction: Float
+        if let following {
+            guard following.celsius - current.celsius > 1 else { return }
+            celsius = ((current.celsius + following.celsius) / 2).rounded()
+            fraction = (current.fraction + following.fraction) / 2
+        } else {
+            guard current.celsius < FanCurveProfile.maximumCelsius else { return }
+            celsius = min(current.celsius + 5, FanCurveProfile.maximumCelsius)
+            fraction = current.fraction
+        }
+
+        next.points.insert(
+            FanCurvePoint(celsius: celsius, fraction: fraction),
+            at: index + 1
+        )
         setCurveProfile(next)
     }
 

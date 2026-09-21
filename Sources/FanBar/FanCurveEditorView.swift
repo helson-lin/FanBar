@@ -118,12 +118,12 @@ struct FanCurveEditorView: View {
 
                 if controller.mode == .temperatureCurve,
                    let temperature = controller.curveTemperatureCelsius,
-                   let fraction = controller.curveOutputFraction {
+                   let summary = controller.curveOutputSummary {
                     Text(fanBarFormat(
-                        "当前：%.0f°C → %.0f%%",
-                        "Now: %.0f°C → %.0f%%",
+                        "当前：%.0f°C → %@",
+                        "Now: %.0f°C → %@",
                         temperature,
-                        fraction * 100
+                        summary
                     ))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
@@ -161,8 +161,8 @@ struct FanCurveEditorView: View {
 
     private var primaryFooter: String {
         fanBarText(
-            "拖动锚点只修改当前预设并自动保存；菜单里选择该预设后按此曲线调速。0% 表示目标停转。",
-            "Dragging anchors edits and saves only this preset. Choosing it in the menu runs this curve. 0% targets idle RPM."
+            "拖动曲线控制点只修改当前预设并自动保存；菜单里选择该预设后按此曲线调速。0% 表示目标停转。",
+            "Dragging curve control points edits and saves only this preset. Choosing it in the menu runs this curve. 0% targets idle RPM."
         )
     }
 
@@ -205,8 +205,8 @@ struct FanCurveEditorView: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(fanBarText(
-                "展开以编辑锚点、磁滞与步进限制",
-                "Expand to edit anchors, hysteresis, and step limit"
+                "展开以编辑曲线控制点、降温缓冲与步进限制",
+                "Expand to edit curve control points, cooling buffer, and step limit"
             ))
 
             if showAdvanced {
@@ -217,7 +217,7 @@ struct FanCurveEditorView: View {
 
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(fanBarText("降温磁滞", "Falling hysteresis"))
+                            Text(fanBarText("降温缓冲", "Cooling buffer"))
                             Text(fanBarText(
                                 "降温时保持较高转速，减少抖动。",
                                 "Holds higher RPM while cooling to reduce chatter."
@@ -277,8 +277,8 @@ struct FanCurveEditorView: View {
                 }
 
                 SettingsChrome.sectionFooter(fanBarText(
-                    "步进器可精确编辑锚点；与拖动曲线等效。",
-                    "Steppers edit anchors precisely; equivalent to dragging the chart."
+                    "降温缓冲会让风扇降速稍晚一些，减少转速频繁波动。步进器可精确编辑曲线控制点。",
+                    "Cooling buffer delays fan slowdown slightly to reduce speed oscillation. Steppers precisely edit curve control points."
                 ))
                 .transition(
                     reduceMotion
@@ -294,8 +294,8 @@ struct FanCurveEditorView: View {
 
     private var advancedSummary: String {
         fanBarFormat(
-            "%d 点 · 磁滞 %d°C · 步进 %d%%",
-            "%d pts · hyst %d°C · step %d%%",
+            "%d 个控制点 · 缓冲 %d°C · 步进 %d%%",
+            "%d control points · buffer %d°C · step %d%%",
             profile.points.count,
             Int(profile.hysteresisCelsius.rounded()),
             Int((profile.maxFractionStepPerUpdate * 100).rounded())
@@ -305,7 +305,7 @@ struct FanCurveEditorView: View {
     private var pointEditorBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(fanBarText("锚点", "Anchors"))
+                Text(fanBarText("曲线控制点", "Curve control points"))
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
                 Spacer()
@@ -332,7 +332,7 @@ struct FanCurveEditorView: View {
                     SettingsChrome.requestWindowRefit()
                 } label: {
                     Label(
-                        fanBarText("添加锚点", "Add point"),
+                        fanBarText("添加控制点", "Add control point"),
                         systemImage: "plus.circle"
                     )
                 }
@@ -382,6 +382,17 @@ struct FanCurveEditorView: View {
             Spacer(minLength: 0)
 
             Button {
+                controller.insertCurvePoint(after: point.id)
+                SettingsChrome.requestWindowRefit()
+            } label: {
+                Image(systemName: "plus.circle")
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(profile.points.count >= FanCurveProfile.maximumPointCount)
+            .help(fanBarText("在此锚点后插入控制点", "Insert a control point after this one"))
+
+            Button {
                 controller.removeCurvePoint(id: point.id)
                 SettingsChrome.requestWindowRefit()
             } label: {
@@ -390,7 +401,7 @@ struct FanCurveEditorView: View {
             }
             .buttonStyle(.plain)
             .disabled(profile.points.count <= FanCurveProfile.minimumPointCount)
-            .help(fanBarText("删除锚点", "Remove point"))
+            .help(fanBarText("删除控制点", "Remove control point"))
         }
         .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
         .padding(.vertical, 4)
@@ -607,8 +618,8 @@ struct FanCurveCanvas: View {
                     ))
                     .accessibilityElement()
                     .accessibilityLabel(fanBarFormat(
-                        "锚点 %d",
-                        "Anchor %d",
+                        "控制点 %d",
+                        "Control point %d",
                         index + 1
                     ))
                     .accessibilityValue(fanBarFormat(
@@ -643,13 +654,13 @@ struct FanCurveCanvas: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("可拖动温控曲线", "Draggable cooling curve"))
         .accessibilityValue(fanBarFormat(
-            "%d 个锚点",
-            "%d anchors",
+            "%d 个控制点",
+            "%d control points",
             profile.points.count
         ))
         .accessibilityHint(fanBarText(
-            "拖动锚点调整温度与转速；也可用下方步进器微调",
-            "Drag anchors to set temperature and speed; use steppers below for fine control"
+            "拖动控制点调整温度与转速；也可用下方步进器微调",
+            "Drag control points to set temperature and speed; use steppers below for fine control"
         ))
     }
 

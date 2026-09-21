@@ -4,14 +4,10 @@ import SwiftUI
 
 struct FanMenu: View {
     @ObservedObject var controller: FanController
-    @AppStorage("fanbar.onboarding.v1.completed")
-    private var hasCompletedOnboarding = false
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var onboardingStep = 0
 
     private var isManual: Bool {
         controller.mode != .automatic
@@ -47,20 +43,6 @@ struct FanMenu: View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
-            if !hasCompletedOnboarding {
-                OnboardingCard(
-                    step: onboardingStep,
-                    helperState: controller.helperState,
-                    isTelemetryAvailable: controller.isAvailable,
-                    onNext: advanceOnboarding,
-                    onEnableHelper: controller.enableHelper,
-                    onOpenHelperSettings: controller.openHelperSettings,
-                    onFinish: completeOnboarding,
-                    onSkip: completeOnboarding
-                )
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
             if controller.isAvailable {
                 fanPanel
                 TemperatureChart(samples: controller.temperatureHistory)
@@ -69,9 +51,7 @@ struct FanMenu: View {
                 unavailableState
             }
 
-            // The onboarding's final step explains authorization. Once the
-            // guide is dismissed, keep an equally direct status entry visible.
-            if hasCompletedOnboarding && controller.helperState != .enabled {
+            if controller.helperState != .enabled {
                 helperNotice
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -430,13 +410,13 @@ struct FanMenu: View {
     private var manualModeDetail: String {
         if controller.mode == .temperatureCurve,
            let temperature = controller.curveTemperatureCelsius,
-           let fraction = controller.curveOutputFraction {
+           let summary = controller.curveOutputSummary {
             return fanBarFormat(
-                "%@ · %.0f°C → %.0f%%",
-                "%@ · %.0f°C → %.0f%%",
+                "%@ · %.0f°C → %@",
+                "%@ · %.0f°C → %@",
                 controller.curveCoolingPreset.title,
                 temperature,
-                fraction * 100
+                summary
             )
         }
         return fanBarText("硬件安全限制", "Hardware safety limits")
@@ -687,10 +667,7 @@ struct FanMenu: View {
             Spacer()
 
             Button {
-                onboardingStep = 0
-                withAnimation(onboardingAnimation) {
-                    hasCompletedOnboarding = false
-                }
+                OnboardingWindowPresenter.shared.show()
             } label: {
                 Image(systemName: "questionmark.circle")
             }
@@ -709,22 +686,6 @@ struct FanMenu: View {
         .padding(.top, 1)
     }
 
-    /// Advances only through the three essential concepts; advanced controls stay contextual.
-    private func advanceOnboarding() {
-        withAnimation(onboardingAnimation) {
-            onboardingStep = min(onboardingStep + 1, 2)
-        }
-    }
-
-    private func completeOnboarding() {
-        withAnimation(onboardingAnimation) {
-            hasCompletedOnboarding = true
-        }
-    }
-
-    private var onboardingAnimation: Animation? {
-        reduceMotion ? nil : .easeOut(duration: 0.2)
-    }
 }
 
 /// Timer-driven replacement for TimelineView, which was introduced after macOS 11.
