@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FanBar 设置页重构 · 高保真原型</title>
+<style>
+/* ───────────────────────── Tokens (mirror macOS semantic colors) ───────────────────────── */
+:root {
+  --page: #DDE0E6;
+  --page-ink: #1D1D1F;
+  --page-ink-2: rgba(29,29,31,.62);
+  --panel: rgba(255,255,255,.62);
+
+  --win: #F6F6F7;
+  --content: #EFEFF1;
+  --card: #FFFFFF;
+  --sep: rgba(0,0,0,.09);
+  --sep-strong: rgba(0,0,0,.16);
+  --label: #1D1D1F;
+  --label-2: rgba(60,60,67,.62);
+  --label-3: rgba(60,60,67,.32);
+  --fill: rgba(120,120,128,.10);
+  --fill-strong: rgba(120,120,128,.18);
+  --accent: #007AFF;
+  --accent-soft: rgba(0,122,255,.12);
+  --accent-ring: rgba(0,122,255,.38);
+  --ok: #1F8A3B;
+  --warn: #A45A00;
+  --warn-bg: rgba(255,159,10,.13);
+  --warn-line: rgba(255,159,10,.55);
+  --danger: #D70015;
+  --btn: #FFFFFF;
+  --btn-line: rgba(0,0,0,.14);
+  --shadow-card: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-win: 0 0 0 .5px rgba(0,0,0,.28), 0 28px 70px rgba(20,25,40,.30), 0 6px 18px rgba(20,25,40,.12);
+  --wall-a: #9DB6D6; --wall-b: #C9B8DA;
+  --menubar: rgba(255,255,255,.55);
+  --menubar-ink: #111;
+  --grid: rgba(0,0,0,.07);
+  --plot: rgba(120,120,128,.045);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+:root[data-theme="dark"] {
+  --page: #17181B;
+  --page-ink: #F2F2F4;
+  --page-ink-2: rgba(242,242,244,.62);
+  --panel: rgba(255,255,255,.06);
+
+  --win: #2A2A2C;
+  --content: #1E1E20;
+  --card: #2C2C2F;
+  --sep: rgba(255,255,255,.09);
+  --sep-strong: rgba(255,255,255,.18);
+  --label: #F5F5F7;
+  --label-2: rgba(235,235,245,.62);
+  --label-3: rgba(235,235,245,.30);
+  --fill: rgba(120,120,128,.24);
+  --fill-strong: rgba(120,120,128,.36);
+  --accent: #0A84FF;
+  --accent-soft: rgba(10,132,255,.20);
+  --accent-ring: rgba(10,132,255,.55);
+  --ok: #32D74B;
+  --warn: #FFB340;
+  --warn-bg: rgba(255,159,10,.16);
+  --warn-line: rgba(255,159,10,.5);
+  --danger: #FF453A;
+  --btn: #3A3A3D;
+  --btn-line: rgba(255,255,255,.14);
+  --shadow-card: 0 0 0 rgba(0,0,0,0);
+  --shadow-win: 0 0 0 .5px rgba(255,255,255,.16), 0 28px 70px rgba(0,0,0,.6), 0 6px 18px rgba(0,0,0,.35);
+  --wall-a: #3B4C6B; --wall-b: #56406E;
+  --menubar: rgba(30,30,32,.55);
+  --menubar-ink: #F5F5F7;
+  --grid: rgba(255,255,255,.08);
+  --plot: rgba(255,255,255,.035);
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+body {
+  margin: 0; background: var(--page); color: var(--page-ink);
+  font: 13px/1.4 var(--sans); -webkit-font-smoothing: antialiased;
+}
+button, select, input { font: inherit; color: inherit; }
+button { cursor: default; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+svg { display: block; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+:focus { outline: none; }
+:focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 1px; border-radius: 8px; }
+
+/* ───────────────────────── Prototype page chrome (not part of the product) ───────────────────────── */
+.page { max-width: 1120px; margin: 0 auto; padding: 24px 24px 72px;
+  display: grid; grid-template-columns: minmax(0, 560px) minmax(300px, 1fr); gap: 36px; align-items: start; }
+.proto-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+  padding: 10px 14px; background: var(--panel); border-radius: 12px; font-size: 12px; }
+.proto-bar h1 { font-size: 13px; margin: 0 6px 0 0; font-weight: 600; }
+.proto-bar .grp { display: flex; align-items: center; gap: 8px; color: var(--page-ink-2); }
+.seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--fill); }
+.seg button { border: 0; background: transparent; padding: 3px 10px; border-radius: 6px; font-size: 12px; color: var(--page-ink); }
+.seg button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.proto-bar select { font-size: 12px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--sep-strong); background: var(--card); color: var(--label); }
+.proto-bar label.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--page-ink); }
+
+.notes { font-size: 13px; color: var(--page-ink); }
+.notes h2 { font-size: 15px; margin: 0 0 4px; }
+.notes .lede { color: var(--page-ink-2); margin: 0 0 16px; }
+.note { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 12px 0; border-top: 1px solid var(--sep); }
+.note .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600;
+  display: grid; place-items: center; margin-top: 1px; }
+:root[data-theme="dark"] .note .n { color: #fff; }
+.note h3 { font-size: 13px; margin: 0 0 3px; }
+.note p { margin: 0; color: var(--page-ink-2); }
+.note .was { display: block; margin-top: 4px; font-size: 12px; color: var(--page-ink-2); }
+.note .was b { color: var(--page-ink); font-weight: 600; }
+.notes .open { margin-top: 8px; padding: 12px 14px; border-radius: 12px; background: var(--panel); }
+.notes .open h3 { font-size: 13px; margin: 0 0 6px; }
+.notes .open ul { margin: 0; padding-left: 18px; color: var(--page-ink-2); }
+.notes .open li { margin: 3px 0; }
+@media (max-width: 1000px) { .page { grid-template-columns: minmax(0, 560px); justify-content: center; } }
+
+/* ───────────────────────── Window ───────────────────────── */
+.window { width: 100%; max-width: 560px; background: var(--win); border-radius: 22px; box-shadow: var(--shadow-win); overflow: clip; }
+.titlebar { position: relative; height: 34px; display: flex; align-items: center; justify-content: center; }
+.lights { position: absolute; left: 16px; top: 11px; display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.2); }
+.lights i:nth-child(2), .lights i:nth-child(3) { background: var(--label-3); opacity: .7; }
+.win-title { font-size: 13px; font-weight: 600; color: var(--label); }
+.toolbar { display: flex; justify-content: center; gap: 4px; padding: 2px 12px 10px; border-bottom: .5px solid var(--sep-strong); }
+.tab { width: 84px; padding: 6px 4px 5px; border: 0; background: transparent; border-radius: 10px; color: var(--label-2);
+  display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background .15s, color .15s; }
+.tab svg { width: 24px; height: 24px; }
+.tab span { font-size: 11px; font-weight: 500; }
+.tab:hover { background: var(--fill); }
+.tab[aria-selected="true"] { background: var(--fill-strong); color: var(--accent); }
+.tab[aria-selected="true"] span { color: var(--label); }
+
+.content { background: var(--content); overflow-y: auto; overflow-x: hidden; height: 560px; transition: height .3s cubic-bezier(.2,.8,.2,1); scrollbar-width: thin; }
+.reduce-motion .content, .reduce-motion * { transition-duration: 0s !important; animation: none !important; }
+.pane { padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 20px; }
+.pane[hidden] { display: none; }
+
+/* ───────────────────────── Section chrome (SettingsSection) ───────────────────────── */
+.sec { display: flex; flex-direction: column; gap: 6px; }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px; }
+.sec-h h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--label); }
+.sec-h .trail { font: 11px var(--mono); color: var(--label-2); display: inline-flex; gap: 5px; align-items: center; }
+.sec-f { padding: 2px 4px 0; font-size: 11px; color: var(--label-2); }
+.card { background: var(--card); border-radius: 12px; box-shadow: var(--shadow-card); position: relative;
+  outline: .5px solid var(--sep); outline-offset: -.5px; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 42px; position: relative; }
+.row + .row::before, .row + .divided::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; height: .5px; background: var(--sep); }
+.row .grow { flex: 1; min-width: 0; }
+.row .t { color: var(--label); }
+.row .d { font-size: 11px; color: var(--label-2); margin-top: 1px; }
+
+/* controls */
+.btn { height: 24px; padding: 0 11px; border-radius: 7px; border: .5px solid var(--btn-line); background: var(--btn);
+  box-shadow: 0 .5px 1px rgba(0,0,0,.08); font-size: 13px; color: var(--label); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.btn:hover:not(:disabled) { filter: brightness(.97); }
+.btn:active:not(:disabled) { filter: brightness(.92); }
+.btn:disabled { opacity: .4; }
+.btn.prom { background: var(--accent); border-color: transparent; color: #fff; }
+.btn svg { width: 13px; height: 13px; }
+.btn.icon { width: 24px; padding: 0; justify-content: center; }
+.switch { width: 38px; height: 22px; border-radius: 11px; border: 0; padding: 0; background: var(--fill-strong); position: relative; flex: none; transition: background .2s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s cubic-bezier(.3,.9,.3,1); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(16px); }
+.popup { position: relative; display: inline-block; }
+.popup select { appearance: none; -webkit-appearance: none; height: 24px; padding: 0 26px 0 10px; border-radius: 7px; border: .5px solid var(--btn-line);
+  background: var(--btn); box-shadow: 0 .5px 1px rgba(0,0,0,.08); color: var(--label); font-size: 13px; }
+.popup::after { content: ""; position: absolute; right: 7px; top: 6px; width: 11px; height: 12px; background: var(--label-2);
+  -webkit-mask: var(--chev) center/contain no-repeat; mask: var(--chev) center/contain no-repeat; pointer-events: none;
+  --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 12'%3E%3Cpath d='M2.5 4.6 5.5 1.6l3 3M2.5 7.4l3 3 3-3' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.stepper { display: inline-flex; align-items: center; gap: 6px; }
+.stepper output { min-width: 40px; text-align: right; font: 12px var(--mono); color: var(--label); }
+.stepper .sb { display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; border: .5px solid var(--btn-line); background: var(--btn); box-shadow: 0 .5px 1px rgba(0,0,0,.08); }
+.stepper .sb button { width: 16px; height: 11px; border: 0; background: transparent; padding: 0; display: grid; place-items: center; color: var(--label-2); }
+.stepper .sb button:first-child { border-bottom: .5px solid var(--sep); }
+.stepper .sb button:hover:not(:disabled) { background: var(--fill); }
+.stepper .sb button:disabled { opacity: .35; }
+.stepper .sb svg { width: 7px; height: 5px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--label-2); }
+.tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+
+/* ───────────────────────── Cooling: banner ───────────────────────── */
+.banner { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-radius: 12px; background: var(--warn-bg); outline: 1px solid var(--warn-line); outline-offset: -1px; }
+.banner svg.ic { width: 20px; height: 20px; color: var(--warn); flex: none; }
+.banner .t { font-weight: 600; color: var(--label); }
+.banner .d { font-size: 11px; color: var(--label-2); }
+.banner[hidden] { display: none; }
+
+/* ───────────────────────── Cooling: preset tiles ───────────────────────── */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tile { position: relative; border-radius: 12px; overflow: hidden; background: var(--card); box-shadow: var(--shadow-card);
+  outline: .5px solid var(--sep); outline-offset: -.5px; transition: outline-color .15s, background .15s; }
+.tile:hover { background: color-mix(in srgb, var(--card) 92%, var(--label) 8%); }
+.tile.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tile-main { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 10px 10px 8px; text-align: left; border: 0; background: transparent; border-radius: 12px; }
+.tile-top { display: flex; align-items: center; gap: 6px; }
+.tile-top svg { width: 15px; height: 15px; color: var(--label-2); flex: none; }
+.tile.sel .tile-top svg { color: var(--accent); }
+.tile-name { font-weight: 600; font-size: 13px; color: var(--label); }
+.thumb { width: 100%; height: 34px; }
+.tile-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--label-2); min-height: 15px; }
+.tile-meta .mono { color: var(--label-2); }
+.menu-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 10px; border: 0; border-top: .5px solid var(--sep);
+  background: transparent; border-radius: 0 0 12px 12px; font-size: 11px; color: var(--label-2); text-align: left; white-space: nowrap; }
+.menu-toggle svg { width: 14px; height: 14px; flex: none; color: var(--label-2); }
+.menu-toggle:hover:not([aria-disabled="true"]) { background: var(--fill); }
+.menu-toggle[aria-checked="true"] { color: var(--label); }
+.menu-toggle[aria-checked="true"] svg { color: var(--accent); }
+.menu-toggle[aria-disabled="true"] { opacity: .45; }
+.pin-note { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--label-2); padding: 2px 4px 0; min-height: 17px; }
+.pin-note svg { width: 12px; height: 12px; flex: none; }
+
+/* ───────────────────────── Cooling: curve card ───────────────────────── */
+.card-h { display: flex; align-items: center; gap: 10px; padding: 11px 14px 4px; }
+.card-h h3 { margin: 0; font-size: 13px; font-weight: 600; flex: 1; display: flex; gap: 8px; align-items: baseline; }
+.card-h .src { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--label-2); }
+.chart-wrap { padding: 4px 8px 0; position: relative; touch-action: none; }
+.chart { width: 100%; height: auto; overflow: visible; user-select: none; -webkit-user-select: none; }
+.chart text { font: 10px var(--mono); fill: var(--label-2); }
+.pt { cursor: grab; }
+.pt:active { cursor: grabbing; }
+.pt:focus-visible { outline: none; }
+.pt:focus-visible .halo { opacity: 1; }
+.halo { fill: var(--accent-ring); opacity: 0; }
+.pt.sel .halo { opacity: .55; }
+.inspector { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 8px 14px 10px; }
+.inspector .lbl { font-size: 12px; font-weight: 600; color: var(--label); white-space: nowrap; }
+.inspector .fld { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--label-2); }
+.inspector .est { font: 11px var(--mono); color: var(--label-2); white-space: nowrap; }
+.inspector .acts { display: inline-flex; gap: 6px; margin-left: auto; }
+.foot { display: flex; align-items: center; gap: 12px; padding: 8px 14px; font-size: 11px; color: var(--label-2); border-top: .5px solid var(--sep); }
+.foot .grow { flex: 1; }
+.disc { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 0; border-top: .5px solid var(--sep); background: transparent; text-align: left; border-radius: 0 0 12px 12px; }
+.disc svg { width: 9px; height: 9px; color: var(--label-2); transition: transform .2s; flex: none; }
+.disc[aria-expanded="true"] svg { transform: rotate(90deg); }
+.disc .t { font-weight: 600; color: var(--label); }
+.disc .sum { margin-left: auto; font: 11px var(--mono); color: var(--label-2); }
+.adv { border-top: .5px solid var(--sep); }
+.adv[hidden] { display: none; }
+
+/* ───────────────────────── Menu bar tab ───────────────────────── */
+.wall { border-radius: 12px 12px 0 0; padding: 22px 14px 18px; background: linear-gradient(135deg, var(--wall-a), var(--wall-b)); }
+.mbar { height: 28px; border-radius: 8px; background: var(--menubar); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 12px; color: var(--menubar-ink); font-size: 12.5px; }
+.mbar .left { margin-right: auto; display: flex; gap: 14px; font-weight: 600; }
+.mbar .left span:not(:first-child) { font-weight: 400; opacity: .85; }
+.mbar svg { height: 13px; width: auto; opacity: .85; }
+.mbar .me { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 6px; background: rgba(128,128,128,.28); font-weight: 500; }
+.mbar .me .fanicon { width: 15px; height: 15px; opacity: 1; }
+.mbar .me .v { font: 500 12px var(--mono); }
+.prev-cap { padding: 8px 14px; font-size: 11px; color: var(--label-2); display: flex; justify-content: space-between; border-top: .5px solid var(--sep); }
+.opt { display: flex; align-items: center; gap: 12px; padding: 10px 14px; width: 100%; border: 0; background: transparent; text-align: left; position: relative; }
+.opt + .opt::before { content: ""; position: absolute; top: 0; left: 40px; right: 0; height: .5px; background: var(--sep); }
+.opt:first-child { border-radius: 12px 12px 0 0; } .opt:last-child { border-radius: 0 0 12px 12px; }
+.radio { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--sep-strong); background: var(--card); flex: none; display: grid; place-items: center; }
+.opt[aria-checked="true"] .radio { background: var(--accent); border-color: var(--accent); }
+.opt[aria-checked="true"] .radio::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.sample { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--fill); font: 500 12px var(--mono); color: var(--label); min-width: 34px; justify-content: center; }
+.sample svg { width: 14px; height: 14px; }
+.fanicon { width: 16px; height: 16px; }
+.spin .fanicon .rot, .fanicon.spin .rot { transform-origin: 12px 12px; animation: spin 2.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ───────────────────────── General tab ───────────────────────── */
+.svc-ic { width: 22px; height: 22px; flex: none; }
+.svc-ic.ok { color: var(--ok); } .svc-ic.warn { color: var(--warn); } .svc-ic.off { color: var(--label-2); }
+.about { display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--label-2); font-size: 11px; padding-top: 2px; }
+.about a { color: inherit; display: inline-flex; }
+.about svg { width: 13px; height: 13px; }
+</style>
+</head>
+<body>
+
+<!-- SVG sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-fan" viewBox="0 0 24 24"><g fill="currentColor"><g class="rot"><path d="M12 11.2C10.6 7 11 4 13.4 3.2c2.3-.7 3.6 1.7 2.6 4.3-.6 1.6-2.2 3-4 3.7z"/><path d="M12.8 12C17 10.6 20 11 20.8 13.4c.7 2.3-1.7 3.6-4.3 2.6-1.6-.6-3-2.2-3.7-4z"/><path d="M12 12.8C13.4 17 13 20 10.6 20.8c-2.3.7-3.6-1.7-2.6-4.3.6-1.6 2.2-3 4-3.7z"/><path d="M11.2 12C7 13.4 4 13 3.2 10.6c-.7-2.3 1.7-3.6 4.3-2.6 1.6.6 3 2.2 3.7 4z"/></g><circle cx="12" cy="12" r="1.6" fill="var(--hub, #fff)" opacity=".0"/></g></symbol>
+    <symbol id="i-menubar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 9.5h18" stroke="currentColor" stroke-width="1.6"/><circle cx="6.4" cy="7.3" r=".8" fill="currentColor"/><circle cx="9" cy="7.3" r=".8" fill="currentColor"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="2.6 3.5" transform="rotate(8 12 12)"/></symbol>
+    <symbol id="i-silent" viewBox="0 0 24 24"><path d="M4 9.5v5h3.6L12.5 19V5L7.6 9.5z" fill="currentColor"/><path d="M4 4l16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-balanced" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4z" fill="currentColor"/></symbol>
+    <symbol id="i-performance" viewBox="0 0 24 24"><path d="M4.6 17a8 8 0 1 1 14.8 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 15.2 15.6 9.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="15.4" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-extreme" viewBox="0 0 24 24"><path d="M13.4 2.6 5.2 13.4h5.6l-1 8 8.4-11h-5.8z" fill="currentColor"/></symbol>
+    <symbol id="i-check-on" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor"/><path d="m4.4 8.2 2.5 2.5 4.7-5" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check-off" viewBox="0 0 16 16"><rect x="1.6" y="1.6" width="12.8" height="12.8" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6l-.8 5.2 3 3.1v1.7h-4.7V20l-.5.6-.5-.6v-6.5H6.8v-1.7l3-3.1z" fill="currentColor"/></symbol>
+    <symbol id="i-pin-o" viewBox="0 0 24 24"><path d="M9 3.5h6l-.8 5.2 3 3.1v1.7h-4.7V20l-.5.6-.5-.6v-6.5H6.8v-1.7l3-3.1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.6c0 4.4 3 8 7.5 9.4 4.5-1.4 7.5-5 7.5-9.4V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8.6 12.2 2.4 2.4 4.4-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shield-w" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.6c0 4.4 3 8 7.5 9.4 4.5-1.4 7.5-5 7.5-9.4V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 8.2v4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="16" r="1.1" fill="currentColor"/></symbol>
+    <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.6c0 4.4 3 8 7.5 9.4 4.5-1.4 7.5-5 7.5-9.4V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-dasharray="2.4 2"/><path d="m9.4 9.6 5.2 5.2M14.6 9.6l-5.2 5.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.9" r="1.1" fill="currentColor"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 9 9"><path d="m2.6 1 3.4 3.5L2.6 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 7 5"><path d="m1 4 2.5-2.6L6 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-down" viewBox="0 0 7 5"><path d="m1 1 2.5 2.6L6 1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 14 14"><path d="M7 2.5v9M2.5 7h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 14 14"><path d="M2.5 7h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 14 14"><path d="M3.2 5.4h5.3a2.9 2.9 0 0 1 0 5.8H5.2M3.2 5.4 5.4 3.2M3.2 5.4l2.2 2.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297a12 12 0 0 0-3.794 23.388c.6.111.82-.261.82-.578v-2.234c-3.338.726-4.043-1.609-4.043-1.609-.546-1.386-1.332-1.755-1.332-1.755-1.089-.744.083-.729.083-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.834 2.808 1.304 3.493.997.108-.774.418-1.305.762-1.605-2.665-.304-5.467-1.332-5.467-5.931 0-1.31.469-2.381 1.236-3.221-.124-.303-.536-1.523.117-3.176 0 0 1.008-.322 3.301 1.231a11.5 11.5 0 0 1 6.009 0c2.292-1.553 3.299-1.231 3.299-1.231.655 1.653.243 2.873.119 3.176.77.84 1.235 1.911 1.235 3.221 0 4.61-2.806 5.624-5.479 5.921.43.371.814 1.103.814 2.222v3.293c0 .32.216.694.825.576A12.003 12.003 0 0 0 12 .297Z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 18 13"><path d="M1 4.6a11 11 0 0 1 16 0M3.6 7.4a7.200 7.200 0 0 1 10.800 0M6.200 10a3.500 3.500 0 0 1 5.600 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="11.800" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-batt" viewBox="0 0 26 13"><rect x=".7" y=".7" width="21.600" height="11.600" rx="3.200" fill="none" stroke="currentColor" stroke-width="1.200" opacity=".6"/><rect x="2.200" y="2.200" width="14" height="8.600" rx="1.800" fill="currentColor"/><path d="M23.600 4.400v4.200" stroke="currentColor" stroke-width="1.600" stroke-linecap="round" opacity=".6"/></symbol>
+    <symbol id="i-cc" viewBox="0 0 18 13"><rect x="1" y="1" width="16" height="4" rx="2" fill="none" stroke="currentColor" stroke-width="1.300"/><circle cx="4.500" cy="3" r="1" fill="currentColor"/><rect x="1" y="8" width="16" height="4" rx="2" fill="none" stroke="currentColor" stroke-width="1.300"/><circle cx="13.500" cy="10" r="1" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+
+  <!-- ─────────── Prototype controls ─────────── -->
+  <div class="proto-bar" role="group" aria-label="原型控制">
+    <h1>FanBar 设置页重构 · 高保真原型</h1>
+    <div class="grp">外观
+      <span class="seg" id="seg-theme">
+        <button data-v="light" aria-pressed="false">浅色</button>
+        <button data-v="dark" aria-pressed="false">深色</button>
+      </span>
+    </div>
+    <div class="grp">控制服务状态
+      <select id="sel-svc" aria-label="模拟控制服务状态">
+        <option value="enabled">已启用</option>
+        <option value="requiresApproval">等待批准</option>
+        <option value="notRegistered">未启用</option>
+        <option value="unavailable">缺失</option>
+      </select>
+    </div>
+    <label class="chk"><input type="checkbox" id="chk-motion"> 模拟「减少动态效果」</label>
+    <div class="grp">语言：在「通用 → 语言」切换 · 快捷键 ⌘1 / ⌘2 / ⌘3 切换标签</div>
+  </div>
+
+  <!-- ─────────── The window ─────────── -->
+  <main>
+    <div class="window" id="window">
+      <div class="titlebar">
+        <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="win-title" id="win-title">FanBar 设置</div>
+      </div>
+      <div class="toolbar" role="tablist" aria-label="设置">
+        <button class="tab" role="tab" id="tab-cooling" data-tab="cooling" aria-selected="true" aria-controls="pane-cooling"><svg><use href="#i-fan"/></svg><span data-i18n="tab.cooling"></span></button>
+        <button class="tab" role="tab" id="tab-menubar" data-tab="menubar" aria-selected="false" aria-controls="pane-menubar" tabindex="-1"><svg><use href="#i-menubar"/></svg><span data-i18n="tab.menubar"></span></button>
+        <button class="tab" role="tab" id="tab-general" data-tab="general" aria-selected="false" aria-controls="pane-general" tabindex="-1"><svg><use href="#i-gear"/></svg><span data-i18n="tab.general"></span></button>
+      </div>
+
+      <div class="content" id="content">
+
+        <!-- ═══════════ Cooling ═══════════ -->
+        <section class="pane" id="pane-cooling" role="tabpanel" aria-labelledby="tab-cooling">
+
+          <div class="banner" id="svc-banner" role="status" hidden>
+            <svg class="ic" id="svc-banner-ic"><use href="#i-shield-w"/></svg>
+            <div class="grow" style="flex:1;min-width:0">
+              <div class="t" id="svc-banner-t"></div>
+              <div class="d" id="svc-banner-d"></div>
+            </div>
+            <button class="btn" id="svc-banner-btn"></button>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h">
+              <h2 data-i18n="presets.title"></h2>
+              <span class="trail" id="pin-count"></span>
+            </div>
+            <div class="tiles" id="tiles" role="radiogroup" data-i18n-aria="presets.aria"></div>
+            <div class="pin-note" id="pin-note" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="sec">
+            <div class="card" id="curve-card">
+              <div class="card-h">
+                <h3 id="curve-title"></h3>
+                <label class="src"><span data-i18n="source"></span>
+                  <span class="popup"><select id="sel-sensor"></select></span>
+                </label>
+              </div>
+              <div class="chart-wrap" id="chart-wrap"></div>
+              <div class="inspector" id="inspector"></div>
+              <div class="foot">
+                <span class="grow" data-i18n="hint"></span>
+                <button class="btn" id="btn-reset"><svg><use href="#i-undo"/></svg><span data-i18n="reset"></span></button>
+              </div>
+              <button class="disc" id="disc" aria-expanded="false" aria-controls="adv">
+                <svg><use href="#i-chev-r"/></svg>
+                <span class="t" data-i18n="adv"></span>
+                <span class="sum" id="adv-sum"></span>
+              </button>
+              <div class="adv" id="adv" hidden>
+                <div class="row">
+                  <div class="grow"><div class="t" data-i18n="adv.buffer"></div><div class="d" data-i18n="adv.buffer.d"></div></div>
+                  <div class="stepper" id="st-hyst"></div>
+                </div>
+                <div class="row">
+                  <div class="grow"><div class="t" data-i18n="adv.step"></div><div class="d" data-i18n="adv.step.d"></div></div>
+                  <div class="stepper" id="st-step"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ Menu Bar ═══════════ -->
+        <section class="pane" id="pane-menubar" role="tabpanel" aria-labelledby="tab-menubar" hidden>
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="mb.display"></h2></div>
+            <div class="card">
+              <div class="wall">
+                <div class="mbar" aria-hidden="true">
+                  <div class="left"><span></span></div>
+                  <span class="me" id="mb-me"></span>
+                  <svg viewBox="0 0 18 13"><use href="#i-wifi"/></svg>
+                  <svg viewBox="0 0 26 13"><use href="#i-batt"/></svg>
+                  <svg viewBox="0 0 18 13"><use href="#i-cc"/></svg>
+                  <span>Mon 9:41</span>
+                </div>
+              </div>
+              <div class="prev-cap"><span data-i18n="mb.preview"></span><span class="mono" id="mb-live"></span></div>
+              <div role="radiogroup" data-i18n-aria="mb.display" id="mb-opts" style="border-top:.5px solid var(--sep)"></div>
+            </div>
+            <div class="sec-f" data-i18n="mb.footer"></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="mb.anim.h"></h2></div>
+            <div class="card"><div class="row">
+              <div class="grow"><div class="t" data-i18n="mb.anim"></div><div class="d" data-i18n="mb.anim.d"></div></div>
+              <button class="switch" role="switch" id="sw-anim" aria-checked="true" data-i18n-aria="mb.anim"></button>
+            </div></div>
+          </div>
+        </section>
+
+        <!-- ═══════════ General ═══════════ -->
+        <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="gen.startup"></h2></div>
+            <div class="card"><div class="row">
+              <div class="grow"><div class="t" data-i18n="gen.login"></div><div class="d" data-i18n="gen.login.d"></div></div>
+              <button class="switch" role="switch" id="sw-login" aria-checked="true" data-i18n-aria="gen.login"></button>
+            </div></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="gen.service"></h2></div>
+            <div class="card"><div class="row">
+              <svg class="svc-ic" id="gen-svc-ic"><use href="#i-shield"/></svg>
+              <div class="grow"><div class="t" id="gen-svc-t"></div><div class="d" id="gen-svc-d"></div></div>
+              <button class="btn" id="gen-svc-btn"></button>
+            </div></div>
+            <div class="sec-f" data-i18n="gen.service.f"></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="gen.notif"></h2></div>
+            <div class="card"><div class="row">
+              <div class="grow"><div class="t" id="notif-t"></div><div class="d" data-i18n="gen.notif.d"></div></div>
+              <button class="switch" role="switch" id="sw-notif" aria-checked="true" data-i18n-aria="gen.notif.aria"></button>
+            </div></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="gen.lang"></h2></div>
+            <div class="card"><div class="row">
+              <div class="grow t" data-i18n="gen.lang.row"></div>
+              <span class="popup"><select id="sel-lang" aria-label="界面语言">
+                <option value="system">System</option><option value="english">English</option><option value="chinese">简体中文</option>
+              </select></span>
+            </div></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-h"><h2 data-i18n="gen.update"></h2><span class="trail mono" id="ver">0.4.10 (18)</span></div>
+            <div class="card">
+              <div class="row">
+                <div class="grow t" data-i18n="gen.update.auto"></div>
+                <button class="switch" role="switch" id="sw-update" aria-checked="true" data-i18n-aria="gen.update.auto"></button>
+              </div>
+              <div class="row">
+                <div class="grow"><div class="t" data-i18n="gen.update.latest"></div><div class="d" id="upd-status" aria-live="polite"></div></div>
+                <button class="btn" id="btn-update" data-i18n="gen.update.check"></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="about">
+            <a href="https://github.com/helson-lin" data-i18n-aria="about.gh" data-i18n-title="about.gh"><svg viewBox="0 0 24 24"><use href="#i-github"/></svg></a>
+            <span data-i18n="about.free"></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- ─────────── Design notes ─────────── -->
+  <aside class="notes" aria-label="设计说明">
+    <h2>这次改了什么</h2>
+    <p class="lede">保持原生 macOS 设置的气质（系统控件、SF 字体、系统强调色、浅/深色），只重构信息结构与层级。窗口宽度由 460 → 560pt，为曲线和预设卡片腾出空间。</p>
+
+    <div class="note"><span class="n">1</span><div>
+      <h3>导航：图标 + 文字，散热排第一</h3>
+      <p>沿用原生工具栏分段导航（<code>NSToolbar</code> 偏好设置样式，macOS 11 起可用），每项补上文字标签；主任务「散热」放在最左，也是默认打开页。</p>
+      <span class="was"><b>之前：</b>三个纯图标，只有悬停才知道含义；顺序为 菜单栏 · 散热 · 通用。</span>
+    </div></div>
+
+    <div class="note"><span class="n">2</span><div>
+      <h3>预设：「编辑哪条曲线」和「菜单里显示哪些」放进同一张卡片</h3>
+      <p>四张预设卡片：点按卡片 = 编辑该曲线（选中态用系统强调色描边）；卡片底部的「☑ 显示在菜单」复选框 = 是否作为快捷按钮出现在菜单面板（最多 2 个，勾满后其余置灰并给出提示）。文字直接说明用途，不再依赖图钉图标猜含义。卡片自带缩略曲线与峰值转速，「运行中」用文字标出。</p>
+      <span class="was"><b>之前：</b>顶部分段控件 + 底部一张带 2/2 上限、置灰复选框的独立列表，两处关系不直观；上一版原型的纯图钉图标也无法看出用途。</span>
+    </div></div>
+
+    <div class="note"><span class="n">3</span><div>
+      <h3>曲线：读得懂、调得准</h3>
+      <p>加入当前温度标记（「当前 61°C → 24%」）、悬停读数、RPM 估算，90°C 高温提醒区间轻量标出；温度来源移到图上方，因为它定义了横轴。选中控制点后，<b>检查器</b>提供温度/转速步进器，并显示对应的目标 RPM——满足「拖拽必须有精确替代」。</p>
+      <span class="was"><b>之前：</b>只有图；温度来源在图下方；精确编辑藏在「高级」里的控制点长表。</span>
+    </div></div>
+
+    <div class="note"><span class="n">4</span><div>
+      <h3>高级只留行为参数，窗口不再跳动</h3>
+      <p>控制点表格被检查器取代，「高级」仅剩降温缓冲与每步最大变化，并在卡片内展开。窗口高度按标签页自适应（有上限），展开高级时在内部滚动，不再整体伸缩。</p>
+    </div></div>
+
+    <div class="note"><span class="n">5</span><div>
+      <h3>安全状态可感知，但不常驻打扰</h3>
+      <p>控制服务正常时不占散热页空间；一旦「等待批准 / 未启用 / 缺失」，散热页顶部出现带图标和文字的提示条与直接操作按钮（不只靠颜色）。「通用」页始终有完整状态行。用顶部「控制服务状态」下拉试一试。</p>
+    </div></div>
+
+    <div class="note"><span class="n">6</span><div>
+      <h3>菜单栏：真实预览 + 每项自带样例</h3>
+      <p>预览换成一条带壁纸的真实菜单栏，FanBar 图标处于 Wi-Fi、电池之间；每个选项右侧直接显示它的样子，不必先选再看。风扇动画开关会驱动预览中的叶片（遵循减少动态效果）。</p>
+    </div></div>
+
+    <div class="open">
+      <h3>需要你拍板的新增项</h3>
+      <ul>
+        <li>「通用」新增 <b>登录时启动</b>（目前只在菜单面板里）。</li>
+        <li>控制服务新增 <b>停用…</b>（<code>FanBarServiceManager.unregister()</code> 已存在，设置里还没有入口）。</li>
+        <li>预设卡片上是否加「设为运行」快捷动作？目前编辑只保存、不切换运行，与现有行为一致。</li>
+        <li>窗口宽度 460 → 560pt 是否接受？</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ═══════════════════════════════ i18n ═══════════════════════════════ */
+const I18N = {
+  zh: {
+    'win.title':'FanBar 设置','tab.cooling':'散热','tab.menubar':'菜单栏','tab.general':'通用',
+    'preset.silent':'静音','preset.balanced':'均衡','preset.performance':'性能','preset.extreme':'极速',
+    'presets.title':'预设','presets.aria':'选择要编辑的预设','presets.count':'菜单里显示 %d / 2','menu.show':'显示在菜单',
+    'pin.on':'已在菜单面板显示，点按取消','pin.off':'在菜单面板显示',
+    'pin.full':'菜单面板最多显示 2 个预设，请先取消勾选另一个。',
+    'pin.default':'点按预设编辑它的曲线。勾选“显示在菜单”后，该预设会作为快捷按钮出现在菜单面板里，最多 2 个。',
+    'running':'运行中',
+    'curve.title':'%s曲线','source':'温度来源',
+    'sensor.maxChip':'CPU/GPU 较高者','sensor.cpu':'仅 CPU','sensor.gpu':'仅 GPU','sensor.ssd':'硬盘（SSD）',
+    'chart.now':'当前 %d°C → %d%%','chart.alert':'高温提醒','chart.aria':'温度与转速曲线',
+    'pt.n':'控制点 %d / %d','pt.temp':'温度','pt.speed':'转速','pt.add':'添加','pt.remove':'删除',
+    'pt.add.h':'在所选控制点之后添加','pt.remove.h':'删除所选控制点','pt.aria':'控制点 %d，%d°C，%d%%',
+    'rpm':'≈ %s RPM','rpm.idle':'怠速 %s RPM',
+    'hint':'拖动控制点，或选中后用上方步进器微调。0% 表示风扇回到怠速。',
+    'reset':'恢复默认','adv':'高级','adv.sum':'缓冲 %d°C · 步进 %d%%',
+    'adv.buffer':'降温缓冲','adv.buffer.d':'降温时保持较高转速，减少来回抖动。',
+    'adv.step':'每步最大变化','adv.step.d':'限制转速一次更新可变化的幅度。',
+    'svc.enabled':'控制服务已启用','svc.requiresApproval':'等待系统批准控制服务',
+    'svc.notRegistered':'尚未启用控制服务','svc.unavailable':'应用包缺少控制服务',
+    'svc.d.enabled':'可以手动调节风扇；停用后由 macOS 自动管理。',
+    'svc.d.requiresApproval':'请在系统设置的「登录项」中允许 FanBar。曲线已保存，批准后生效。',
+    'svc.d.notRegistered':'启用后才能手动调节风扇。此前曲线只会保存，不会生效。',
+    'svc.d.unavailable':'请重新下载并安装 FanBar。',
+    'svc.open':'打开登录项…','svc.enable':'启用…','svc.disable':'停用…',
+    'mb.display':'菜单栏显示','mb.preview':'预览','mb.footer':'选择状态在菜单栏里的样子。',
+    'mb.iconOnly':'仅图标','mb.iconOnly.d':'保持菜单栏最简洁，只显示当前控制模式图标。',
+    'mb.cpuTemperature':'CPU 温度','mb.cpuTemperature.d':'显示当前 CPU 温度，适合快速观察负载变化。',
+    'mb.fanSpeed':'风扇转速','mb.fanSpeed.d':'显示全部风扇的平均 RPM，并使用千位分隔。',
+    'mb.temperatureAndFanSpeed':'温度与转速','mb.temperatureAndFanSpeed.d':'同时显示 CPU 温度和平均风扇转速。',
+    'mb.anim.h':'动画','mb.anim':'风扇运转动画','mb.anim.d':'风扇运转时图标旋转并跟随实际转速，停转后缓缓静止。',
+    'gen.startup':'启动','gen.login':'登录时启动 FanBar','gen.login.d':'登录后自动出现在菜单栏。',
+    'gen.service':'控制服务','gen.service.f':'控制服务是手动调节风扇所需的系统授权；未启用时始终由 macOS 自动管理。',
+    'gen.notif':'通知','gen.notif.t':'CPU 或 GPU 达到 %d°C 时通知','gen.notif.d':'同一次高温只提醒一次；温度回落后再次升高会重新通知。','gen.notif.aria':'高温通知',
+    'gen.lang':'语言','gen.lang.row':'界面语言',
+    'gen.update':'软件更新','gen.update.auto':'自动检查更新','gen.update.latest':'获取最新版本','gen.update.check':'检查更新…',
+    'upd.checking':'正在检查…','upd.ok':'已是最新版本',
+    'about.gh':'打开 GitHub 主页','about.free':'FanBar 是免费软件，可自由使用。'
+  },
+  en: {
+    'win.title':'FanBar Settings','tab.cooling':'Cooling','tab.menubar':'Menu Bar','tab.general':'General',
+    'preset.silent':'Silent','preset.balanced':'Balanced','preset.performance':'Performance','preset.extreme':'Extreme',
+    'presets.title':'Presets','presets.aria':'Choose a preset to edit','presets.count':'Shown in menu %d / 2','menu.show':'Show in menu',
+    'pin.on':'Shown in the menu panel. Click to remove','pin.off':'Show in the menu panel',
+    'pin.full':'The menu panel shows up to two presets. Uncheck another one first.',
+    'pin.default':'Select a preset to edit its curve. Check “Show in menu” to add it as a shortcut button in the menu panel, up to two.',
+    'running':'Running',
+    'curve.title':'%s curve','source':'Temperature source',
+    'sensor.maxChip':'Higher of CPU/GPU','sensor.cpu':'CPU only','sensor.gpu':'GPU only','sensor.ssd':'SSD',
+    'chart.now':'Now %d°C → %d%%','chart.alert':'Heat alert','chart.aria':'Temperature to fan speed curve',
+    'pt.n':'Point %d of %d','pt.temp':'Temp','pt.speed':'Speed','pt.add':'Add','pt.remove':'Remove',
+    'pt.add.h':'Add a point after the selected one','pt.remove.h':'Remove the selected point','pt.aria':'Control point %d, %d°C, %d%%',
+    'rpm':'≈ %s RPM','rpm.idle':'Idle %s RPM',
+    'hint':'Drag a control point, or select one and fine-tune it above. 0% returns the fans to idle.',
+    'reset':'Reset to Default','adv':'Advanced','adv.sum':'buffer %d°C · step %d%%',
+    'adv.buffer':'Cooling buffer','adv.buffer.d':'Holds higher RPM while cooling to reduce chatter.',
+    'adv.step':'Max step per update','adv.step.d':'Limits how far speed can change in one update.',
+    'svc.enabled':'Control service enabled','svc.requiresApproval':'Waiting for control service approval',
+    'svc.notRegistered':'Control service is not enabled','svc.unavailable':'Control service is missing from the app bundle',
+    'svc.d.enabled':'Manual fan control is available. Disable it to return to macOS automatic management.',
+    'svc.d.requiresApproval':'Allow FanBar in System Settings → Login Items. Your curves are saved and apply once approved.',
+    'svc.d.notRegistered':'Enable it to control fans manually. Until then curves are saved but not applied.',
+    'svc.d.unavailable':'Download and reinstall FanBar.',
+    'svc.open':'Open Login Items…','svc.enable':'Enable…','svc.disable':'Disable…',
+    'mb.display':'Menu Bar display','mb.preview':'Preview','mb.footer':'Choose how FanBar looks in the menu bar.',
+    'mb.iconOnly':'Icon only','mb.iconOnly.d':'Keep the menu bar minimal with only the current mode icon.',
+    'mb.cpuTemperature':'CPU temperature','mb.cpuTemperature.d':'Show the current CPU temperature for a quick load check.',
+    'mb.fanSpeed':'Fan speed','mb.fanSpeed.d':'Show the average RPM across all fans with grouping separators.',
+    'mb.temperatureAndFanSpeed':'Temperature + fan speed','mb.temperatureAndFanSpeed.d':'Show CPU temperature and average fan speed together.',
+    'mb.anim.h':'Animation','mb.anim':'Fan activity animation','mb.anim.d':'The icon spins with the fans and coasts to a stop when they halt.',
+    'gen.startup':'Startup','gen.login':'Launch FanBar at login','gen.login.d':'Appears in the menu bar after you sign in.',
+    'gen.service':'Control Service','gen.service.f':'The control service is the system approval needed for manual fan control. Without it, macOS always manages the fans.',
+    'gen.notif':'Notifications','gen.notif.t':'Notify when CPU or GPU reaches %d°C','gen.notif.d':'One alert per high-temperature episode; it resets after cooling down.','gen.notif.aria':'High-temperature notifications',
+    'gen.lang':'Language','gen.lang.row':'Interface language',
+    'gen.update':'Software Update','gen.update.auto':'Automatically check for updates','gen.update.latest':'Get the latest version','gen.update.check':'Check for Updates…',
+    'upd.checking':'Checking…','upd.ok':'You’re up to date',
+    'about.gh':'Open the GitHub profile','about.free':'FanBar is free software. You are free to use it.'
+  }
+};
+let lang = 'zh';
+const t = (k, ...a) => { let s = (I18N[lang][k] ?? k); a.forEach(v => s = s.replace(/%[sd]/, v)); return s; };
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+/* ═══════════════════════════════ Model ═══════════════════════════════ */
+const PRESETS = ['silent', 'balanced', 'performance', 'extreme'];
+const SENSORS = ['maxChip', 'cpu', 'gpu', 'ssd'];
+const FACTORY = {
+  silent:      [[45,0],[58,20],[72,35],[85,50],[95,65]],
+  balanced:    [[41,0],[50,30],[65,50],[78,70],[88,85]],
+  performance: [[40,0],[50,40],[62,60],[75,80],[88,95]],
+  extreme:     [[38,0],[48,45],[60,70],[72,90],[82,100]]
+};
+const LIM = { minC: 30, maxC: 100, minPts: 2, maxPts: 8, alertC: 90, fanMin: 1350, fanMax: 5349 };
+const mk = arr => arr.map(([c, f]) => ({ c, f }));
+const state = {
+  tab: 'cooling', edit: 'silent', running: 'silent', pinned: ['silent', 'performance'],
+  prof: Object.fromEntries(PRESETS.map(p => [p, { pts: mk(FACTORY[p]), sensor: 'maxChip', hyst: 2, step: 5 }])),
+  sel: 0, advOpen: false, nowC: 61, display: 'temperatureAndFanSpeed', anim: true, svc: 'enabled', reduce: false
+};
+const prof = () => state.prof[state.edit];
+const isFactory = p => { const a = state.prof[p], b = FACTORY[p];
+  return a.sensor === 'maxChip' && a.hyst === 2 && a.step === 5 && a.pts.length === b.length && a.pts.every((q, i) => q.c === b[i][0] && q.f === b[i][1]); };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/* Monotone cubic (Fritsch–Carlson) — same family as TemperatureFanCurve */
+function slopes(xs, ys) {
+  const n = xs.length, d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) d[i] = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]);
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b;
+    if (s > 9) { const k = 3 / Math.sqrt(s); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; }
+  }
+  return m;
+}
+function evalCurve(pts, c) {
+  const xs = pts.map(p => p.c), ys = pts.map(p => p.f);
+  if (c <= xs[0]) return ys[0]; if (c >= xs[xs.length - 1]) return ys[ys.length - 1];
+  const m = slopes(xs, ys);
+  let i = 0; while (i < xs.length - 2 && c > xs[i + 1]) i++;
+  const h = xs[i + 1] - xs[i], u = (c - xs[i]) / h, u2 = u * u, u3 = u2 * u;
+  return (2*u3 - 3*u2 + 1) * ys[i] + (u3 - 2*u2 + u) * h * m[i] + (-2*u3 + 3*u2) * ys[i + 1] + (u3 - u2) * h * m[i + 1];
+}
+const rpmFor = f => f <= 0 ? LIM.fanMin : clamp(Math.round(f / 100 * LIM.fanMax / 10) * 10, LIM.fanMin, LIM.fanMax);
+const fmt = n => n.toLocaleString('en-US');
+
+/* Path builder in a given box */
+function curvePath(pts, X, Y) {
+  const xs = pts.map(p => p.c), ys = pts.map(p => p.f), m = slopes(xs, ys);
+  let d = `M${X(LIM.minC)} ${Y(ys[0])} L${X(xs[0])} ${Y(ys[0])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const h = xs[i + 1] - xs[i];
+    d += ` C${X(xs[i] + h / 3)} ${Y(ys[i] + m[i] * h / 3)} ${X(xs[i + 1] - h / 3)} ${Y(ys[i + 1] - m[i + 1] * h / 3)} ${X(xs[i + 1])} ${Y(ys[i + 1])}`;
+  }
+  return d + ` L${X(LIM.maxC)} ${Y(ys[ys.length - 1])}`;
+}
+
+/* ═══════════════════════════════ Static i18n ═══════════════════════════════ */
+function applyI18n() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  $$('[data-i18n]').forEach(e => e.textContent = t(e.dataset.i18n));
+  $$('[data-i18n-aria]').forEach(e => e.setAttribute('aria-label', t(e.dataset.i18nAria)));
+  $$('[data-i18n-title]').forEach(e => e.title = t(e.dataset.i18nTitle));
+  $('#win-title').textContent = t(`tab.${state.tab}`) === '' ? '' : t('win.title');
+  $('#notif-t').textContent = t('gen.notif.t', LIM.alertC);
+  $('#sel-sensor').innerHTML = SENSORS.map(s => `<option value="${s}">${t('sensor.' + s)}</option>`).join('');
+}
+
+/* ═══════════════════════════════ Tiles ═══════════════════════════════ */
+function thumbPath(p) {
+  const pts = state.prof[p].pts, W = 100, H = 34;
+  const X = c => ((c - LIM.minC) / 70 * W).toFixed(1), Y = f => (H - 3 - f / 100 * (H - 6)).toFixed(1);
+  return curvePath(pts, X, Y);
+}
+function renderTiles() {
+  $('#tiles').innerHTML = PRESETS.map(p => {
+    const pr = state.prof[p], peak = Math.max(...pr.pts.map(q => q.f)), pinned = state.pinned.includes(p);
+    const blocked = !pinned && state.pinned.length >= 2, sel = state.edit === p;
+    return `<div class="tile ${sel ? 'sel' : ''}">
+      <button class="tile-main" role="radio" aria-checked="${sel}" data-preset="${p}" tabindex="${sel ? 0 : -1}">
+        <span class="tile-top"><svg><use href="#i-${p}"/></svg><span class="tile-name">${t('preset.' + p)}</span></span>
+        <svg class="thumb" viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
+          <path d="${thumbPath(p)}" fill="none" stroke="${sel ? 'var(--accent)' : 'var(--label-3)'}" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+        <span class="tile-meta"><span class="mono">≤${peak}%</span>${state.running === p ? `<span class="tag"><span class="dot"></span>${t('running')}</span>` : ''}</span>
+      </button>
+      <button class="menu-toggle" role="checkbox" data-pin="${p}" aria-checked="${pinned}" aria-disabled="${blocked}" aria-label="${t('preset.' + p)} — ${t('pin.off')}" title="${blocked ? t('pin.full') : (pinned ? t('pin.on') : t('pin.off'))}">
+        <svg><use href="#i-check-${pinned ? 'on' : 'off'}"/></svg><span>${t('menu.show')}</span></button>
+    </div>`;
+  }).join('');
+  $('#pin-count').textContent = t('presets.count', state.pinned.length);
+  if (!$('#pin-note').dataset.flash) setPinNote(t('pin.default'), false);
+}
+let pinTimer;
+function setPinNote(msg, flash) {
+  const n = $('#pin-note');
+  n.innerHTML = `<svg><use href="#i-info"/></svg><span>${msg}</span>`;
+  n.dataset.flash = flash ? '1' : '';
+  n.style.color = flash ? 'var(--label)' : '';
+  if (flash) { clearTimeout(pinTimer); pinTimer = setTimeout(() => { n.dataset.flash = ''; setPinNote(t('pin.default'), false); }, 4000); }
+}
+
+/* ═══════════════════════════════ Chart ═══════════════════════════════ */
+const CW = 496, CH = 216, PAD = { l: 40, r: 12, t: 12, b: 26 };
+const cx = c => PAD.l + (c - LIM.minC) / (LIM.maxC - LIM.minC) * (CW - PAD.l - PAD.r);
+const cy = f => PAD.t + (1 - f / 100) * (CH - PAD.t - PAD.b);
+let hover = null;
+
+function renderChart() {
+  const P = prof(), pts = P.pts, sel = clamp(state.sel, 0, pts.length - 1); state.sel = sel;
+  let g = '';
+  for (let f = 0; f <= 100; f += 20) g += `<line x1="${PAD.l}" x2="${CW - PAD.r}" y1="${cy(f)}" y2="${cy(f)}" stroke="var(--grid)"/><text x="${PAD.l - 7}" y="${cy(f) + 3.5}" text-anchor="end">${f}%</text>`;
+  for (let c = 30; c <= 100; c += 10) g += `<line y1="${PAD.t}" y2="${CH - PAD.b}" x1="${cx(c)}" x2="${cx(c)}" stroke="var(--grid)"/><text x="${cx(c)}" y="${CH - 8}" text-anchor="middle">${c}°</text>`;
+  const d = curvePath(pts, cx, cy);
+  const area = d + ` L${cx(LIM.maxC)} ${cy(0)} L${cx(LIM.minC)} ${cy(0)} Z`;
+  const alert = `<rect x="${cx(LIM.alertC)}" y="${PAD.t}" width="${cx(LIM.maxC) - cx(LIM.alertC)}" height="${CH - PAD.t - PAD.b}" fill="var(--warn)" opacity=".07"/>
+    <line x1="${cx(LIM.alertC)}" x2="${cx(LIM.alertC)}" y1="${PAD.t}" y2="${CH - PAD.b}" stroke="var(--warn)" stroke-dasharray="3 3" opacity=".55"/>`;
+  let now = '';
+  if (state.running === state.edit) {
+    const f = evalCurve(pts, state.nowC), left = state.nowC > 80;
+    const lbl = t('chart.now', state.nowC, Math.round(f)), w = lbl.length * 6.1 + 14;
+    const lx = left ? cx(state.nowC) - w - 6 : cx(state.nowC) + 6;
+    now = `<g aria-hidden="true"><line x1="${cx(state.nowC)}" x2="${cx(state.nowC)}" y1="${PAD.t}" y2="${CH - PAD.b}" stroke="var(--label-2)" stroke-dasharray="4 3"/>
+      <circle cx="${cx(state.nowC)}" cy="${cy(f)}" r="4.2" fill="var(--card)" stroke="var(--label)" stroke-width="1.6"/>
+      <rect x="${lx}" y="${PAD.t + 3}" width="${w}" height="17" rx="5" fill="var(--card)" stroke="var(--sep-strong)" stroke-width=".5"/>
+      <text x="${lx + 7}" y="${PAD.t + 15}" style="fill:var(--label)">${lbl}</text></g>`;
+  }
+  const points = pts.map((p, i) => {
+    const s = i === sel;
+    return `<g class="pt ${s ? 'sel' : ''}" data-i="${i}" tabindex="0" role="slider" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p.f}"
+      aria-label="${t('pt.aria', i + 1, p.c, p.f)}" aria-valuetext="${p.c}°C, ${p.f}%">
+      <circle class="halo" cx="${cx(p.c)}" cy="${cy(p.f)}" r="13"/>
+      <circle cx="${cx(p.c)}" cy="${cy(p.f)}" r="${s ? 6.6 : 5.4}" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>
+      <circle cx="${cx(p.c)}" cy="${cy(p.f)}" r="16" fill="transparent"/></g>`;
+  }).join('');
+  $('#chart-wrap').innerHTML = `<svg class="chart" viewBox="0 0 ${CW} ${CH}" role="group" aria-label="${t('chart.aria')}">
+    <rect x="${PAD.l}" y="${PAD.t}" width="${CW - PAD.l - PAD.r}" height="${CH - PAD.t - PAD.b}" fill="var(--plot)" rx="3"/>
+    ${alert}${g}
+    <text x="${cx(LIM.maxC) - 5}" y="${CH - PAD.b - 6}" text-anchor="end" style="fill:var(--warn)" opacity=".85">${t('chart.alert')}</text>
+    <path d="${area}" fill="var(--accent)" opacity=".09"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    ${now}
+    <g id="hv" pointer-events="none" style="display:none"><line id="hv-l" y1="${PAD.t}" y2="${CH - PAD.b}" stroke="var(--label-3)"/><circle id="hv-c" r="3.4" fill="var(--label)"/>
+      <g id="hv-t"><rect id="hv-r" height="17" rx="5" fill="var(--label)"/><text id="hv-x" y="12" style="fill:var(--card)"></text></g></g>
+    ${points}
+  </svg>`;
+}
+
+function hoverAt(clientX) {
+  const svg = $('.chart'); if (!svg) return;
+  const r = svg.getBoundingClientRect(), k = CW / r.width;
+  const x = (clientX - r.left) * k, c = clamp(Math.round(LIM.minC + (x - PAD.l) / (CW - PAD.l - PAD.r) * (LIM.maxC - LIM.minC)), LIM.minC, LIM.maxC);
+  const f = Math.round(evalCurve(prof().pts, c)), hv = $('#hv');
+  if (x < PAD.l - 4 || x > CW - PAD.r + 4) { hv.style.display = 'none'; return; }
+  hv.style.display = '';
+  $('#hv-l').setAttribute('x1', cx(c)); $('#hv-l').setAttribute('x2', cx(c));
+  $('#hv-c').setAttribute('cx', cx(c)); $('#hv-c').setAttribute('cy', cy(f));
+  const txt = `${c}°C → ${f}% · ${fmt(rpmFor(f))} RPM`, w = txt.length * 6.1 + 14;
+  const tx = clamp(cx(c) - w / 2, PAD.l, CW - PAD.r - w);
+  $('#hv-x').textContent = txt; $('#hv-x').setAttribute('x', tx + 7);
+  $('#hv-r').setAttribute('x', tx); $('#hv-r').setAttribute('width', w);
+  $('#hv-r').setAttribute('y', CH - PAD.b - 22); $('#hv-x').setAttribute('y', CH - PAD.b - 10);
+}
+
+/* ═══════════════════════════════ Inspector / Advanced ═══════════════════════════════ */
+function stepper(id, valueText, canDown, canUp, label) {
+  return `<output class="mono" aria-live="polite" aria-label="${label}">${valueText}</output>
+    <span class="sb"><button data-st="${id}:1" aria-label="${label} +" ${canUp ? '' : 'disabled'}><svg><use href="#i-up"/></svg></button>
+    <button data-st="${id}:-1" aria-label="${label} −" ${canDown ? '' : 'disabled'}><svg><use href="#i-down"/></svg></button></span>`;
+}
+function renderInspector() {
+  const P = prof(), pts = P.pts, i = state.sel, p = pts[i];
+  const lo = i === 0 ? LIM.minC : pts[i - 1].c + 1, hi = i === pts.length - 1 ? LIM.maxC : pts[i + 1].c - 1;
+  $('#inspector').innerHTML = `
+    <span class="lbl">${t('pt.n', i + 1, pts.length)}</span>
+    <span class="fld">${t('pt.temp')}<span class="stepper">${stepper('c', p.c + '°C', p.c > lo, p.c < hi, t('pt.temp'))}</span></span>
+    <span class="fld">${t('pt.speed')}<span class="stepper">${stepper('f', p.f + '%', p.f > 0, p.f < 100, t('pt.speed'))}</span></span>
+    <span class="est">${t(p.f === 0 ? 'rpm.idle' : 'rpm', fmt(rpmFor(p.f)))}</span>
+    <span class="acts">
+      <button class="btn icon" id="btn-add" title="${t('pt.add.h')}" aria-label="${t('pt.add.h')}" ${pts.length >= LIM.maxPts ? 'disabled' : ''}><svg><use href="#i-plus"/></svg></button>
+      <button class="btn icon" id="btn-del" title="${t('pt.remove.h')}" aria-label="${t('pt.remove.h')}" ${pts.length <= LIM.minPts ? 'disabled' : ''}><svg><use href="#i-minus"/></svg></button>
+    </span>`;
+}
+function renderAdvanced() {
+  const P = prof();
+  $('#st-hyst').innerHTML = stepper('hyst', P.hyst + '°C', P.hyst > 0, P.hyst < 5, t('adv.buffer'));
+  $('#st-step').innerHTML = stepper('step', P.step + '%', P.step > 2, P.step < 20, t('adv.step'));
+  $('#adv-sum').textContent = t('adv.sum', P.hyst, P.step);
+  $('#adv').hidden = !state.advOpen; $('#disc').setAttribute('aria-expanded', state.advOpen);
+}
+function renderCurveCard() {
+  $('#curve-title').innerHTML = `${t('curve.title', t('preset.' + state.edit))}`;
+  $('#sel-sensor').value = prof().sensor;
+  $('#btn-reset').disabled = isFactory(state.edit);
+  renderChart(); renderInspector(); renderAdvanced();
+}
+function renderCooling() { renderTiles(); renderCurveCard(); renderService(); }
+
+/* Editing */
+function setPoint(i, c, f) {
+  const pts = prof().pts, p = pts[i];
+  const lo = i === 0 ? LIM.minC : pts[i - 1].c + 1, hi = i === pts.length - 1 ? LIM.maxC : pts[i + 1].c - 1;
+  if (c != null) p.c = clamp(Math.round(c), lo, hi);
+  if (f != null) p.f = clamp(Math.round(f), 0, 100);
+}
+function afterEdit(keepFocus) {
+  const focused = keepFocus && document.activeElement?.closest?.('.pt');
+  renderChart(); renderInspector(); renderAdvanced(); renderTiles();
+  $('#btn-reset').disabled = isFactory(state.edit);
+  if (focused) $(`.pt[data-i="${state.sel}"]`)?.focus({ preventScroll: true });
+  syncHeight();
+}
+
+/* ═══════════════════════════════ Service ═══════════════════════════════ */
+function renderService() {
+  const s = state.svc, ok = s === 'enabled';
+  const ic = { enabled: 'i-shield', requiresApproval: 'i-shield-w', notRegistered: 'i-shield-x', unavailable: 'i-shield-x' }[s];
+  const cls = { enabled: 'ok', requiresApproval: 'warn', notRegistered: 'off', unavailable: 'warn' }[s];
+  const btn = { enabled: 'svc.disable', requiresApproval: 'svc.open', notRegistered: 'svc.enable', unavailable: null }[s];
+  // Cooling banner (attention states only)
+  $('#svc-banner').hidden = ok;
+  $('#svc-banner-ic').innerHTML = `<use href="#${ic}"/>`;
+  $('#svc-banner-t').textContent = t('svc.' + s);
+  $('#svc-banner-d').textContent = t('svc.d.' + s);
+  const bb = $('#svc-banner-btn'); bb.hidden = !btn || ok; if (btn) bb.textContent = t(btn === 'svc.disable' ? 'svc.enable' : btn);
+  // General row (always)
+  const gi = $('#gen-svc-ic'); gi.setAttribute('class', 'svc-ic ' + cls); gi.innerHTML = `<use href="#${ic}"/>`;
+  $('#gen-svc-t').textContent = t('svc.' + s); $('#gen-svc-d').textContent = t('svc.d.' + s);
+  const gb = $('#gen-svc-btn'); gb.hidden = !btn; if (btn) gb.textContent = t(btn);
+  syncHeight();
+}
+
+/* ═══════════════════════════════ Menu bar tab ═══════════════════════════════ */
+const MODES = ['iconOnly', 'cpuTemperature', 'fanSpeed', 'temperatureAndFanSpeed'];
+const fanIcon = (cls = '') => `<svg class="fanicon ${cls}" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fan"/></svg>`;
+function sampleText(mode) {
+  const temp = `${state.nowC - 2}°`, rpm = fmt(1400 + (state.nowC - 58) * 55);
+  return { iconOnly: '', cpuTemperature: temp, fanSpeed: rpm, temperatureAndFanSpeed: `${temp} · ${rpm}` }[mode];
+}
+function renderMenuBar() {
+  const spin = state.anim && !state.reduce;
+  $('#mb-opts').innerHTML = MODES.map(m => `<button class="opt" role="radio" aria-checked="${state.display === m}" data-mode="${m}" tabindex="${state.display === m ? 0 : -1}">
+      <span class="radio"></span>
+      <span style="flex:1;min-width:0"><span style="display:block;color:var(--label)">${t('mb.' + m)}</span><span style="display:block;font-size:11px;color:var(--label-2)">${t('mb.' + m + '.d')}</span></span>
+      <span class="sample">${fanIcon()}${sampleText(m) ? `<span>${sampleText(m)}</span>` : ''}</span></button>`).join('');
+  const txt = sampleText(state.display);
+  $('#mb-me').innerHTML = `${fanIcon(spin ? 'spin' : '')}${txt ? `<span class="v">${txt}</span>` : ''}`;
+  $('#mb-live').textContent = t('mb.' + state.display);
+}
+
+/* ═══════════════════════════════ Height sync (window fits content, capped) ═══════════════════════════════ */
+const MAX_H = 580;
+function syncHeight() {
+  const pane = $('.pane:not([hidden])'); if (!pane) return;
+  $('#content').style.height = Math.min(pane.scrollHeight, MAX_H) + 'px';
+}
+new ResizeObserver(syncHeight).observe($('#content'));
+
+/* ═══════════════════════════════ Events ═══════════════════════════════ */
+function selectTab(name, focus) {
+  state.tab = name;
+  $$('.tab').forEach(b => { const on = b.dataset.tab === name; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
+  $$('.pane').forEach(p => p.hidden = p.id !== 'pane-' + name);
+  $('#content').scrollTop = 0;
+  if (name === 'menubar') renderMenuBar();
+  syncHeight();
+}
+$$('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+$('.toolbar').addEventListener('keydown', e => {
+  const order = ['cooling', 'menubar', 'general'], i = order.indexOf(state.tab);
+  if (e.key === 'ArrowRight') selectTab(order[(i + 1) % 3], true);
+  if (e.key === 'ArrowLeft') selectTab(order[(i + 2) % 3], true);
+});
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && ['1', '2', '3'].includes(e.key)) { e.preventDefault(); selectTab(['cooling', 'menubar', 'general'][+e.key - 1], true); }
+});
+
+/* Preset tiles */
+$('#tiles').addEventListener('click', e => {
+  const pin = e.target.closest('[data-pin]'), tile = e.target.closest('[data-preset]');
+  if (pin) {
+    const p = pin.dataset.pin, on = state.pinned.includes(p);
+    if (on) state.pinned = state.pinned.filter(x => x !== p);
+    else if (state.pinned.length >= 2) { setPinNote(t('pin.full'), true); return; }
+    else state.pinned = PRESETS.filter(x => x === p || state.pinned.includes(x));
+    renderTiles(); $(`[data-pin="${p}"]`).focus();
+  } else if (tile) {
+    state.edit = tile.dataset.preset; state.sel = 0; renderTiles(); renderCurveCard(); $(`[data-preset="${state.edit}"]`).focus(); syncHeight();
+  }
+});
+$('#tiles').addEventListener('keydown', e => {
+  const b = e.target.closest('[data-preset]'); if (!b || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+  e.preventDefault();
+  const i = PRESETS.indexOf(state.edit), n = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? (i + 1) % 4 : (i + 3) % 4;
+  state.edit = PRESETS[n]; state.sel = 0; renderTiles(); renderCurveCard(); $(`[data-preset="${state.edit}"]`).focus();
+});
+
+/* Chart pointer interaction */
+let drag = null;
+$('#chart-wrap').addEventListener('pointerdown', e => {
+  const g = e.target.closest('.pt'); if (!g) return;
+  e.preventDefault(); drag = +g.dataset.i; state.sel = drag; afterEdit(false);
+  $(`.pt[data-i="${drag}"]`)?.focus({ preventScroll: true });
+  $('#hv') && ($('#hv').style.display = 'none');
+});
+window.addEventListener('pointermove', e => {
+  if (drag == null) return;
+  const r = $('.chart').getBoundingClientRect(), k = CW / r.width;
+  const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
+  setPoint(drag, LIM.minC + (x - PAD.l) / (CW - PAD.l - PAD.r) * (LIM.maxC - LIM.minC), (1 - (y - PAD.t) / (CH - PAD.t - PAD.b)) * 100);
+  afterEdit(false);
+});
+window.addEventListener('pointerup', () => { if (drag != null) { drag = null; $(`.pt[data-i="${state.sel}"]`)?.focus({ preventScroll: true }); } });
+$('#chart-wrap').addEventListener('pointermove', e => { if (drag == null) hoverAt(e.clientX); });
+$('#chart-wrap').addEventListener('pointerleave', () => { const h = $('#hv'); if (h) h.style.display = 'none'; });
+/* Inspector */
+function addPoint() {
+  const pts = prof().pts, i = state.sel; if (pts.length >= LIM.maxPts) return;
+  const a = pts[i], b = pts[i + 1];
+  let c = b ? Math.round((a.c + b.c) / 2) : Math.min(LIM.maxC, a.c + 5);
+  if (!b && c === a.c) { c = a.c - 1; state.sel = i - 1; }
+  if (b && (c <= a.c || c >= b.c)) return;
+  const f = Math.round(evalCurve(pts, c));
+  const at = !b && c < a.c ? i : i + 1;
+  pts.splice(at, 0, { c, f }); state.sel = at;
+}
+function removePoint() { const pts = prof().pts; if (pts.length <= LIM.minPts) return; pts.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); }
+document.addEventListener('click', e => {
+  const st = e.target.closest('[data-st]');
+  if (st) {
+    const [id, dir] = st.dataset.st.split(':'), d = +dir, P = prof(), i = state.sel;
+    if (id === 'c') setPoint(i, P.pts[i].c + d); if (id === 'f') setPoint(i, null, P.pts[i].f + d);
+    if (id === 'hyst') P.hyst = clamp(P.hyst + d, 0, 5); if (id === 'step') P.step = clamp(P.step + d, 2, 20);
+    afterEdit(false); const again = document.querySelector(`[data-st="${st.dataset.st}"]`); if (again && !again.disabled) again.focus();
+  }
+});
+$('#inspector').addEventListener('click', e => {
+  if (e.target.closest('#btn-add')) { addPoint(); afterEdit(false); $('#btn-add')?.focus(); }
+  if (e.target.closest('#btn-del')) { removePoint(); afterEdit(false); ($('#btn-del') && !$('#btn-del').disabled ? $('#btn-del') : $('#btn-add'))?.focus(); }
+});
+$('#btn-reset').addEventListener('click', () => {
+  state.prof[state.edit] = { pts: mk(FACTORY[state.edit]), sensor: 'maxChip', hyst: 2, step: 5 }; state.sel = 0; renderTiles(); renderCurveCard(); syncHeight();
+});
+$('#sel-sensor').addEventListener('change', e => { prof().sensor = e.target.value; $('#btn-reset').disabled = isFactory(state.edit); });
+$('#disc').addEventListener('click', () => { state.advOpen = !state.advOpen; renderAdvanced(); syncHeight();
+  if (state.advOpen) requestAnimationFrame(() => { const c = $('#content'); c.scrollTo({ top: c.scrollHeight, behavior: state.reduce ? 'auto' : 'smooth' }); }); });
+
+/* Menu bar */
+$('#mb-opts').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b) { state.display = b.dataset.mode; renderMenuBar(); $(`[data-mode="${state.display}"]`).focus(); } });
+$('#mb-opts').addEventListener('keydown', e => {
+  if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return; e.preventDefault();
+  const i = MODES.indexOf(state.display); state.display = MODES[(i + (e.key === 'ArrowDown' ? 1 : 3)) % 4]; renderMenuBar(); $(`[data-mode="${state.display}"]`).focus();
+});
+
+/* Switches */
+$$('.switch').forEach(s => s.addEventListener('click', () => {
+  const on = s.getAttribute('aria-checked') !== 'true'; s.setAttribute('aria-checked', on);
+  if (s.id === 'sw-anim') { state.anim = on; renderMenuBar(); }
+}));
+
+/* Service actions */
+const svcAction = () => { state.svc = { enabled: 'notRegistered', requiresApproval: 'enabled', notRegistered: 'requiresApproval' }[state.svc] || state.svc; $('#sel-svc').value = state.svc; renderService(); };
+$('#svc-banner-btn').addEventListener('click', svcAction);
+$('#gen-svc-btn').addEventListener('click', svcAction);
+$('#sel-svc').addEventListener('change', e => { state.svc = e.target.value; renderService(); });
+
+/* Update check */
+$('#btn-update').addEventListener('click', () => {
+  const s = $('#upd-status'); s.textContent = t('upd.checking'); $('#btn-update').disabled = true;
+  setTimeout(() => { s.textContent = t('upd.ok'); $('#btn-update').disabled = false; }, state.reduce ? 200 : 900);
+});
+
+/* Language */
+$('#sel-lang').addEventListener('change', e => {
+  lang = e.target.value === 'english' ? 'en' : 'zh'; applyI18n(); renderCooling(); renderMenuBar(); $('#upd-status').textContent = '';
+});
+
+/* Proto bar */
+function setTheme(v) { document.documentElement.dataset.theme = v; $$('#seg-theme button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v)); renderChart(); }
+$$('#seg-theme button').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.v)));
+$('#chk-motion').addEventListener('change', e => { state.reduce = e.target.checked; document.body.classList.toggle('reduce-motion', state.reduce); renderMenuBar(); });
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) { $('#chk-motion').checked = true; state.reduce = true; document.body.classList.add('reduce-motion'); }
+
+/* Live temperature simulation (menu updates every 2 s in the real app) */
+setInterval(() => {
+  if (drag != null) return;
+  state.nowC = clamp(state.nowC + (Math.random() < .5 ? -1 : 1), 57, 66);
+  if (document.activeElement?.closest?.('.pt')) return;   // don't steal focus while a point is focused
+  if (state.tab === 'cooling') { const hv = $('#hv')?.style.display; renderChart(); if (hv === '') { /* hover re-applies on next move */ } }
+  if (state.tab === 'menubar') renderMenuBar();
+}, 2000);
+
+/* Boot */
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+applyI18n(); renderCooling(); renderMenuBar(); syncHeight();
+</script>
+</body>
+</html>

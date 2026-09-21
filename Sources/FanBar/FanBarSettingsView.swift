@@ -3,12 +3,13 @@ import FanBarShared
 import SwiftUI
 
 /// Settings panes. The selection persists so the window reopens where the
-/// user left off. The native icon navigation is installed by the window
-/// presenter so content can use the full height below the title bar.
+/// user left off. The native labeled toolbar navigation is installed by the
+/// window presenter so content can use the full height below the title bar.
+/// Case order is the toolbar order (and ⌘1…⌘3).
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case menuBar
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
+    case menuBar
     case general
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -36,8 +37,6 @@ struct FanBarSettingsView: View {
     @ObservedObject var controller: FanController
     @AppStorage(MenuBarDisplayMode.preferenceKey)
     private var displayModeRawValue = MenuBarDisplayMode.defaultMode.rawValue
-    @AppStorage(CoolingPresetPreferences.preferenceKey)
-    private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
     @AppStorage(SwitchFeedbackPreferences.preferenceKey)
@@ -49,24 +48,23 @@ struct FanBarSettingsView: View {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
     }
 
-    private var visibleCoolingPresets: [FanCoolingPreset] {
-        CoolingPresetPreferences.presets(from: visibleCoolingPresetsRawValue)
-    }
-
     private var currentTab: SettingsTab {
         SettingsTab(rawValue: selectedTabRawValue) ?? .cooling
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            Group {
+            VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
                 switch currentTab {
-                case .menuBar: menuBarTab
                 case .cooling: coolingTab
+                case .menuBar: menuBarTab
                 case .general: generalTab
                 }
             }
-            .frame(width: SettingsChrome.contentWidth)
+            .padding(.horizontal, SettingsChrome.horizontalPadding)
+            .padding(.top, SettingsChrome.topPadding)
+            .padding(.bottom, SettingsChrome.bottomPadding)
+            .frame(width: SettingsChrome.contentWidth, alignment: .topLeading)
         }
         .frame(width: SettingsChrome.contentWidth)
         .background(Color(NSColor.windowBackgroundColor))
@@ -78,167 +76,143 @@ struct FanBarSettingsView: View {
         }
     }
 
+    // MARK: - Cooling
+
+    @ViewBuilder
     private var coolingTab: some View {
-        VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
-            FanCurveEditorView(controller: controller)
-            panelPresetSection
+        // Attention states only: when the service is healthy, the General
+        // pane carries its status and the curve keeps the first position.
+        if controller.helperState != .enabled {
+            ControlServiceBanner(controller: controller)
         }
-        .padding(.horizontal, SettingsChrome.horizontalPadding)
-        .padding(.top, SettingsChrome.topPadding)
-        .padding(.bottom, SettingsChrome.bottomPadding)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    private var menuBarTab: some View {
-        menuBarSection
-            .padding(.horizontal, SettingsChrome.horizontalPadding)
-            .padding(.top, SettingsChrome.topPadding)
-            .padding(.bottom, SettingsChrome.bottomPadding)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    private var generalTab: some View {
-        VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
-            notificationsSection
-            languageSection
-            softwareUpdateSection
-            freeSoftwareNotice
-                .frame(maxWidth: .infinity)
-                .padding(.top, 4)
-        }
-        .padding(.horizontal, SettingsChrome.horizontalPadding)
-        .padding(.top, SettingsChrome.topPadding)
-        .padding(.bottom, SettingsChrome.bottomPadding)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        CoolingPresetTiles(controller: controller)
+        FanCurveEditorView(controller: controller)
     }
 
     // MARK: - Menu Bar
 
-    private var menuBarSection: some View {
+    @ViewBuilder
+    private var menuBarTab: some View {
         SettingsSection(
             title: fanBarText("菜单栏显示", "Menu Bar display"),
-            footer: displayMode.detail
+            footer: fanBarText("选择状态在菜单栏里的样子。", "Choose how FanBar looks in the menu bar.")
         ) {
-            preview
-                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-                .padding(.vertical, 10)
+            MenuBarPreviewStrip(controller: controller, displayMode: displayMode)
 
-            SettingsChrome.rowDivider
-
-            Picker(
-                "",
-                selection: Binding(
-                    get: { displayMode },
-                    set: { displayModeRawValue = $0.rawValue }
+            ForEach(MenuBarDisplayMode.allCases) { mode in
+                SettingsChrome.rowDivider
+                MenuBarDisplayOptionRow(
+                    controller: controller,
+                    mode: mode,
+                    isSelected: mode == displayMode,
+                    onSelect: { displayModeRawValue = mode.rawValue }
                 )
-            ) {
-                ForEach(MenuBarDisplayMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
             }
-            .labelsHidden()
-            .pickerStyle(.radioGroup)
-            // AppKit caches radio-group item titles; rebuild when language changes.
-            .id(languageRawValue)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, 6)
+        }
+        .accessibilityElement(children: .contain)
 
-            SettingsChrome.rowDivider
-
+        SettingsSection(title: fanBarText("动画", "Animation")) {
             Toggle(isOn: $switchFeedbackAnimationEnabled) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(fanBarText("风扇运转动画", "Fan activity animation"))
-                    Text(fanBarText(
+                SettingsRowText(
+                    title: fanBarText("风扇运转动画", "Fan activity animation"),
+                    detail: fanBarText(
                         "风扇运转时图标旋转并跟随实际转速，停转后缓缓静止。",
                         "The icon spins with the fans and coasts to a stop when they halt."
-                    ))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    )
+                )
             }
             .toggleStyle(.switch)
             .padding(SettingsChrome.rowHorizontalPadding)
         }
     }
 
-    // MARK: - Cooling (panel presets only; curve lives in FanCurveEditorView)
+    // MARK: - General
 
-    private var panelPresetSection: some View {
-        SettingsSection(
-            title: fanBarText("主面板预设", "Main panel presets"),
-            trailing: "\(visibleCoolingPresets.count) / 2",
-            footer: fanBarText(
-                "这里只决定主面板显示哪些快捷预设；不会删除上方已编辑的曲线。",
-                "This only chooses shortcuts shown on the main panel; it does not remove edited curves above."
-            )
-        ) {
-            ForEach(Array(FanCoolingPreset.allCases.enumerated()), id: \.element.id) { index, preset in
-                if index > 0 { SettingsChrome.rowDivider }
+    @ViewBuilder
+    private var generalTab: some View {
+        startupSection
+        controlServiceSection
+        notificationsSection
+        languageSection
+        softwareUpdateSection
+        freeSoftwareNotice
+            .frame(maxWidth: .infinity)
+            .padding(.top, 4)
+    }
 
-                let selectionIsBlocked = !visibleCoolingPresets.contains(preset)
-                    && visibleCoolingPresets.count >= 2
-                HStack(spacing: 10) {
-                    Toggle(isOn: presetSelectionBinding(for: preset)) {
-                        Label(preset.title, systemImage: preset.systemImage)
+    private var startupSection: some View {
+        SettingsSection(title: fanBarText("启动", "Startup")) {
+            Toggle(
+                isOn: Binding(
+                    get: { controller.launchAtLoginEnabled },
+                    set: { controller.setLaunchAtLogin($0) }
+                )
+            ) {
+                VStack(alignment: .leading, spacing: 2) {
+                    SettingsRowText(
+                        title: fanBarText("登录时启动 FanBar", "Launch FanBar at login"),
+                        detail: fanBarText("登录后自动出现在菜单栏。", "Appears in the menu bar after you sign in.")
+                    )
+                    if controller.launchAtLoginRequiresApproval {
+                        Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
+                            controller.openLoginItemSettings()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption)
+                        .foregroundColor(.orange)
                     }
-                    .toggleStyle(.checkbox)
-                    .disabled(selectionIsBlocked)
-                    .help(selectionIsBlocked ? presetLimitMessage : "")
-                    .accessibilityHint(selectionIsBlocked ? presetLimitMessage : "")
-
-                    Spacer(minLength: 8)
-
-                    Text(preset.percentageText)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-                .padding(.vertical, 8)
             }
-
-            if visibleCoolingPresets.count >= 2 {
-                SettingsChrome.rowDivider
-                Label(presetLimitMessage, systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-                    .padding(.vertical, 8)
-            }
+            .toggleStyle(.switch)
+            .padding(SettingsChrome.rowHorizontalPadding)
         }
     }
 
-    private var presetLimitMessage: String {
-        fanBarText(
-            "已达到两个上限；先取消一项即可选择其他预设。",
-            "Two presets are already shown; deselect one to choose another."
-        )
-    }
-
-    // MARK: - General
-
-    private var notificationsSection: some View {
-        SettingsSection(
-            title: fanBarText("通知", "Notifications"),
+    private var controlServiceSection: some View {
+        let state = controller.helperState
+        return SettingsSection(
+            title: fanBarText("控制服务", "Control Service"),
             footer: fanBarText(
-                "同一次高温只提醒一次；温度回落后再次升高会重新通知。",
-                "One alert per high-temperature episode; it resets after cooling down."
+                "控制服务是手动调节风扇所需的系统授权；未启用时始终由 macOS 自动管理。",
+                "The control service is the system approval needed for manual fan control. Without it, macOS always manages the fans."
             )
         ) {
+            HStack(spacing: 12) {
+                Image(systemName: state.symbolName)
+                    .font(.system(size: 18))
+                    .foregroundColor(state.tint)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                SettingsRowText(title: state.title, detail: state.noticeDetail)
+                if let actionTitle = state.actionTitle {
+                    Button(actionTitle, action: controller.performHelperAction)
+                }
+            }
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+            .padding(.vertical, SettingsChrome.rowVerticalPadding + 2)
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    private var notificationsSection: some View {
+        SettingsSection(title: fanBarText("通知", "Notifications")) {
             Toggle(
                 isOn: Binding(
                     get: { controller.highTemperatureNotificationsEnabled },
                     set: { controller.setHighTemperatureNotificationsEnabled($0) }
                 )
             ) {
-                Text(fanBarFormat(
-                    "CPU 或 GPU 达到 %.0f°C 时通知",
-                    "Notify when CPU or GPU reaches %.0f°C",
-                    ThermalAlertSettings.thresholdCelsius
-                ))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                SettingsRowText(
+                    title: fanBarFormat(
+                        "CPU 或 GPU 达到 %.0f°C 时通知",
+                        "Notify when CPU or GPU reaches %.0f°C",
+                        ThermalAlertSettings.thresholdCelsius
+                    ),
+                    detail: fanBarText(
+                        "同一次高温只提醒一次；温度回落后再次升高会重新通知。",
+                        "One alert per high-temperature episode; it resets after cooling down."
+                    )
+                )
             }
             .toggleStyle(.switch)
             .disabled(controller.isRequestingHighTemperatureNotificationPermission)
@@ -252,7 +226,7 @@ struct FanBarSettingsView: View {
                 Text(fanBarText("界面语言", "Interface language"))
                 Spacer(minLength: 12)
                 Picker(
-                    "",
+                    fanBarText("界面语言", "Interface language"),
                     selection: Binding(
                         get: { languageRawValue },
                         set: {
@@ -305,24 +279,6 @@ struct FanBarSettingsView: View {
         }
     }
 
-    // MARK: - Shared pieces
-
-    private func presetSelectionBinding(for preset: FanCoolingPreset) -> Binding<Bool> {
-        Binding(
-            get: { visibleCoolingPresets.contains(preset) },
-            set: { isSelected in
-                var selection = Set(visibleCoolingPresets)
-                if isSelected {
-                    guard selection.count < 2 else { return }
-                    selection.insert(preset)
-                } else {
-                    selection.remove(preset)
-                }
-                visibleCoolingPresetsRawValue = CoolingPresetPreferences.rawValue(for: selection)
-            }
-        )
-    }
-
     private var freeSoftwareNotice: some View {
         HStack(spacing: 6) {
             Link(destination: URL(string: "https://github.com/helson-lin")!) {
@@ -340,19 +296,48 @@ struct FanBarSettingsView: View {
         .font(.caption)
         .foregroundColor(.secondary)
     }
+}
 
-    private var preview: some View {
-        HStack {
-            Text(fanBarText("预览", "Preview"))
+/// Shown on the Cooling pane only when the control service needs attention,
+/// with the state named by symbol and text rather than color alone.
+struct ControlServiceBanner: View {
+    @ObservedObject var controller: FanController
+
+    var body: some View {
+        let state = controller.helperState
+        HStack(spacing: 12) {
+            Image(systemName: state.symbolName)
+                .font(.system(size: 18))
+                .foregroundColor(state.tint)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.noticeTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(fanBarText(
+                    "曲线已保存，服务可用后才会生效。\(state.noticeDetail)。",
+                    "Your curves are saved and apply once the service is available. \(state.noticeDetail)."
+                ))
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            MenuBarStatusLabel(controller: controller, displayMode: displayMode)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(Color.primary.opacity(0.06)))
+            if let actionTitle = state.actionTitle {
+                Button(actionTitle, action: controller.performHelperAction)
+            }
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
+                .fill(state.tint.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
+                .stroke(state.tint.opacity(0.4), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
     }
 }
