@@ -48,7 +48,15 @@ English interface. Switch to Simplified Chinese from **Settings → Language** w
 
 Settings opens on the Cooling tab. Each panel preset has its own editable temperature→RPM curve.
 
-![FanBar English cooling curve settings](docs/screenshots/fanbar-settings-light-en.jpg)
+![FanBar English cooling settings](docs/screenshots/fanbar-settings-cooling-light-en.jpg)
+
+Menu Bar controls what the status item shows, previewed live in a simulated menu bar.
+
+![FanBar English menu bar display settings](docs/screenshots/fanbar-settings-menubar-light-en.jpg)
+
+General covers login item, control-service status, high-temperature notifications, language, and Sparkle updates.
+
+![FanBar English general settings](docs/screenshots/fanbar-settings-general-light-en.jpg)
 
 ## ✨ Highlights
 
