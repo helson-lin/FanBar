@@ -73,6 +73,7 @@ final class SettingsWindowPresenter: NSObject {
                     ?? NSScreen.main?.visibleFrame.size
                     ?? fittingSize
             ))
+            forceOverlayScrollers(in: hostingController.view)
             window.isReleasedWhenClosed = false
             window.isRestorable = false
             windowController = NSWindowController(window: window)
@@ -190,6 +191,10 @@ final class SettingsWindowPresenter: NSObject {
               let contentView = window.contentView else { return }
 
         contentView.layoutSubtreeIfNeeded()
+        // Re-applied defensively: a tab switch can rebuild the scroll view's
+        // AppKit backing, and a stray classic scroller is exactly what causes
+        // the sideways nudge this call is here to prevent.
+        forceOverlayScrollers(in: contentView)
         let fittingSize = contentView.fittingSize
         let visibleScreenSize = window.screen?.visibleFrame.size
             ?? activeScreen()?.visibleFrame.size
@@ -210,6 +215,22 @@ final class SettingsWindowPresenter: NSObject {
         newFrame.origin.x = window.frame.minX
         newFrame.origin.y = window.frame.maxY - newFrame.height
         window.setFrame(newFrame, display: true, animate: animated)
+    }
+
+    /// Pins every scroller under `view` to overlay style. A classic (legacy)
+    /// scroller reserves layout width, so once a pane's content is tall enough
+    /// to scroll, its content lane narrows by the scroller's width — and macOS
+    /// defaults to classic scrollers whenever a mouse is attached. Switching
+    /// tabs then visibly nudges every row sideways as the scroller appears or
+    /// disappears. Overlay scrollers draw on top instead of reserving space,
+    /// so the content lane stays the same width whether or not a pane scrolls.
+    private func forceOverlayScrollers(in view: NSView) {
+        if let scrollView = view as? NSScrollView {
+            scrollView.scrollerStyle = .overlay
+        }
+        for subview in view.subviews {
+            forceOverlayScrollers(in: subview)
+        }
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
