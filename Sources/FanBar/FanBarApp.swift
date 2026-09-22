@@ -21,7 +21,7 @@ final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
         LegacyStatusItemController.shared.install(controller: controller)
         if !OnboardingPreferences.hasCompleted {
             DispatchQueue.main.async {
-                OnboardingWindowPresenter.shared.show()
+                OnboardingWindowPresenter.shared.show(controller: controller)
             }
         }
     }

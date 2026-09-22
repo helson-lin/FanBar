@@ -629,7 +629,7 @@ struct FanMenu: View {
             Spacer()
 
             Button {
-                OnboardingWindowPresenter.shared.show()
+                OnboardingWindowPresenter.shared.show(controller: controller)
             } label: {
                 Image(systemName: "questionmark.circle")
             }

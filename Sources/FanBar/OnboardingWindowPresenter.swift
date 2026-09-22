@@ -11,7 +11,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
     private var windowController: NSWindowController?
     private var isCompleting = false
 
-    func show() {
+    func show(controller: FanController) {
         if let window = windowController?.window {
             NSApplication.shared.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
@@ -19,12 +19,13 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
         }
 
         let rootView = OnboardingCard(
+            controller: controller,
             onOpenMenu: { [weak self] in self?.complete(openMenu: true) },
             onDismiss: { [weak self] in self?.complete(openMenu: false) }
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 430),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: OnboardingCard.height),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
