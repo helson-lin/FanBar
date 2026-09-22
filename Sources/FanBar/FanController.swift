@@ -219,6 +219,13 @@ final class FanController: ObservableObject {
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
         self.notificationCenter = notificationCenter
         self.widgetSnapshotDestination = widgetSnapshotDestination
+        if case .disabled = widgetSnapshotDestination {
+            // Tests opt out of every on-disk side effect via `.disabled`; keep
+            // temperature history in the same boat so runs stay isolated.
+            temperatureHistory = []
+        } else {
+            temperatureHistory = TemperatureHistoryStore.load()
+        }
         let curveSnapshot = FanCurvePreferences.load()
         curveProfile = curveSnapshot.profile
         curveCoolingPreset = curveSnapshot.coolingPreset
@@ -1285,5 +1292,11 @@ final class FanController: ObservableObject {
         if temperatureHistory.count > maximumTemperatureSamples {
             temperatureHistory.removeFirst(temperatureHistory.count - maximumTemperatureSamples)
         }
+        persistTemperatureHistoryIfNeeded()
+    }
+
+    private func persistTemperatureHistoryIfNeeded() {
+        if case .disabled = widgetSnapshotDestination { return }
+        TemperatureHistoryStore.save(temperatureHistory)
     }
 }
