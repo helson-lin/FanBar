@@ -96,13 +96,11 @@ final class SMCFanDriver {
         }
         let snapshot = try fans()
         try setFans(snapshot) { fan in
-            // Explicit idle: target 0 RPM. Non-zero fractions stay inside hardware Mn/Mx.
-            if fraction <= 0 {
-                return 0
-            }
-            return min(
-                max((fan.maximum * fraction).rounded(), fan.minimum),
-                fan.maximum
+            // Explicit idle at 0%; other fractions stay inside hardware Mn/Mx.
+            FanCoolingTarget.targetRPM(
+                fraction: fraction,
+                minimum: fan.minimum,
+                maximum: fan.maximum
             )
         }
     }

@@ -5,7 +5,10 @@ import SwiftUI
 /// Keeps the fitted settings content inside the active screen while preserving
 /// the compact natural height of shorter tabs.
 enum SettingsWindowSizing {
-    static let minimumContentSize = NSSize(width: 460, height: 240)
+    static let contentWidth: CGFloat = 560
+    static let minimumContentSize = NSSize(width: contentWidth, height: 240)
+    /// Tall panes scroll instead of growing the window past this height.
+    static let preferredMaximumHeight: CGFloat = 600
     private static let verticalChromeAllowance: CGFloat = 80
 
     static func contentSize(
@@ -14,7 +17,10 @@ enum SettingsWindowSizing {
     ) -> NSSize {
         let maximumHeight = max(
             minimumContentSize.height,
-            visibleScreenSize.height - verticalChromeAllowance
+            min(
+                preferredMaximumHeight,
+                visibleScreenSize.height - verticalChromeAllowance
+            )
         )
         return NSSize(
             width: max(minimumContentSize.width, fittingSize.width),
@@ -33,8 +39,6 @@ final class SettingsWindowPresenter: NSObject {
 
     private var windowController: NSWindowController?
     private var settingsHostingController: NSHostingController<FanBarSettingsView>?
-    private let tabsItemIdentifier = NSToolbarItem.Identifier("fanbar.settings.tabs")
-    private weak var tabSegmentedControl: NSSegmentedControl?
     private var lastSelectedTabRawValue = SettingsTab.cooling.rawValue
     private var defaultsObservation: NSObjectProtocol?
 
@@ -53,7 +57,7 @@ final class SettingsWindowPresenter: NSObject {
             let hostingController = NSHostingController(rootView: rootView)
             settingsHostingController = hostingController
             window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 460, height: 400),
+                contentRect: NSRect(x: 0, y: 0, width: SettingsWindowSizing.contentWidth, height: 400),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
@@ -84,10 +88,15 @@ final class SettingsWindowPresenter: NSObject {
         if shouldCenter {
             window.contentView?.layoutSubtreeIfNeeded()
             centerOnActiveScreen(window)
+            // Start on the window itself: AppKit otherwise hands initial focus
+            // to the first control, which draws a focus ring around it before
+            // the user has touched the keyboard. Tab still reaches every control.
+            window.makeFirstResponder(nil)
             // AppKit may apply its initial cascade after the first order-front call.
             DispatchQueue.main.async { [weak self, weak window] in
                 guard let self, let window else { return }
                 self.centerOnActiveScreen(window)
+                window.makeFirstResponder(nil)
             }
         }
         resizeToFitContentSoon()
@@ -101,28 +110,32 @@ final class SettingsWindowPresenter: NSObject {
     func updateTitle() {
         guard let window = windowController?.window else { return }
         window.title = fanBarText("FanBar 设置", "FanBar Settings")
-        if let control = tabSegmentedControl {
-            for (index, tab) in SettingsTab.allCases.enumerated()
-            where index < control.segmentCount {
-                control.setToolTip(tab.title, forSegment: index)
-            }
+        for item in window.toolbar?.items ?? [] {
+            guard let tab = tab(for: item.itemIdentifier) else { continue }
+            item.label = tab.title
+            item.paletteLabel = tab.title
+            item.toolTip = tab.title
         }
     }
 
     // MARK: - Toolbar
 
-    /// Restores the compact 0.4.1 navigation pattern using the native macOS
-    /// segmented control. Segment widths come from `sizeToFit()` so each macOS
-    /// release applies its own control metrics.
+    /// Preference-style toolbar: each pane is a labeled icon, so where a tab
+    /// leads is readable without hovering. AppKit owns the selected state.
     private func installToolbar(on window: NSWindow) {
         let toolbar = NSToolbar(identifier: "fanbar.settings")
         toolbar.delegate = self
         toolbar.allowsUserCustomization = false
+        toolbar.displayMode = .iconAndLabel
         window.toolbar = toolbar
+        window.toolbarStyle = .preference
 
         lastSelectedTabRawValue = UserDefaults.standard.string(
             forKey: SettingsTab.preferenceKey
         ) ?? SettingsTab.cooling.rawValue
+        toolbar.selectedItemIdentifier = tabItemIdentifier(
+            SettingsTab(rawValue: lastSelectedTabRawValue) ?? .cooling
+        )
         defaultsObservation = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: nil,
@@ -134,25 +147,29 @@ final class SettingsWindowPresenter: NSObject {
         }
     }
 
-    /// Synchronizes AppStorage/keyboard changes back to AppKit's selected
-    /// segment. Content resizing is requested by the SwiftUI view itself.
+    private func tabItemIdentifier(_ tab: SettingsTab) -> NSToolbarItem.Identifier {
+        NSToolbarItem.Identifier("fanbar.settings.tab.\(tab.rawValue)")
+    }
+
+    private func tab(for identifier: NSToolbarItem.Identifier) -> SettingsTab? {
+        SettingsTab.allCases.first { tabItemIdentifier($0) == identifier }
+    }
+
+    /// Synchronizes AppStorage/keyboard changes back to the toolbar's selected
+    /// item. Content resizing is requested by the SwiftUI view itself.
     private func applySelectedTabChange() {
         let rawValue = UserDefaults.standard.string(forKey: SettingsTab.preferenceKey)
             ?? SettingsTab.cooling.rawValue
         guard rawValue != lastSelectedTabRawValue else { return }
         lastSelectedTabRawValue = rawValue
 
-        if let control = tabSegmentedControl,
-           let tab = SettingsTab(rawValue: rawValue),
-           let index = SettingsTab.allCases.firstIndex(of: tab),
-           control.selectedSegment != index {
-            control.selectedSegment = index
+        if let tab = SettingsTab(rawValue: rawValue) {
+            windowController?.window?.toolbar?.selectedItemIdentifier = tabItemIdentifier(tab)
         }
     }
 
-    @objc private func selectTabSegment(_ sender: NSSegmentedControl) {
-        guard SettingsTab.allCases.indices.contains(sender.selectedSegment) else { return }
-        let tab = SettingsTab.allCases[sender.selectedSegment]
+    @objc private func selectTab(_ sender: NSToolbarItem) {
+        guard let tab = tab(for: sender.itemIdentifier) else { return }
         UserDefaults.standard.set(tab.rawValue, forKey: SettingsTab.preferenceKey)
         applySelectedTabChange()
     }
@@ -219,10 +236,16 @@ extension SettingsWindowPresenter: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(
         _ toolbar: NSToolbar
     ) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, tabsItemIdentifier, .flexibleSpace]
+        SettingsTab.allCases.map(tabItemIdentifier)
     }
 
     func toolbarAllowedItemIdentifiers(
+        _ toolbar: NSToolbar
+    ) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbarSelectableItemIdentifiers(
         _ toolbar: NSToolbar
     ) -> [NSToolbarItem.Identifier] {
         toolbarDefaultItemIdentifiers(toolbar)
@@ -233,34 +256,18 @@ extension SettingsWindowPresenter: NSToolbarDelegate {
         itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
         willBeInsertedIntoToolbar flag: Bool
     ) -> NSToolbarItem? {
-        guard itemIdentifier == tabsItemIdentifier else { return nil }
-
-        let control = NSSegmentedControl()
-        control.segmentCount = SettingsTab.allCases.count
-        control.trackingMode = .selectOne
-        control.segmentStyle = .automatic
-        let imageConfiguration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        for (index, tab) in SettingsTab.allCases.enumerated() {
-            let image = NSImage(
-                systemSymbolName: tab.symbol,
-                accessibilityDescription: tab.title
-            )?.withSymbolConfiguration(imageConfiguration) ?? NSImage()
-            control.setImage(image, forSegment: index)
-            control.setToolTip(tab.title, forSegment: index)
-        }
-
-        let savedTab = UserDefaults.standard.string(forKey: SettingsTab.preferenceKey)
-            .flatMap(SettingsTab.init(rawValue:)) ?? .cooling
-        control.selectedSegment = SettingsTab.allCases.firstIndex(of: savedTab) ?? 1
-        control.target = self
-        control.action = #selector(selectTabSegment(_:))
-        control.sizeToFit()
-        tabSegmentedControl = control
+        guard let tab = tab(for: itemIdentifier) else { return nil }
 
         let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-        item.view = control
-        item.minSize = control.frame.size
-        item.maxSize = control.frame.size
+        item.label = tab.title
+        item.paletteLabel = tab.title
+        item.toolTip = tab.title
+        item.image = NSImage(
+            systemSymbolName: tab.symbol,
+            accessibilityDescription: tab.title
+        )
+        item.target = self
+        item.action = #selector(selectTab(_:))
         return item
     }
 }

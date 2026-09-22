@@ -115,6 +115,52 @@ final class FanController: ObservableObject {
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
     @Published private(set) var modeActionFeedback: ModeActionFeedback?
 
+    /// Describes the per-fan target produced by the active curve output.
+    /// A single range keeps the compact UI useful when fans have different
+    /// hardware limits while making clear that this is a target, not a live
+    /// RPM reading.
+    var curveOutputSummary: String? {
+        guard let fraction = curveOutputFraction,
+              let range = Self.curveTargetRange(fraction: fraction, fans: fans) else {
+            return nil
+        }
+        let minimum = range.lowerBound
+        let maximum = range.upperBound
+        let rpm = minimum == maximum
+            ? fanBarFormat("%@ RPM", "%@ RPM", FanBarNumberFormatter.grouped(minimum))
+            : fanBarFormat(
+                "%@–%@ RPM",
+                "%@–%@ RPM",
+                FanBarNumberFormatter.grouped(minimum),
+                FanBarNumberFormatter.grouped(maximum)
+            )
+        return fanBarFormat(
+            "目标 %@（曲线输出 %.0f%%）",
+            "Target %@ (curve output %.0f%%)",
+            rpm,
+            fraction * 100
+        )
+    }
+
+    /// Lowest and highest per-fan target the helper will write for a curve
+    /// fraction, using the same rule as the hardware driver.
+    nonisolated static func curveTargetRange(
+        fraction: Float,
+        fans: [FanReading]
+    ) -> ClosedRange<Int>? {
+        let targets = fans.map {
+            Int(FanCoolingTarget.targetRPM(
+                fraction: fraction,
+                minimum: Float($0.minimumRPM),
+                maximum: Float($0.maximumRPM)
+            ))
+        }
+        guard let minimum = targets.min(), let maximum = targets.max() else {
+            return nil
+        }
+        return minimum...maximum
+    }
+
     private var localClient: SMCClient?
     private let helperClient = HelperClient()
     private let helperService = FanBarServiceManager()
@@ -540,6 +586,15 @@ final class FanController: ObservableObject {
         )
         next.points.append(FanCurvePoint(celsius: celsius, fraction: fraction))
         setCurveProfile(next)
+    }
+
+    /// Inserts a control point after `id` and returns the new point's id.
+    @discardableResult
+    func insertCurvePoint(after id: UUID) -> UUID? {
+        guard let next = curveProfile.insertingPoint(after: id) else { return nil }
+        let existing = Set(curveProfile.points.map(\.id))
+        setCurveProfile(next)
+        return next.points.first { !existing.contains($0.id) }?.id
     }
 
     func removeCurvePoint(id: UUID) {
