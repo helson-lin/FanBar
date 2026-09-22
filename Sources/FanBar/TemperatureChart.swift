@@ -1,10 +1,86 @@
 import FanBarShared
 import SwiftUI
 
+/// Formats the ten-minute chart's x-axis as wall-clock hour:minute:second.
+/// `mm:ss` drops the hour, so a window ending at 17:09:52 would read
+/// `59:52  04:52  09:52` when it crosses an hour boundary.
+enum TemperatureChartTimeAxis {
+    static let historyDuration: TimeInterval = 10 * 60
+
+    /// Samples arrive every two seconds. Anything beyond this is a real break in
+    /// the trace (sleep, lock screen, app restart) and must not be bridged.
+    static let maximumSampleGap: TimeInterval = 15
+
+    /// Splits sample dates into runs of consecutive indices that are close
+    /// enough in time to be drawn and smoothed as one continuous curve.
+    static func segments(for dates: [Date]) -> [ClosedRange<Int>] {
+        guard !dates.isEmpty else { return [] }
+
+        var result: [ClosedRange<Int>] = []
+        var start = dates.startIndex
+
+        for index in dates.indices.dropFirst() {
+            if dates[index].timeIntervalSince(dates[index - 1]) > maximumSampleGap {
+                result.append(start...(index - 1))
+                start = index
+            }
+        }
+        result.append(start...(dates.endIndex - 1))
+        return result
+    }
+
+    /// The x-axis is always the ten minutes ending at the newest sample (or now
+    /// while no sample exists). Keeping the full span makes the axis predictable
+    /// and preserves the "last ten minutes" contract across app launches.
+    static func displayRange(lastSample: Date?, now: Date = Date()) -> ClosedRange<Date> {
+        let end = lastSample ?? now
+        return end.addingTimeInterval(-historyDuration)...end
+    }
+
+    static func tickDates(in timeRange: ClosedRange<Date>) -> [Date] {
+        let start = timeRange.lowerBound
+        let end = timeRange.upperBound
+        let midpoint = start.addingTimeInterval(end.timeIntervalSince(start) / 2)
+        return [start, midpoint, end]
+    }
+
+    static func labels(
+        in timeRange: ClosedRange<Date>,
+        timeZone: TimeZone = .current
+    ) -> [String] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm:ss"
+        return tickDates(in: timeRange).map { formatter.string(from: $0) }
+    }
+}
+
+enum TemperatureHistoryStore {
+    static let preferenceKey = "fanbar.temperatureHistory"
+
+    static func load(
+        from defaults: UserDefaults = .standard,
+        now: Date = Date()
+    ) -> [ThermalReading] {
+        guard let data = defaults.data(forKey: preferenceKey),
+              let decoded = try? JSONDecoder().decode([ThermalReading].self, from: data) else {
+            return []
+        }
+        let cutoff = now.addingTimeInterval(-TemperatureChartTimeAxis.historyDuration)
+        return decoded.filter { $0.sampledAt >= cutoff }
+    }
+
+    static func save(_ samples: [ThermalReading], to defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(samples) else { return }
+        defaults.set(data, forKey: preferenceKey)
+    }
+}
+
 /// A ten-minute rolling trace built from the CPU, GPU, SSD, and battery sensors available on this Mac.
 /// The plot is drawn with SwiftUI paths so it works on macOS 11 without Charts.framework.
 struct TemperatureChart: View {
-    static let historyDuration: TimeInterval = 10 * 60
+    static let historyDuration = TemperatureChartTimeAxis.historyDuration
 
     let samples: [ThermalReading]
 
@@ -16,10 +92,10 @@ struct TemperatureChart: View {
         }
     }
 
-    /// Keeps the x-axis stable at ten minutes even while the initial history fills in.
     private var timeRange: ClosedRange<Date> {
-        let end = latest?.sampledAt ?? Date()
-        return end.addingTimeInterval(-Self.historyDuration)...end
+        TemperatureChartTimeAxis.displayRange(
+            lastSample: latest?.sampledAt
+        )
     }
 
     private var plottedValues: [Double] {
@@ -30,29 +106,38 @@ struct TemperatureChart: View {
 
     private let smoothingRadius = 3
 
+    private var sampleSegments: [ClosedRange<Int>] {
+        TemperatureChartTimeAxis.segments(for: samples.map(\.sampledAt))
+    }
+
     /// Applies a short low-pass window only to the rendered trace. The raw
-    /// readings remain the source of the legend and control logic.
+    /// readings remain the source of the legend and control logic. The window
+    /// never reaches across a break, so a resumed trace cannot drag the
+    /// pre-break readings toward it.
     private var chartSamples: [ThermalReading] {
         guard samples.count > smoothingRadius * 2 else { return samples }
 
-        return samples.indices.map { index in
-            let sample = samples[index]
-            return ThermalReading(
-                sampledAt: sample.sampledAt,
-                cpuCelsius: smoothedValue(at: index, keyPath: \.cpuCelsius),
-                gpuCelsius: smoothedValue(at: index, keyPath: \.gpuCelsius),
-                ssdCelsius: smoothedValue(at: index, keyPath: \.ssdCelsius),
-                batteryCelsius: smoothedValue(at: index, keyPath: \.batteryCelsius)
-            )
+        return sampleSegments.flatMap { segment in
+            segment.map { index in
+                let sample = samples[index]
+                return ThermalReading(
+                    sampledAt: sample.sampledAt,
+                    cpuCelsius: smoothedValue(at: index, within: segment, keyPath: \.cpuCelsius),
+                    gpuCelsius: smoothedValue(at: index, within: segment, keyPath: \.gpuCelsius),
+                    ssdCelsius: smoothedValue(at: index, within: segment, keyPath: \.ssdCelsius),
+                    batteryCelsius: smoothedValue(at: index, within: segment, keyPath: \.batteryCelsius)
+                )
+            }
         }
     }
 
     private func smoothedValue(
         at index: Int,
+        within segment: ClosedRange<Int>,
         keyPath: KeyPath<ThermalReading, Double?>
     ) -> Double? {
-        let lowerBound = max(0, index - smoothingRadius)
-        let upperBound = min(samples.count - 1, index + smoothingRadius)
+        let lowerBound = max(segment.lowerBound, index - smoothingRadius)
+        let upperBound = min(segment.upperBound, index + smoothingRadius)
         let values = (lowerBound...upperBound).compactMap {
             samples[$0][keyPath: keyPath]
         }
@@ -181,12 +266,6 @@ private struct TemperaturePlot: View {
     private let topInset: CGFloat = 5
     private let bottomInset: CGFloat = 21
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-
     private var yTicks: [Double] {
         let midpoint = (yDomain.lowerBound + yDomain.upperBound) / 2
         return [yDomain.upperBound, midpoint, yDomain.lowerBound]
@@ -238,21 +317,14 @@ private struct TemperaturePlot: View {
     }
 
     private func xAxisLabels(in plotRect: CGRect, width: CGFloat) -> some View {
-        let midpoint = timeRange.lowerBound.addingTimeInterval(
-            timeRange.upperBound.timeIntervalSince(timeRange.lowerBound) / 2
-        )
-        let dates = [
-            timeRange.lowerBound,
-            midpoint,
-            timeRange.upperBound
-        ]
+        let labels = TemperatureChartTimeAxis.labels(in: timeRange)
 
         return HStack {
-            ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
-                Text(Self.timeFormatter.string(from: date))
+            ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
+                Text(label)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: index == 0 ? .leading : (index == dates.count - 1 ? .trailing : .center))
+                    .frame(maxWidth: .infinity, alignment: index == 0 ? .leading : (index == labels.count - 1 ? .trailing : .center))
             }
         }
         .padding(.leading, plotRect.minX)
@@ -281,11 +353,15 @@ private struct TemperaturePlot: View {
         let timeSpan = max(timeRange.upperBound.timeIntervalSince(firstDate), 1)
 
         for (index, value) in values.enumerated() {
+            let date = samples[index].sampledAt
+            if index > 0,
+               date.timeIntervalSince(samples[index - 1].sampledAt) > TemperatureChartTimeAxis.maximumSampleGap {
+                flushSegment()
+            }
             guard let value else {
                 flushSegment()
                 continue
             }
-            let date = samples[index].sampledAt
             let position = min(1, max(0, date.timeIntervalSince(firstDate) / timeSpan))
             let x = rect.minX + CGFloat(position) * rect.width
             segment.append(CGPoint(x: x, y: yPosition(value, in: rect)))
