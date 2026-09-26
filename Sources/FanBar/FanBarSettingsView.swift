@@ -46,6 +46,10 @@ struct FanBarSettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The alert temperature is set rarely, so its slider stays tucked away.
     @State private var isThresholdExpanded = false
+    /// The slider position while dragging. The threshold is only applied on
+    /// release, so passing over the current temperature mid-drag can't alert.
+    @State private var thresholdDraft: Double?
+    @State private var isDraggingThreshold = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -229,7 +233,9 @@ struct FanBarSettingsView: View {
 
     private var thresholdRow: some View {
         let range = ThermalAlertSettings.thresholdRange
-        let value = controller.highTemperatureThresholdCelsius
+        let value = ThermalAlertSettings.clampedThreshold(
+            thresholdDraft ?? controller.highTemperatureThresholdCelsius
+        )
         let isEnabled = controller.highTemperatureNotificationsEnabled
         let isExpanded = isThresholdExpanded && isEnabled
         return VStack(alignment: .leading, spacing: 0) {
@@ -267,23 +273,39 @@ struct FanBarSettingsView: View {
                     // A slider reaches any value in one drag instead of ±1 clicks.
                     Slider(
                         value: Binding(
-                            get: { controller.highTemperatureThresholdCelsius },
-                            set: { controller.setHighTemperatureThreshold($0) }
+                            get: { thresholdDraft ?? controller.highTemperatureThresholdCelsius },
+                            set: { newValue in
+                                // Keyboard and VoiceOver changes have no drag
+                                // phase, so they apply immediately.
+                                if isDraggingThreshold {
+                                    thresholdDraft = newValue
+                                } else {
+                                    controller.setHighTemperatureThreshold(newValue)
+                                }
+                            }
                         ),
                         // No `step:`: macOS would draw a tick for every degree.
                         // The controller rounds to whole degrees instead.
-                        in: range
-                    ) {
-                        Text(fanBarText("提醒温度", "Alert temperature"))
-                    } minimumValueLabel: {
-                        Text(String(format: "%.0f°", range.lowerBound))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    } maximumValueLabel: {
-                        Text(String(format: "%.0f°", range.upperBound))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
+                        in: range,
+                        label: { Text(fanBarText("提醒温度", "Alert temperature")) },
+                        minimumValueLabel: {
+                            Text(String(format: "%.0f°", range.lowerBound))
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        },
+                        maximumValueLabel: {
+                            Text(String(format: "%.0f°", range.upperBound))
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        },
+                        onEditingChanged: { editing in
+                            isDraggingThreshold = editing
+                            if !editing, let draft = thresholdDraft {
+                                controller.setHighTemperatureThreshold(draft)
+                                thresholdDraft = nil
+                            }
+                        }
+                    )
                     .labelsHidden()
                     .accessibilityValue(String(format: "%.0f°C", value))
 

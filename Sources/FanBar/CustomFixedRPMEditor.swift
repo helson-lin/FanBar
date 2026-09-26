@@ -23,7 +23,7 @@ struct CustomFixedRPMEditor: View {
         self.range = range
         self.onApply = onApply
         self.onCancel = onCancel
-        let start = initialRPM.map { min(max($0, range.lowerBound), range.upperBound) }
+        let start = initialRPM.map { Self.clamped($0, in: range) }
             ?? Self.snapped((range.lowerBound + range.upperBound) / 2, in: range)
         _text = State(initialValue: String(start))
     }
@@ -41,8 +41,7 @@ struct CustomFixedRPMEditor: View {
     private var sliderValue: Binding<Double> {
         Binding(
             get: {
-                let rpm = parsedRPM ?? range.lowerBound
-                return Double(min(max(rpm, range.lowerBound), range.upperBound))
+                Double(Self.clamped(parsedRPM ?? range.lowerBound, in: range))
             },
             set: { text = String(Self.snapped(Int($0.rounded()), in: range)) }
         )
@@ -160,7 +159,11 @@ struct CustomFixedRPMEditor: View {
     private static func snapped(_ rpm: Int, in range: ClosedRange<Int>) -> Int {
         let step = sliderStep
         let snapped = Int((Double(rpm) / Double(step)).rounded()) * step
-        return min(max(snapped, range.lowerBound), range.upperBound)
+        return clamped(snapped, in: range)
+    }
+
+    private static func clamped(_ rpm: Int, in range: ClosedRange<Int>) -> Int {
+        min(max(rpm, range.lowerBound), range.upperBound)
     }
 }
 

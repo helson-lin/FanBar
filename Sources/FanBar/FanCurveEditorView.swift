@@ -63,6 +63,7 @@ struct FanCurveEditorView: View {
                 currentCelsius: controller.curveTemperatureCelsius,
                 currentFraction: controller.curveOutputFraction,
                 currentSummary: controller.curveOutputSummary,
+                alertThresholdCelsius: controller.highTemperatureThresholdCelsius,
                 onPointChange: { id, celsius, fraction in
                     controller.updateCurvePoint(
                         id: id,
@@ -387,6 +388,8 @@ struct FanCurveCanvas: View {
     var currentFraction: Float?
     /// Target RPM and curve output for the live reading, shown beside the marker.
     var currentSummary: String?
+    /// Start of the shaded high-temperature band.
+    var alertThresholdCelsius = ThermalAlertSettings.defaultThresholdCelsius
     var onPointChange: (UUID, Double, Float) -> Void
 
     @State private var draggingPointID: UUID?
@@ -637,7 +640,7 @@ struct FanCurveCanvas: View {
     }
 
     private func highTemperatureBand(plot: CGRect) -> some View {
-        let x = position(celsius: ThermalAlertSettings.thresholdCelsius, fraction: 0, plot: plot).x
+        let x = position(celsius: alertThresholdCelsius, fraction: 0, plot: plot).x
         let width = max(0, plot.maxX - x)
         return ZStack(alignment: .topLeading) {
             Rectangle()

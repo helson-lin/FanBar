@@ -143,7 +143,9 @@ struct FanMenu: View {
     }
 
     private var modeControl: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // Walks the fan list, so read it once per render.
+        let fixedRange = controller.fixedRPMRange
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(fanBarText("控制模式", "Control mode"))
                     .font(.caption.weight(.semibold))
@@ -214,7 +216,7 @@ struct FanMenu: View {
 
                 Menu {
                     Section(header: Text(fanBarText("固定转速", "Fixed RPM"))) {
-                        ForEach(fixedRPMChoices, id: \.self) { rpm in
+                        ForEach(fixedRPMChoices(in: fixedRange), id: \.self) { rpm in
                             Button {
                                 isEditingCustomRPM = false
                                 controller.setFixedRPM(rpm)
@@ -231,7 +233,7 @@ struct FanMenu: View {
                     Button(fanBarText("自定义转速…", "Custom RPM…")) {
                         isEditingCustomRPM = true
                     }
-                    .disabled(controller.fixedRPMRange == nil)
+                    .disabled(fixedRange == nil)
                 } label: {
                     modeButtonLabel(
                         title: fanBarText("固定", "Fixed"),
@@ -269,7 +271,7 @@ struct FanMenu: View {
                 }
             )
 
-            if isEditingCustomRPM, let range = controller.fixedRPMRange {
+            if isEditingCustomRPM, let range = fixedRange {
                 CustomFixedRPMEditor(
                     range: range,
                     initialRPM: currentFixedRPM ?? controller.customFixedRPM,
@@ -294,9 +296,9 @@ struct FanMenu: View {
     }
 
     /// Presets inside the hardware range, plus the saved custom value.
-    private var fixedRPMChoices: [Int] {
+    private func fixedRPMChoices(in range: ClosedRange<Int>?) -> [Int] {
         var choices = FanController.fixedRPMPresets
-        if let range = controller.fixedRPMRange {
+        if let range {
             choices = choices.filter(range.contains)
         }
         for extra in [controller.customFixedRPM, currentFixedRPM].compactMap({ $0 })
