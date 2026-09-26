@@ -386,8 +386,6 @@ final class FanController: ObservableObject {
             failModeAction(failure)
             return
         }
-        customFixedRPM = rpm
-        UserDefaults.standard.set(rpm, forKey: Self.customFixedRPMKey)
         setFixedRPM(rpm)
     }
 
@@ -411,6 +409,11 @@ final class FanController: ObservableObject {
                 await finishPendingCurveUpdate()
                 try await helperClient.setAllFans(rpm: rpm)
                 mode = .fixed(rpm)
+                // Remember hand-entered values only once they actually applied.
+                if !Self.fixedRPMPresets.contains(rpm) {
+                    customFixedRPM = rpm
+                    UserDefaults.standard.set(rpm, forKey: Self.customFixedRPMKey)
+                }
                 clearTemperatureCurveState()
                 if resetsAutomaticRestore {
                     scheduleAutomaticRestore()
@@ -642,10 +645,11 @@ final class FanController: ObservableObject {
         guard threshold != highTemperatureThresholdCelsius else { return }
         highTemperatureThresholdCelsius = threshold
         UserDefaults.standard.set(threshold, forKey: ThermalAlertSettings.thresholdKey)
-        // A new threshold starts a fresh episode; re-check the latest reading
-        // so lowering it below the current temperature alerts right away.
+        // Keep the monitor's episode state: the slider calls this for every
+        // degree while dragging, and resetting would re-alert at each step.
+        // Re-checking drops sensors now below the threshold and alerts once
+        // for sensors that newly exceed it.
         thermalAlertMonitor.thresholdCelsius = threshold
-        thermalAlertMonitor.reset()
         if let latest = latestThermalReading() {
             evaluateThermalAlerts(using: latest)
         }

@@ -24,3 +24,18 @@ final class ThermalAlertThresholdTests: XCTestCase {
         XCTAssertTrue(monitor.alerts(for: reading).isEmpty)
     }
 }
+
+final class ThermalAlertThresholdDragTests: XCTestCase {
+    /// Lowering the threshold one degree at a time (a slider drag) must alert
+    /// once, not at every step below the current temperature.
+    func testLoweringThresholdStepwiseAlertsOnce() {
+        var monitor = ThermalAlertMonitor(thresholdCelsius: 90)
+        let reading = ThermalReading(sampledAt: Date(), cpuCelsius: 85, gpuCelsius: nil)
+        var alertCount = 0
+        for threshold in stride(from: 90.0, through: 60.0, by: -1) {
+            monitor.thresholdCelsius = threshold
+            alertCount += monitor.alerts(for: reading).count
+        }
+        XCTAssertEqual(alertCount, 1)
+    }
+}
