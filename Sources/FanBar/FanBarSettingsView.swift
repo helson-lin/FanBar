@@ -206,7 +206,7 @@ struct FanBarSettingsView: View {
                     title: fanBarFormat(
                         "CPU 或 GPU 达到 %.0f°C 时通知",
                         "Notify when CPU or GPU reaches %.0f°C",
-                        ThermalAlertSettings.thresholdCelsius
+                        controller.highTemperatureThresholdCelsius
                     ),
                     detail: fanBarText(
                         "同一次高温只提醒一次；温度回落后再次升高会重新通知。",
@@ -217,7 +217,43 @@ struct FanBarSettingsView: View {
             .toggleStyle(.switch)
             .disabled(controller.isRequestingHighTemperatureNotificationPermission)
             .padding(SettingsChrome.rowHorizontalPadding)
+
+            SettingsChrome.rowDivider
+
+            thresholdRow
         }
+    }
+
+    private var thresholdRow: some View {
+        let range = ThermalAlertSettings.thresholdRange
+        return HStack(spacing: 12) {
+            SettingsRowText(
+                title: fanBarText("提醒温度", "Alert temperature"),
+                detail: fanBarFormat(
+                    "可设范围 %.0f–%.0f°C，默认 %.0f°C。",
+                    "Range %.0f–%.0f°C. Default %.0f°C.",
+                    range.lowerBound,
+                    range.upperBound,
+                    ThermalAlertSettings.defaultThresholdCelsius
+                )
+            )
+            Text(String(format: "%.0f°C", controller.highTemperatureThresholdCelsius))
+                .font(.system(.body, design: .monospaced).weight(.medium))
+                .accessibilityHidden(true)
+            Stepper(
+                fanBarText("提醒温度", "Alert temperature"),
+                value: Binding(
+                    get: { controller.highTemperatureThresholdCelsius },
+                    set: { controller.setHighTemperatureThreshold($0) }
+                ),
+                in: range,
+                step: 1
+            )
+            .labelsHidden()
+            .accessibilityValue(String(format: "%.0f°C", controller.highTemperatureThresholdCelsius))
+        }
+        .padding(SettingsChrome.rowHorizontalPadding)
+        .disabled(!controller.highTemperatureNotificationsEnabled)
     }
 
     private var languageSection: some View {

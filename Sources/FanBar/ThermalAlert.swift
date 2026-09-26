@@ -3,7 +3,21 @@ import UserNotifications
 
 enum ThermalAlertSettings {
     static let notificationsEnabledKey = "fanbar.highTemperatureNotificationsEnabled"
-    static let thresholdCelsius = 90.0
+    static let thresholdKey = "fanbar.highTemperatureThresholdCelsius"
+    static let defaultThresholdCelsius = 90.0
+    /// Below 60°C alerts would fire during ordinary load; above 105°C Apple
+    /// silicon is already throttling, so a warning would arrive too late.
+    static let thresholdRange: ClosedRange<Double> = 60...105
+
+    /// The user's alert threshold, falling back to the default when unset.
+    static var thresholdCelsius: Double {
+        let stored = UserDefaults.standard.object(forKey: thresholdKey) as? Double
+        return clampedThreshold(stored ?? defaultThresholdCelsius)
+    }
+
+    static func clampedThreshold(_ celsius: Double) -> Double {
+        min(max(celsius.rounded(), thresholdRange.lowerBound), thresholdRange.upperBound)
+    }
     static let notificationIdentifierPrefix = "fanbar.high-temperature"
 }
 
@@ -31,7 +45,7 @@ struct ThermalAlert: Equatable {
 /// Tracks each sensor's high-temperature episode so one sustained spike does
 /// not produce a notification every time the telemetry timer fires.
 struct ThermalAlertMonitor {
-    let thresholdCelsius: Double
+    var thresholdCelsius: Double
     private(set) var alertedSensors: Set<ThermalSensor> = []
 
     mutating func alerts(for reading: ThermalReading) -> [ThermalAlert] {
