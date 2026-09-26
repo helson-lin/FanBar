@@ -142,7 +142,7 @@ final class MenuBarIconAnimator {
             let smoothing = min(delta * velocitySmoothing, 1)
             angularVelocity += (targetVelocity - angularVelocity) * smoothing
             angle = (angle + angularVelocity * delta).truncatingRemainder(dividingBy: 360)
-            button.image = frame(at: angle, alpha: 1)
+            show(frame(at: angle, alpha: 1), on: button)
         case .coasting:
             angularVelocity = max(angularVelocity - spinDownDeceleration * delta, 0)
             guard angularVelocity > 0 else {
@@ -150,7 +150,7 @@ final class MenuBarIconAnimator {
                 return
             }
             angle = (angle + angularVelocity * delta).truncatingRemainder(dividingBy: 360)
-            button.image = frame(at: angle, alpha: 1)
+            show(frame(at: angle, alpha: 1), on: button)
         case .blinking:
             blinkAccumulator += delta
             guard blinkAccumulator >= blinkInterval else { return }
@@ -161,8 +161,16 @@ final class MenuBarIconAnimator {
                 return
             }
             let dimmed = blinkRemaining % 2 == 1
-            button.image = frame(at: 0, alpha: dimmed ? 0.3 : 1)
+            show(frame(at: 0, alpha: dimmed ? 0.3 : 1), on: button)
         }
+    }
+
+    /// Frames are quantized, so most ticks resolve to the image already shown.
+    /// Every assignment makes AppKit re-snapshot the status item for each
+    /// menu bar replicant, so only swap when the frame actually changes.
+    private func show(_ image: NSImage, on button: NSButton) {
+        guard button.image !== image else { return }
+        button.image = image
     }
 
     /// Real fan RPM is too fast to render directly without aliasing. Reuses
