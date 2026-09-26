@@ -119,12 +119,17 @@ struct CustomFixedRPMEditor: View {
                 Spacer(minLength: 8)
 
                 Button(fanBarText("取消", "Cancel"), action: onCancel)
+                    .buttonStyle(EditorButtonStyle(prominent: false))
                     .keyboardShortcut(.cancelAction)
-                Button(fanBarText("应用", "Apply"), action: apply)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(validRPM == nil)
+                    .focusable(false)
+                Button(action: apply) {
+                    Label(fanBarText("应用", "Apply"), systemImage: "checkmark")
+                }
+                .buttonStyle(EditorButtonStyle(prominent: true))
+                .keyboardShortcut(.defaultAction)
+                .focusable(false)
+                .disabled(validRPM == nil)
             }
-            .controlSize(.small)
         }
         .padding(12)
         .background(
@@ -156,5 +161,49 @@ struct CustomFixedRPMEditor: View {
         let step = sliderStep
         let snapped = Int((Double(rpm) / Double(step)).rounded()) * step
         return min(max(snapped, range.lowerBound), range.upperBound)
+    }
+}
+
+/// Compact capsule buttons matching the popover's own controls: a filled
+/// accent capsule for the primary action, a quiet text button for the
+/// secondary one that only gains a fill on hover or press.
+private struct EditorButtonStyle: ButtonStyle {
+    let prominent: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        EditorButton(configuration: configuration, prominent: prominent)
+    }
+
+    private struct EditorButton: View {
+        let configuration: ButtonStyleConfiguration
+        let prominent: Bool
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(foreground)
+                .padding(.horizontal, 12)
+                .frame(height: 26)
+                .background(Capsule().fill(background))
+                .contentShape(Capsule())
+                .opacity(configuration.isPressed ? 0.8 : 1)
+                .onHover { isHovered = $0 }
+        }
+
+        private var foreground: Color {
+            if prominent {
+                return isEnabled ? .white : .secondary
+            }
+            return isHovered ? .primary : .secondary
+        }
+
+        private var background: Color {
+            if prominent {
+                return isEnabled ? .accentColor : Color.primary.opacity(0.06)
+            }
+            return Color.primary.opacity(isHovered || configuration.isPressed ? 0.07 : 0)
+        }
     }
 }
