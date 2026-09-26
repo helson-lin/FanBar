@@ -111,6 +111,12 @@ final class FanController: ObservableObject {
     /// Per–panel-preset stored curves.
     private var curvePresetSlots: [FanCoolingPreset: FanCurveProfile]
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
+    /// Last RPM the user entered by hand; offered again in the Fixed menu.
+    @Published private(set) var customFixedRPM: Int? = {
+        let stored = UserDefaults.standard.integer(forKey: FanController.customFixedRPMKey)
+        return stored > 0 ? stored : nil
+    }()
+    @Published private(set) var highTemperatureThresholdCelsius = ThermalAlertSettings.thresholdCelsius
     @Published private(set) var isRequestingHighTemperatureNotificationPermission = false
     @Published private(set) var switchFeedback: SwitchFeedbackSignal?
     @Published private(set) var modeActionFeedback: ModeActionFeedback?
@@ -354,8 +360,33 @@ final class FanController: ObservableObject {
         helperService.openSettings()
     }
 
+    static let customFixedRPMKey = "fanbar.customFixedRPM"
+    static let fixedRPMPresets = [2500, 3500, 4500, 5500]
+
+    /// The RPM range every fan can hold: from the highest fan minimum to the
+    /// lowest fan maximum, so one target is valid for all fans. Nil until the
+    /// fans have been read or when their ranges do not overlap.
+    var fixedRPMRange: ClosedRange<Int>? {
+        guard let lower = fans.map(\.minimumRPM).max(),
+              let upper = fans.map(\.maximumRPM).min(),
+              lower > 0, lower <= upper else { return nil }
+        return lower...upper
+    }
+
     func setFixedRPM(_ rpm: Int) {
         applyFixedRPM(rpm, resetsAutomaticRestore: true)
+    }
+
+    /// Applies a hand-entered RPM. Values outside the hardware range are
+    /// rejected here too, not only in the editor.
+    func setCustomFixedRPM(_ rpm: Int) {
+        guard let range = fixedRPMRange, range.contains(rpm) else {
+            let failure = fanBarText("转速超出风扇支持的范围", "That RPM is outside the fans' supported range")
+            message = failure
+            failModeAction(failure)
+            return
+        }
+        setFixedRPM(rpm)
     }
 
     private func applyFixedRPM(_ rpm: Int, resetsAutomaticRestore: Bool) {
@@ -378,6 +409,11 @@ final class FanController: ObservableObject {
                 await finishPendingCurveUpdate()
                 try await helperClient.setAllFans(rpm: rpm)
                 mode = .fixed(rpm)
+                // Remember hand-entered values only once they actually applied.
+                if !Self.fixedRPMPresets.contains(rpm) {
+                    customFixedRPM = rpm
+                    UserDefaults.standard.set(rpm, forKey: Self.customFixedRPMKey)
+                }
                 clearTemperatureCurveState()
                 if resetsAutomaticRestore {
                     scheduleAutomaticRestore()
@@ -602,6 +638,21 @@ final class FanController: ObservableObject {
         guard next.points.count > FanCurveProfile.minimumPointCount else { return }
         next.points.removeAll { $0.id == id }
         setCurveProfile(next)
+    }
+
+    func setHighTemperatureThreshold(_ celsius: Double) {
+        let threshold = ThermalAlertSettings.clampedThreshold(celsius)
+        guard threshold != highTemperatureThresholdCelsius else { return }
+        highTemperatureThresholdCelsius = threshold
+        UserDefaults.standard.set(threshold, forKey: ThermalAlertSettings.thresholdKey)
+        // Keep the monitor's episode state: the slider calls this for every
+        // degree while dragging, and resetting would re-alert at each step.
+        // Re-checking drops sensors now below the threshold and alerts once
+        // for sensors that newly exceed it.
+        thermalAlertMonitor.thresholdCelsius = threshold
+        if let latest = latestThermalReading() {
+            evaluateThermalAlerts(using: latest)
+        }
     }
 
     func setHighTemperatureNotificationsEnabled(_ enabled: Bool) {
@@ -834,7 +885,7 @@ final class FanController: ObservableObject {
             "检测到 %@，已达到 %.0f°C 高温阈值。请检查当前负载和散热。",
             "%@ reached the high-temperature threshold of %.0f°C. Check the current workload and cooling.",
             details,
-            ThermalAlertSettings.thresholdCelsius
+            highTemperatureThresholdCelsius
         )
         content.sound = .default
 

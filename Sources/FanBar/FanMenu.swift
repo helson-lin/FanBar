@@ -6,6 +6,7 @@ struct FanMenu: View {
     @ObservedObject var controller: FanController
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
+    @State private var isEditingCustomRPM = false
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
 
@@ -213,8 +214,9 @@ struct FanMenu: View {
 
                 Menu {
                     Section(header: Text(fanBarText("固定转速", "Fixed RPM"))) {
-                        ForEach([2500, 3500, 4500, 5500], id: \.self) { rpm in
+                        ForEach(fixedRPMChoices, id: \.self) { rpm in
                             Button {
+                                isEditingCustomRPM = false
                                 controller.setFixedRPM(rpm)
                             } label: {
                                 if controller.mode == .fixed(rpm) {
@@ -225,6 +227,11 @@ struct FanMenu: View {
                             }
                         }
                     }
+                    Divider()
+                    Button(fanBarText("自定义转速…", "Custom RPM…")) {
+                        isEditingCustomRPM = true
+                    }
+                    .disabled(controller.fixedRPMRange == nil)
                 } label: {
                     modeButtonLabel(
                         title: fanBarText("固定", "Fixed"),
@@ -262,10 +269,41 @@ struct FanMenu: View {
                 }
             )
 
+            if isEditingCustomRPM, let range = controller.fixedRPMRange {
+                CustomFixedRPMEditor(
+                    range: range,
+                    initialRPM: currentFixedRPM ?? controller.customFixedRPM,
+                    onApply: { rpm in
+                        isEditingCustomRPM = false
+                        controller.setCustomFixedRPM(rpm)
+                    },
+                    onCancel: { isEditingCustomRPM = false }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             if isManual {
                 automaticRestoreRow
             }
         }
+    }
+
+    private var currentFixedRPM: Int? {
+        if case .fixed(let rpm) = controller.mode { return rpm }
+        return nil
+    }
+
+    /// Presets inside the hardware range, plus the saved custom value.
+    private var fixedRPMChoices: [Int] {
+        var choices = FanController.fixedRPMPresets
+        if let range = controller.fixedRPMRange {
+            choices = choices.filter(range.contains)
+        }
+        for extra in [controller.customFixedRPM, currentFixedRPM].compactMap({ $0 })
+        where !choices.contains(extra) {
+            choices.append(extra)
+        }
+        return choices.sorted()
     }
 
     private func modeActionFeedbackBanner(
