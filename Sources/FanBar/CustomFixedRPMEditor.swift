@@ -1,14 +1,18 @@
 import FanBarShared
 import SwiftUI
 
-/// Inline editor for a hand-entered fixed RPM. Shows the hardware range up
-/// front and only enables Apply for values the fans can actually hold.
+/// Inline editor for a hand-entered fixed RPM. A slider covers the hardware
+/// range for quick coarse moves; the field takes an exact value. Apply is only
+/// enabled for values the fans can actually hold.
 struct CustomFixedRPMEditor: View {
     let range: ClosedRange<Int>
     let onApply: (Int) -> Void
     let onCancel: () -> Void
 
     @State private var text: String
+
+    /// Slider moves snap to this step; typed values can be any whole number.
+    private static let sliderStep = 50
 
     init(
         range: ClosedRange<Int>,
@@ -20,12 +24,13 @@ struct CustomFixedRPMEditor: View {
         self.onApply = onApply
         self.onCancel = onCancel
         let start = initialRPM.map { min(max($0, range.lowerBound), range.upperBound) }
-            ?? Self.rounded(midpointOf: range)
+            ?? Self.snapped((range.lowerBound + range.upperBound) / 2, in: range)
         _text = State(initialValue: String(start))
     }
 
+    /// Accepts grouped input such as "3,400".
     private var parsedRPM: Int? {
-        Int(text.trimmingCharacters(in: .whitespaces))
+        Int(text.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces))
     }
 
     private var validRPM: Int? {
@@ -33,37 +38,85 @@ struct CustomFixedRPMEditor: View {
         return rpm
     }
 
+    private var sliderValue: Binding<Double> {
+        Binding(
+            get: {
+                let rpm = parsedRPM ?? range.lowerBound
+                return Double(min(max(rpm, range.lowerBound), range.upperBound))
+            },
+            set: { text = String(Self.snapped(Int($0.rounded()), in: range)) }
+        )
+    }
+
     private var rangeText: String {
         fanBarFormat(
-            "可输入 %d–%d RPM",
-            "Enter %d–%d RPM",
-            range.lowerBound,
-            range.upperBound
+            "可输入 %@–%@ RPM",
+            "Enter %@–%@ RPM",
+            FanBarNumberFormatter.grouped(range.lowerBound),
+            FanBarNumberFormatter.grouped(range.upperBound)
         )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+                    .accessibilityHidden(true)
+
+                Text(fanBarText("自定义转速", "Custom RPM"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                Spacer(minLength: 8)
+
                 TextField("", text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12, design: .monospaced))
-                    .frame(width: 76)
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .frame(width: 64)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
+                    .overlay(
+                        // Border only when the entry needs attention.
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .stroke(Color.orange.opacity(validRPM == nil ? 0.8 : 0), lineWidth: 1)
+                    )
                     .accessibilityLabel(fanBarText("自定义转速", "Custom RPM"))
                     .accessibilityHint(rangeText)
 
-                Stepper(
-                    fanBarText("自定义转速", "Custom RPM"),
-                    onIncrement: { step(by: 100) },
-                    onDecrement: { step(by: -100) }
-                )
-                .labelsHidden()
-
                 Text("RPM")
-                    .font(.caption)
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.secondary)
+            }
 
-                Spacer(minLength: 4)
+            Slider(value: sliderValue, in: Double(range.lowerBound)...Double(range.upperBound)) {
+                Text(fanBarText("自定义转速", "Custom RPM"))
+            } minimumValueLabel: {
+                rangeLabel(range.lowerBound)
+            } maximumValueLabel: {
+                rangeLabel(range.upperBound)
+            }
+            .labelsHidden()
+            .controlSize(.small)
+
+            HStack(spacing: 8) {
+                // The slider ends already show the range; only call out an
+                // invalid entry here.
+                if validRPM == nil {
+                    Label(statusText, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
 
                 Button(fanBarText("取消", "Cancel"), action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -72,30 +125,25 @@ struct CustomFixedRPMEditor: View {
                     .disabled(validRPM == nil)
             }
             .controlSize(.small)
-
-            Label(statusText, systemImage: validRPM == nil ? "exclamationmark.triangle" : "info.circle")
-                .font(.caption)
-                .foregroundColor(validRPM == nil ? .orange : .secondary)
         }
-        .padding(.horizontal, 4)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.045))
+        )
     }
 
-    /// Always shows the range; the icon and wording (not only color) change
-    /// when the entry is invalid.
+    private func rangeLabel(_ rpm: Int) -> some View {
+        Text(FanBarNumberFormatter.grouped(rpm))
+            .font(.system(size: 10, design: .monospaced))
+            .foregroundColor(.secondary)
+    }
+
+    /// The icon and wording, not only the color, mark an invalid entry.
     private var statusText: String {
-        guard parsedRPM != nil else {
-            return fanBarFormat("请输入整数，%@", "Enter a whole number. %@", rangeText)
-        }
-        guard validRPM != nil else {
-            return fanBarFormat("超出硬件范围，%@", "Outside the hardware range. %@", rangeText)
-        }
-        return rangeText
-    }
-
-    private func step(by delta: Int) {
-        let base = parsedRPM ?? range.lowerBound
-        let next = min(max(base + delta, range.lowerBound), range.upperBound)
-        text = String(next)
+        parsedRPM == nil
+            ? fanBarText("请输入整数", "Enter a whole number")
+            : fanBarText("超出硬件范围", "Outside the hardware range")
     }
 
     private func apply() {
@@ -103,8 +151,10 @@ struct CustomFixedRPMEditor: View {
         onApply(rpm)
     }
 
-    private static func rounded(midpointOf range: ClosedRange<Int>) -> Int {
-        let mid = (range.lowerBound + range.upperBound) / 2
-        return min(max((mid / 100) * 100, range.lowerBound), range.upperBound)
+    /// Snaps to the slider step while keeping both hardware ends reachable.
+    private static func snapped(_ rpm: Int, in range: ClosedRange<Int>) -> Int {
+        let step = sliderStep
+        let snapped = Int((Double(rpm) / Double(step)).rounded()) * step
+        return min(max(snapped, range.lowerBound), range.upperBound)
     }
 }

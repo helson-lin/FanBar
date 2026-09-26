@@ -226,31 +226,43 @@ struct FanBarSettingsView: View {
 
     private var thresholdRow: some View {
         let range = ThermalAlertSettings.thresholdRange
-        return HStack(spacing: 12) {
-            SettingsRowText(
-                title: fanBarText("提醒温度", "Alert temperature"),
-                detail: fanBarFormat(
-                    "可设范围 %.0f–%.0f°C，默认 %.0f°C。",
-                    "Range %.0f–%.0f°C. Default %.0f°C.",
-                    range.lowerBound,
-                    range.upperBound,
-                    ThermalAlertSettings.defaultThresholdCelsius
+        let value = controller.highTemperatureThresholdCelsius
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                SettingsRowText(
+                    title: fanBarText("提醒温度", "Alert temperature"),
+                    detail: fanBarFormat(
+                        "默认 %.0f°C。",
+                        "Default %.0f°C.",
+                        ThermalAlertSettings.defaultThresholdCelsius
+                    )
                 )
-            )
-            Text(String(format: "%.0f°C", controller.highTemperatureThresholdCelsius))
-                .font(.system(.body, design: .monospaced).weight(.medium))
-                .accessibilityHidden(true)
-            Stepper(
-                fanBarText("提醒温度", "Alert temperature"),
+                Text(String(format: "%.0f°C", value))
+                    .font(.system(.title3, design: .monospaced).weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            // A slider reaches any value in one drag instead of ±1 clicks.
+            Slider(
                 value: Binding(
                     get: { controller.highTemperatureThresholdCelsius },
                     set: { controller.setHighTemperatureThreshold($0) }
                 ),
-                in: range,
-                step: 1
-            )
+                // No `step:`: macOS would draw a tick for every degree. The
+                // controller rounds to whole degrees instead.
+                in: range
+            ) {
+                Text(fanBarText("提醒温度", "Alert temperature"))
+            } minimumValueLabel: {
+                Text(String(format: "%.0f°", range.lowerBound))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+            } maximumValueLabel: {
+                Text(String(format: "%.0f°", range.upperBound))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
             .labelsHidden()
-            .accessibilityValue(String(format: "%.0f°C", controller.highTemperatureThresholdCelsius))
+            .accessibilityValue(String(format: "%.0f°C", value))
         }
         .padding(SettingsChrome.rowHorizontalPadding)
         .disabled(!controller.highTemperatureNotificationsEnabled)
