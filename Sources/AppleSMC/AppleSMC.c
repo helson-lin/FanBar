@@ -128,14 +128,23 @@ int fanbar_smc_write(uint32_t key, const FanBarSMCValue *value) {
     return KERN_SUCCESS;
 }
 
-int fanbar_embedded_nvme_temperature(double *temperature) {
-    if (temperature == NULL) return KERN_INVALID_ARGUMENT;
+#if defined(__arm64__)
+// Discovering the NAND sensors means creating an event-system client and
+// reading the Product name of every HID service, which is far more work than
+// reading their temperatures. Telemetry asks every two seconds, so discover
+// once and keep the client and the matching services. Called only from the
+// app's main thread, so no locking.
+static IOHIDEventSystemClientRef nand_client = NULL;
+static CFMutableArrayRef nand_services = NULL;
 
-#if !defined(__arm64__)
-    // Intel Macs use the SMC and NVMe SMART paths; this HID sensor family is
-    // specific to Apple Silicon's embedded storage controller.
-    return KERN_FAILURE;
-#else
+static void fanbar_discard_nand_sensors(void) {
+    if (nand_services != NULL) CFRelease(nand_services);
+    if (nand_client != NULL) CFRelease(nand_client);
+    nand_services = NULL;
+    nand_client = NULL;
+}
+
+static bool fanbar_discover_nand_sensors(void) {
     int32_t usage_page = 0xff00;
     int32_t usage = 0x0005;
     CFNumberRef usage_page_number = CFNumberCreate(
@@ -151,7 +160,7 @@ int fanbar_embedded_nvme_temperature(double *temperature) {
     if (usage_page_number == NULL || usage_number == NULL) {
         if (usage_page_number != NULL) CFRelease(usage_page_number);
         if (usage_number != NULL) CFRelease(usage_number);
-        return KERN_RESOURCE_SHORTAGE;
+        return false;
     }
 
     const void *keys[] = { CFSTR("PrimaryUsagePage"), CFSTR("PrimaryUsage") };
@@ -166,12 +175,12 @@ int fanbar_embedded_nvme_temperature(double *temperature) {
     );
     CFRelease(usage_page_number);
     CFRelease(usage_number);
-    if (matching == NULL) return KERN_RESOURCE_SHORTAGE;
+    if (matching == NULL) return false;
 
     IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
     if (client == NULL) {
         CFRelease(matching);
-        return KERN_FAILURE;
+        return false;
     }
     IOHIDEventSystemClientSetMatching(client, matching);
     CFRelease(matching);
@@ -179,13 +188,12 @@ int fanbar_embedded_nvme_temperature(double *temperature) {
     CFArrayRef services = IOHIDEventSystemClientCopyServices(client);
     if (services == NULL) {
         CFRelease(client);
-        return KERN_FAILURE;
+        return false;
     }
 
-    double total = 0.0;
-    CFIndex count = 0;
+    CFMutableArrayRef sensors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     CFIndex service_count = CFArrayGetCount(services);
-    for (CFIndex index = 0; index < service_count; index++) {
+    for (CFIndex index = 0; sensors != NULL && index < service_count; index++) {
         IOHIDServiceClientRef service = (IOHIDServiceClientRef)
             CFArrayGetValueAtIndex(services, index);
         CFTypeRef product = IOHIDServiceClientCopyProperty(service, CFSTR("Product"));
@@ -193,8 +201,39 @@ int fanbar_embedded_nvme_temperature(double *temperature) {
             && CFGetTypeID(product) == CFStringGetTypeID()
             && CFStringHasPrefix((CFStringRef)product, CFSTR("NAND CH"));
         if (product != NULL) CFRelease(product);
-        if (!is_nand_sensor) continue;
+        if (is_nand_sensor) CFArrayAppendValue(sensors, service);
+    }
+    CFRelease(services);
 
+    if (sensors == NULL || CFArrayGetCount(sensors) == 0) {
+        if (sensors != NULL) CFRelease(sensors);
+        CFRelease(client);
+        return false;
+    }
+    nand_client = client;
+    nand_services = sensors;
+    return true;
+}
+#endif
+
+int fanbar_embedded_nvme_temperature(double *temperature) {
+    if (temperature == NULL) return KERN_INVALID_ARGUMENT;
+
+#if !defined(__arm64__)
+    // Intel Macs use the SMC and NVMe SMART paths; this HID sensor family is
+    // specific to Apple Silicon's embedded storage controller.
+    return KERN_FAILURE;
+#else
+    if (nand_services == NULL && !fanbar_discover_nand_sensors()) {
+        return KERN_FAILURE;
+    }
+
+    double total = 0.0;
+    CFIndex count = 0;
+    CFIndex service_count = CFArrayGetCount(nand_services);
+    for (CFIndex index = 0; index < service_count; index++) {
+        IOHIDServiceClientRef service = (IOHIDServiceClientRef)
+            CFArrayGetValueAtIndex(nand_services, index);
         IOHIDEventRef event = IOHIDServiceClientCopyEvent(
             service,
             FANBAR_HID_EVENT_TYPE_TEMPERATURE,
@@ -213,9 +252,12 @@ int fanbar_embedded_nvme_temperature(double *temperature) {
         }
     }
 
-    CFRelease(services);
-    CFRelease(client);
-    if (count == 0) return KERN_FAILURE;
+    if (count == 0) {
+        // The cached services may have gone stale (e.g. after sleep);
+        // rediscover on the next call.
+        fanbar_discard_nand_sensors();
+        return KERN_FAILURE;
+    }
     *temperature = total / (double)count;
     return KERN_SUCCESS;
 #endif

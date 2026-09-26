@@ -8,6 +8,7 @@ struct FanRotorView: View {
     let tint: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isPanelVisible) private var isPanelVisible
     @State private var angle = 0.0
     @State private var airflowPhase = 0.0
     @State private var lastTick = Date()
@@ -45,7 +46,9 @@ struct FanRotorView: View {
         .onAppear { lastTick = Date() }
         .onReceive(animationTimer) { now in
             defer { lastTick = now }
-            guard !reduceMotion else { return }
+            // Skipping state changes while hidden keeps SwiftUI from laying out
+            // and rendering the closed popover 30 times a second.
+            guard !reduceMotion, isPanelVisible else { return }
 
             // Clamp delayed frames so wake-up or menu reopening cannot cause a jump.
             let delta = min(max(now.timeIntervalSince(lastTick), 0), 0.1)
@@ -57,5 +60,19 @@ struct FanRotorView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fanBarFormat("风扇 %d", "Fan %d", fan.index + 1))
         .accessibilityValue(fanBarFormat("%d RPM", "%d RPM", fan.currentRPM))
+    }
+}
+
+private struct PanelVisibleKey: EnvironmentKey {
+    /// Views hosted anywhere other than the menu bar popover (settings,
+    /// previews) are visible whenever they exist.
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// False while the menu bar popover that hosts this view is closed.
+    var isPanelVisible: Bool {
+        get { self[PanelVisibleKey.self] }
+        set { self[PanelVisibleKey.self] = newValue }
     }
 }
