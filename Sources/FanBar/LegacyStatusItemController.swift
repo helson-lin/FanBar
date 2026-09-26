@@ -223,7 +223,7 @@ final class LegacyStatusItemController: NSObject {
         // Keep a stable width once text is enabled. A variable-length status
         // item moves its popover anchor whenever a changing value gains or
         // loses a digit, which makes the menu appear to jump while refreshing.
-        let targetLength = statusItemLength(for: displayMode)
+        let targetLength = statusItemLength(for: displayMode, iconWidth: button.image?.size.width ?? 16)
         if statusItem?.length != targetLength {
             statusItem?.length = targetLength
         }
@@ -234,17 +234,24 @@ final class LegacyStatusItemController: NSObject {
             : NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
     }
 
-    private func statusItemLength(for displayMode: MenuBarDisplayMode) -> CGFloat {
+    /// Width sized to the widest reading each mode can show (not the current
+    /// one), so the popover anchor stays put without leaving wide side gaps.
+    private func statusItemLength(for displayMode: MenuBarDisplayMode, iconWidth: CGFloat) -> CGFloat {
+        let widestText: String
         switch displayMode {
         case .iconOnly:
-            NSStatusItem.squareLength
+            return NSStatusItem.squareLength
         case .cpuTemperature:
-            58
+            widestText = "100°"
         case .fanSpeed:
-            84
+            widestText = "8,888"
         case .temperatureAndFanSpeed:
-            120
+            widestText = "100° · 8,888"
         }
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        let textWidth = (widestText as NSString).size(withAttributes: [.font: font]).width
+        // icon + image/title gap + text + button's horizontal inset on both sides.
+        return ceil(iconWidth + 3 + textWidth + 3)
     }
 
     private func averageFanRPM(for controller: FanController) -> Double {
