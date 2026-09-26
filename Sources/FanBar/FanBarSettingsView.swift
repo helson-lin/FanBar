@@ -43,6 +43,9 @@ struct FanBarSettingsView: View {
     private var switchFeedbackAnimationEnabled = true
     @AppStorage(SettingsTab.preferenceKey)
     private var selectedTabRawValue = SettingsTab.cooling.rawValue
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The alert temperature is set rarely, so its slider stays tucked away.
+    @State private var isThresholdExpanded = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -227,45 +230,77 @@ struct FanBarSettingsView: View {
     private var thresholdRow: some View {
         let range = ThermalAlertSettings.thresholdRange
         let value = controller.highTemperatureThresholdCelsius
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                SettingsRowText(
-                    title: fanBarText("提醒温度", "Alert temperature"),
-                    detail: fanBarFormat(
+        let isEnabled = controller.highTemperatureNotificationsEnabled
+        let isExpanded = isThresholdExpanded && isEnabled
+        return VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 1)) {
+                    isThresholdExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Text(fanBarText("提醒温度", "Alert temperature"))
+                        .foregroundColor(.primary)
+                    Spacer(minLength: 12)
+                    Text(String(format: "%.0f°C", value))
+                        .font(.system(.body, design: .monospaced).weight(.medium))
+                        .foregroundColor(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .foregroundColor(.secondary)
+                        .frame(width: 10)
+                }
+                .padding(SettingsChrome.rowHorizontalPadding)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .focusable(false)
+            .accessibilityLabel(fanBarText("提醒温度", "Alert temperature"))
+            .accessibilityValue(String(format: "%.0f°C", value))
+            .accessibilityHint(isExpanded
+                ? fanBarText("收起温度设置", "Collapse the temperature setting")
+                : fanBarText("展开以调整温度", "Expand to adjust the temperature"))
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    // A slider reaches any value in one drag instead of ±1 clicks.
+                    Slider(
+                        value: Binding(
+                            get: { controller.highTemperatureThresholdCelsius },
+                            set: { controller.setHighTemperatureThreshold($0) }
+                        ),
+                        // No `step:`: macOS would draw a tick for every degree.
+                        // The controller rounds to whole degrees instead.
+                        in: range
+                    ) {
+                        Text(fanBarText("提醒温度", "Alert temperature"))
+                    } minimumValueLabel: {
+                        Text(String(format: "%.0f°", range.lowerBound))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    } maximumValueLabel: {
+                        Text(String(format: "%.0f°", range.upperBound))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                    .labelsHidden()
+                    .accessibilityValue(String(format: "%.0f°C", value))
+
+                    Text(fanBarFormat(
                         "默认 %.0f°C。",
                         "Default %.0f°C.",
                         ThermalAlertSettings.defaultThresholdCelsius
-                    )
-                )
-                Text(String(format: "%.0f°C", value))
-                    .font(.system(.title3, design: .monospaced).weight(.semibold))
-                    .accessibilityHidden(true)
-            }
-            // A slider reaches any value in one drag instead of ±1 clicks.
-            Slider(
-                value: Binding(
-                    get: { controller.highTemperatureThresholdCelsius },
-                    set: { controller.setHighTemperatureThreshold($0) }
-                ),
-                // No `step:`: macOS would draw a tick for every degree. The
-                // controller rounds to whole degrees instead.
-                in: range
-            ) {
-                Text(fanBarText("提醒温度", "Alert temperature"))
-            } minimumValueLabel: {
-                Text(String(format: "%.0f°", range.lowerBound))
-                    .font(.system(size: 10, design: .monospaced))
+                    ))
+                    .font(.caption)
                     .foregroundColor(.secondary)
-            } maximumValueLabel: {
-                Text(String(format: "%.0f°", range.upperBound))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
+                .padding(.bottom, SettingsChrome.rowHorizontalPadding)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
-            .labelsHidden()
-            .accessibilityValue(String(format: "%.0f°C", value))
         }
-        .padding(SettingsChrome.rowHorizontalPadding)
-        .disabled(!controller.highTemperatureNotificationsEnabled)
+        .disabled(!isEnabled)
     }
 
     private var languageSection: some View {
