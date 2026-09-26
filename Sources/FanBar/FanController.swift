@@ -276,9 +276,27 @@ final class FanController: ObservableObject {
         }
     }
 
-    func refresh() {
+    /// Seconds between service-status checks once both services are settled.
+    /// Each check is a synchronous XPC round trip to the system's service
+    /// daemon on the main thread, so it is too costly for every 2 s tick.
+    private static let settledServiceStatusInterval: TimeInterval = 30
+    private var lastServiceStatusRefresh = Date.distantPast
+
+    /// Re-reads the helper and login item status now, e.g. when the panel opens.
+    func refreshServiceStatus() {
         refreshHelperStatus()
         refreshLaunchAtLoginStatus()
+        lastServiceStatusRefresh = Date()
+    }
+
+    func refresh() {
+        // While a service still needs setup or approval, keep polling every
+        // tick so approving it in System Settings shows up right away.
+        let isSettled = helperState == .enabled && !launchAtLoginRequiresApproval
+        if !isSettled
+            || Date().timeIntervalSince(lastServiceStatusRefresh) >= Self.settledServiceStatusInterval {
+            refreshServiceStatus()
+        }
         guard let localClient else { connectAndRefresh(); return }
         do {
             fans = try localClient.fans()

@@ -274,6 +274,7 @@ final class LegacyStatusItemController: NSObject {
 extension LegacyStatusItemController: NSPopoverDelegate {
     func popoverWillShow(_ notification: Notification) {
         panelVisibility.isVisible = true
+        controller?.refreshServiceStatus()
     }
 
     func popoverDidClose(_ notification: Notification) {
