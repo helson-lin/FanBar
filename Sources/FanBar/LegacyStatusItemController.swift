@@ -16,6 +16,9 @@ final class LegacyStatusItemController: NSObject {
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private let iconAnimator = MenuBarIconAnimator()
+    /// NSPopover keeps its content view alive after closing, so continuous
+    /// animations inside it must be told when nobody can see them.
+    private let panelVisibility = PanelVisibility()
 
     func install(controller: FanController) {
         guard statusItem == nil else { return }
@@ -33,7 +36,7 @@ final class LegacyStatusItemController: NSObject {
         popover.animates = true
         popover.delegate = self
         let hostingController = NSHostingController(
-            rootView: FanMenu(controller: controller)
+            rootView: PanelRoot(controller: controller, visibility: panelVisibility)
         )
         popover.contentViewController = hostingController
         hostingController.view.layoutSubtreeIfNeeded()
@@ -269,8 +272,30 @@ final class LegacyStatusItemController: NSObject {
 }
 
 extension LegacyStatusItemController: NSPopoverDelegate {
+    func popoverWillShow(_ notification: Notification) {
+        panelVisibility.isVisible = true
+    }
+
     func popoverDidClose(_ notification: Notification) {
         // Also clean up when AppKit closes the transient popover itself.
         stopOutsideClickMonitoring()
+        panelVisibility.isVisible = false
+    }
+}
+
+/// Whether the popover is on screen.
+@MainActor
+final class PanelVisibility: ObservableObject {
+    @Published var isVisible = false
+}
+
+/// Passes the popover's visibility into the panel's environment.
+private struct PanelRoot: View {
+    let controller: FanController
+    @ObservedObject var visibility: PanelVisibility
+
+    var body: some View {
+        FanMenu(controller: controller)
+            .environment(\.isPanelVisible, visibility.isVisible)
     }
 }
