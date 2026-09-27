@@ -7,6 +7,19 @@ struct FanMenu: View {
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var visibleCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @State private var isEditingCustomRPM = false
+    @State private var isShowingFixedRPMPicker = false
+    @Namespace private var modeSelectionNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(PanelAnimationPreferences.preferenceKey)
+    private var panelAnimationEnabled = true
+
+    private var animatesPanel: Bool {
+        panelAnimationEnabled && !reduceMotion
+    }
+
+    private var slideInTransition: AnyTransition {
+        animatesPanel ? .opacity.combined(with: .move(edge: .top)) : .identity
+    }
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
 
@@ -54,7 +67,7 @@ struct FanMenu: View {
 
             if controller.helperState != .enabled {
                 helperNotice
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(slideInTransition)
             }
 
             launchAtLoginRow
@@ -154,24 +167,7 @@ struct FanMenu: View {
             .frame(height: 16)
             // An overlay is excluded from fitting-size calculation, keeping
             // the popover frame pixel-stable while a mode request is in flight.
-            .overlay(
-                Group {
-                    if let feedback = controller.modeActionFeedback,
-                       feedback.kind == .inProgress {
-                        HStack(spacing: 5) {
-                            ProgressView()
-                                .scaleEffect(0.55)
-                                .frame(width: 12, height: 12)
-                            Text(feedback.message)
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-                    }
-                },
-                alignment: .trailing
-            )
+            .overlay(modeProgressIndicator, alignment: .trailing)
             .accessibilityElement(children: .combine)
 
             HStack(spacing: 6) {
@@ -212,26 +208,11 @@ struct FanMenu: View {
                     ))
                 }
 
-                Menu {
-                    Section(header: Text(fanBarText("固定转速", "Fixed RPM"))) {
-                        ForEach(fixedRPMChoices, id: \.self) { rpm in
-                            Button {
-                                isEditingCustomRPM = false
-                                controller.setFixedRPM(rpm)
-                            } label: {
-                                if controller.mode == .fixed(rpm) {
-                                    Label("\(rpm) RPM", systemImage: "checkmark")
-                                } else {
-                                    Text("\(rpm) RPM")
-                                }
-                            }
-                        }
-                    }
-                    Divider()
-                    Button(fanBarText("自定义转速…", "Custom RPM…")) {
-                        isEditingCustomRPM = true
-                    }
-                    .disabled(controller.fixedRPMRange == nil)
+                // A native NSMenu can only mark items with a checkmark; a
+                // popover lets the current RPM share the control strip's
+                // selected-state background.
+                Button {
+                    isShowingFixedRPMPicker.toggle()
                 } label: {
                     modeButtonLabel(
                         title: fanBarText("固定", "Fixed"),
@@ -240,7 +221,10 @@ struct FanMenu: View {
                         showsChevron: true
                     )
                 }
-                .menuStyle(.borderlessButton)
+                .buttonStyle(.plain)
+                .popover(isPresented: $isShowingFixedRPMPicker, arrowEdge: .bottom) {
+                    fixedRPMPicker
+                }
                 .focusable(false)
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel(fanBarText("选择固定转速", "Choose a fixed RPM"))
@@ -250,6 +234,10 @@ struct FanMenu: View {
                 ))
             }
             .disabled(controller.isBusy || controller.helperState != .enabled)
+            .animation(
+                animatesPanel ? .spring(response: 0.34, dampingFraction: 0.86) : nil,
+                value: modeSelectionKey
+            )
             .padding(4)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -279,12 +267,136 @@ struct FanMenu: View {
                     },
                     onCancel: { isEditingCustomRPM = false }
                 )
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(slideInTransition)
             }
 
-            if isManual {
-                automaticRestoreRow
+            // Always laid out so leaving Automatic doesn't grow the popover:
+            // that resize landed mid-glide and jolted the control strip.
+            automaticRestoreRow
+                .opacity(isManual ? 1 : 0)
+                .allowsHitTesting(isManual)
+                .accessibilityHidden(!isManual)
+        }
+    }
+
+    private var fixedRPMPicker: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(fanBarText("固定转速", "Fixed RPM"))
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 2)
+
+            ForEach(fixedRPMChoices, id: \.self) { rpm in
+                fixedRPMPickerRow(
+                    title: "\(rpm) RPM",
+                    selected: controller.mode == .fixed(rpm)
+                ) {
+                    isShowingFixedRPMPicker = false
+                    isEditingCustomRPM = false
+                    if controller.mode != .fixed(rpm) {
+                        controller.setFixedRPM(rpm)
+                    }
+                }
             }
+
+            Divider()
+                .padding(.vertical, 3)
+
+            fixedRPMPickerRow(
+                title: fanBarText("自定义转速…", "Custom RPM…"),
+                selected: false
+            ) {
+                isShowingFixedRPMPicker = false
+                isEditingCustomRPM = true
+            }
+            .disabled(controller.fixedRPMRange == nil)
+        }
+        .padding(6)
+        .frame(width: 168)
+        // The popover makes its first row key; the selected background is the
+        // only selection cue, so suppress AppKit's focus ring.
+        .hidingFocusEffectWhenAvailable()
+    }
+
+    private func fixedRPMPickerRow(
+        title: String,
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(selected ? Color.primary : Color.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(selected
+                            ? Color(NSColor.controlBackgroundColor)
+                            : Color.clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// Shrinks all mode labels together, only as far as the longest one
+    /// (e.g. English "Automatic") needs to fit its quarter of the strip.
+    private var modeLabelFontSize: CGFloat {
+        let baseSize: CGFloat = 13
+        let font = NSFont.monospacedSystemFont(ofSize: baseSize, weight: .medium)
+        // Panel 384 − padding 32 − strip inset 8 − 3 gaps of 6, split four ways,
+        // minus label padding (16), icon + spacing (~21) and a chevron allowance.
+        let segmentWidth: CGFloat = (384 - 32 - 8 - 18) / 4
+        let textBudget = segmentWidth - 16 - 21 - 13
+        let titles = [fanBarText("系统", "Automatic"), fanBarText("固定", "Fixed")]
+            + visibleCoolingPresets.map(\.title)
+        let widest = titles
+            .map { ($0 as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
+        guard widest > textBudget else { return baseSize }
+        return max((baseSize * textBudget / widest).rounded(.down), 10)
+    }
+
+    private var inProgressFeedback: FanController.ModeActionFeedback? {
+        guard let feedback = controller.modeActionFeedback,
+              feedback.kind == .inProgress else { return nil }
+        return feedback
+    }
+
+    /// Always laid out at a fixed height and faded in place: inserting a
+    /// ProgressView (whose intrinsic size is ~32pt even when scaled) made the
+    /// header row re-measure and nudged the control strip below it.
+    private var modeProgressIndicator: some View {
+        HStack(spacing: 5) {
+            ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.6)
+                .frame(width: 12, height: 12)
+            Text(inProgressFeedback?.message ?? " ")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(height: 16)
+        .clipped()
+        .opacity(inProgressFeedback == nil ? 0 : 1)
+        .animation(animatesPanel ? .easeOut(duration: 0.15) : nil, value: inProgressFeedback == nil)
+        .accessibilityHidden(inProgressFeedback == nil)
+    }
+
+    /// Changes only when the highlighted segment changes, so RPM edits within
+    /// Fixed mode or curve updates don't re-trigger the glide.
+    private var modeSelectionKey: String {
+        switch controller.mode {
+        case .automatic: "automatic"
+        case .temperatureCurve: "curve.\(controller.curveCoolingPreset.id)"
+        case .fixed: "fixed"
         }
     }
 
@@ -457,7 +569,7 @@ struct FanMenu: View {
                 summary
             )
         }
-        return fanBarText("硬件安全限制", "Hardware safety limits")
+        return fanBarText("自动恢复系统控制", "Restore automatic control")
     }
 
     private func automaticRestoreValue(at date: Date) -> String {
@@ -516,11 +628,10 @@ struct FanMenu: View {
         HStack(spacing: 5) {
             Image(systemName: systemImage)
             Text(title)
-                .font(.system(size: 13, design: .monospaced))
-                // Keep localized mode names on one line; English "Automatic"
-                // needs to remain readable inside the compact three-way control.
+                // One size for every segment: per-label minimumScaleFactor let
+                // unselected labels shrink independently of the selected one.
+                .font(.system(size: modeLabelFontSize, design: .monospaced))
                 .lineLimit(1)
-                .minimumScaleFactor(0.78)
                 .allowsTightening(true)
                 .layoutPriority(1)
             if showsChevron {
@@ -535,8 +646,15 @@ struct FanMenu: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(selected ? Color(NSColor.controlBackgroundColor) : Color.clear)
+            Group {
+                // One shared capsule glides between modes instead of each
+                // button fading its own background in and out.
+                if selected {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                        .matchedGeometryEffect(id: "modeSelection", in: modeSelectionNamespace)
+                }
+            }
         )
         .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
@@ -706,6 +824,15 @@ private struct CountdownTimerView<Content: View>: View {
 }
 
 private extension View {
+    @ViewBuilder
+    func hidingFocusEffectWhenAvailable() -> some View {
+        if #available(macOS 14.0, *) {
+            focusEffectDisabled()
+        } else {
+            self
+        }
+    }
+
     /// Hides Menu's AppKit indicator on macOS 12+, while preserving macOS 11 compatibility.
     @ViewBuilder
     func hidingSystemMenuIndicatorWhenAvailable() -> some View {

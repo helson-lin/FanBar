@@ -9,6 +9,8 @@ struct FanRotorView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isPanelVisible) private var isPanelVisible
+    @AppStorage(PanelAnimationPreferences.preferenceKey)
+    private var panelAnimationEnabled = true
     @State private var angle = 0.0
     @State private var airflowPhase = 0.0
     @State private var lastTick = Date()
@@ -48,7 +50,7 @@ struct FanRotorView: View {
             defer { lastTick = now }
             // Skipping state changes while hidden keeps SwiftUI from laying out
             // and rendering the closed popover 30 times a second.
-            guard !reduceMotion, isPanelVisible else { return }
+            guard !reduceMotion, panelAnimationEnabled, isPanelVisible else { return }
 
             // Clamp delayed frames so wake-up or menu reopening cannot cause a jump.
             let delta = min(max(now.timeIntervalSince(lastTick), 0), 0.1)
