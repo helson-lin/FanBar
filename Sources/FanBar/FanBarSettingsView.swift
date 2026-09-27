@@ -41,6 +41,8 @@ struct FanBarSettingsView: View {
     private var languageRawValue = FanBarLanguage.defaultValue
     @AppStorage(SwitchFeedbackPreferences.preferenceKey)
     private var switchFeedbackAnimationEnabled = true
+    @AppStorage(PanelAnimationPreferences.preferenceKey)
+    private var panelAnimationEnabled = true
     @AppStorage(SettingsTab.preferenceKey)
     private var selectedTabRawValue = SettingsTab.cooling.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -114,10 +116,16 @@ struct FanBarSettingsView: View {
         }
         .accessibilityElement(children: .contain)
 
-        SettingsSection(title: fanBarText("动画", "Animation")) {
+        SettingsSection(
+            title: fanBarText("动画", "Animation"),
+            footer: fanBarText(
+                "动画需要持续重绘界面。关闭可降低 FanBar 的 CPU 占用，主界面动画仅在面板打开时运行。",
+                "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open."
+            )
+        ) {
             Toggle(isOn: $switchFeedbackAnimationEnabled) {
                 SettingsRowText(
-                    title: fanBarText("风扇运转动画", "Fan activity animation"),
+                    title: fanBarText("菜单栏图标动画", "Menu bar icon animation"),
                     detail: fanBarText(
                         "风扇运转时图标旋转并跟随实际转速，停转后缓缓静止。",
                         "The icon spins with the fans and coasts to a stop when they halt."
@@ -125,7 +133,21 @@ struct FanBarSettingsView: View {
                 )
             }
             .toggleStyle(.switch)
-            .padding(SettingsChrome.rowHorizontalPadding)
+            .settingsRow()
+
+            SettingsChrome.rowDivider
+
+            Toggle(isOn: $panelAnimationEnabled) {
+                SettingsRowText(
+                    title: fanBarText("主界面动画", "Panel animation"),
+                    detail: fanBarText(
+                        "主界面的风扇转动与模式切换过渡。关闭后仍实时显示转速。",
+                        "Spinning fans and mode transitions in the menu bar panel. RPM readings still update live."
+                    )
+                )
+            }
+            .toggleStyle(.switch)
+            .settingsRow()
         }
     }
 
@@ -133,66 +155,99 @@ struct FanBarSettingsView: View {
 
     @ViewBuilder
     private var generalTab: some View {
-        startupSection
-        controlServiceSection
+        fanControlSection
         notificationsSection
-        languageSection
-        softwareUpdateSection
+        appSection
         freeSoftwareNotice
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
     }
 
-    private var startupSection: some View {
-        SettingsSection(title: fanBarText("启动", "Startup")) {
-            Toggle(
-                isOn: Binding(
-                    get: { controller.launchAtLoginEnabled },
-                    set: { controller.setLaunchAtLogin($0) }
-                )
-            ) {
-                VStack(alignment: .leading, spacing: 2) {
-                    SettingsRowText(
-                        title: fanBarText("登录时启动 FanBar", "Launch FanBar at login"),
-                        detail: fanBarText("登录后自动出现在菜单栏。", "Appears in the menu bar after you sign in.")
-                    )
-                    if controller.launchAtLoginRequiresApproval {
-                        Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
-                            controller.openLoginItemSettings()
-                        }
-                        .buttonStyle(.plain)
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                    }
-                }
-            }
-            .toggleStyle(.switch)
-            .padding(SettingsChrome.rowHorizontalPadding)
+    /// Manual control's prerequisite and its safety net belong together.
+    private var fanControlSection: some View {
+        SettingsSection(
+            title: fanBarText("风扇控制", "Fan Control")
+        ) {
+            controlServiceRow
+            SettingsChrome.rowDivider
+            automaticRestoreRow
         }
     }
 
-    private var controlServiceSection: some View {
-        let state = controller.helperState
-        return SettingsSection(
-            title: fanBarText("控制服务", "Control Service"),
-            footer: fanBarText(
-                "控制服务是手动调节风扇所需的系统授权；未启用时始终由 macOS 自动管理。",
-                "The control service is the system approval needed for manual fan control. Without it, macOS always manages the fans."
+    /// App-level preferences that are set once and rarely revisited.
+    private var appSection: some View {
+        SettingsSection(
+            title: "FanBar",
+            trailing: SoftwareUpdateController.shared.currentVersion,
+            action: SettingsSectionAction(
+                title: fanBarText("检查更新…", "Check for Updates…"),
+                perform: { SoftwareUpdateController.shared.checkForUpdates() }
             )
         ) {
+            launchAtLoginRow
+            SettingsChrome.rowDivider
+            languageRow
+            SettingsChrome.rowDivider
+            softwareUpdateRow
+        }
+    }
+
+    private var launchAtLoginRow: some View {
+        Toggle(
+            isOn: Binding(
+                get: { controller.launchAtLoginEnabled },
+                set: { controller.setLaunchAtLogin($0) }
+            )
+        ) {
+            VStack(alignment: .leading, spacing: 2) {
+                SettingsRowText(
+                    title: fanBarText("登录时启动 FanBar", "Launch FanBar at login"),
+                    detail: fanBarText("登录后自动出现在菜单栏。", "Appears in the menu bar after you sign in.")
+                )
+                if controller.launchAtLoginRequiresApproval {
+                    Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
+                        controller.openLoginItemSettings()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                }
+            }
+        }
+        .toggleStyle(.switch)
+        .settingsRow()
+    }
+
+    /// Healthy: one quiet status line. Needs attention: symbol, guidance and action.
+    @ViewBuilder
+    private var controlServiceRow: some View {
+        let state = controller.helperState
+        if state == .enabled {
+            HStack(spacing: 8) {
+                Text(fanBarText("控制服务", "Control service"))
+                Spacer(minLength: 12)
+                Image(systemName: state.symbolName)
+                    .foregroundColor(state.tint)
+                    .accessibilityHidden(true)
+                Text(fanBarText("已启用", "Enabled"))
+                    .foregroundColor(.secondary)
+            }
+            .settingsRow()
+            .help(state.noticeDetail)
+            .accessibilityElement(children: .combine)
+        } else {
             HStack(spacing: 12) {
                 Image(systemName: state.symbolName)
                     .font(.system(size: 18))
                     .foregroundColor(state.tint)
                     .frame(width: 24)
                     .accessibilityHidden(true)
-                SettingsRowText(title: state.title, detail: state.noticeDetail)
+                SettingsRowText(title: state.noticeTitle, detail: state.noticeDetail)
                 if let actionTitle = state.actionTitle {
                     Button(actionTitle, action: controller.performHelperAction)
                 }
             }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding + 2)
+            .settingsRow()
             .accessibilityElement(children: .contain)
         }
     }
@@ -206,11 +261,7 @@ struct FanBarSettingsView: View {
                 )
             ) {
                 SettingsRowText(
-                    title: fanBarFormat(
-                        "CPU 或 GPU 达到 %.0f°C 时通知",
-                        "Notify when CPU or GPU reaches %.0f°C",
-                        controller.highTemperatureThresholdCelsius
-                    ),
+                    title: fanBarText("高温提醒", "High-temperature alerts"),
                     detail: fanBarText(
                         "同一次高温只提醒一次；温度回落后再次升高会重新通知。",
                         "One alert per high-temperature episode; it resets after cooling down."
@@ -219,7 +270,7 @@ struct FanBarSettingsView: View {
             }
             .toggleStyle(.switch)
             .disabled(controller.isRequestingHighTemperatureNotificationPermission)
-            .padding(SettingsChrome.rowHorizontalPadding)
+            .settingsRow()
 
             SettingsChrome.rowDivider
 
@@ -251,7 +302,7 @@ struct FanBarSettingsView: View {
                         .foregroundColor(.secondary)
                         .frame(width: 10)
                 }
-                .padding(SettingsChrome.rowHorizontalPadding)
+                .settingsRow()
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -303,63 +354,71 @@ struct FanBarSettingsView: View {
         .disabled(!isEnabled)
     }
 
-    private var languageSection: some View {
-        SettingsSection(title: fanBarText("语言", "Language")) {
-            HStack {
-                Text(fanBarText("界面语言", "Interface language"))
-                Spacer(minLength: 12)
-                Picker(
-                    fanBarText("界面语言", "Interface language"),
-                    selection: Binding(
-                        get: { languageRawValue },
-                        set: {
-                            languageRawValue = $0
-                            SettingsWindowPresenter.shared.updateTitle()
-                        }
-                    )
-                ) {
-                    ForEach(FanBarLanguage.allCases) { language in
-                        Text(language.title).tag(language.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-            }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding)
-        }
-    }
-
-    private var softwareUpdateSection: some View {
-        let updater = SoftwareUpdateController.shared
-        return SettingsSection(
-            title: fanBarText("软件更新", "Software Update"),
-            trailing: updater.currentVersion
-        ) {
-            Toggle(
-                isOn: Binding(
-                    get: { updater.automaticallyChecksForUpdates },
-                    set: { updater.setAutomaticallyChecksForUpdates($0) }
+    private var automaticRestoreRow: some View {
+        HStack {
+            SettingsRowText(
+                title: fanBarText("自动恢复系统控制", "Restore automatic control"),
+                detail: fanBarText(
+                    "手动模式到时交还 macOS；主界面中的修改只对当次生效。",
+                    "Manual modes hand back to macOS when time runs out. Menu changes apply to that session only."
+                )
+            )
+            Spacer(minLength: 12)
+            Picker(
+                fanBarText("自动恢复系统控制", "Restore automatic control"),
+                selection: Binding(
+                    get: { controller.defaultAutomaticRestoreDuration },
+                    set: { controller.setDefaultAutomaticRestoreDuration($0) }
                 )
             ) {
-                Text(fanBarText("自动检查更新", "Automatically check for updates"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .toggleStyle(.switch)
-            .padding(SettingsChrome.rowHorizontalPadding)
-
-            SettingsChrome.rowDivider
-
-            HStack {
-                Text(fanBarText("获取最新版本", "Get the latest version"))
-                Spacer(minLength: 12)
-                Button(fanBarText("检查更新…", "Check for Updates…")) {
-                    updater.checkForUpdates()
+                ForEach(FanController.AutomaticRestoreDuration.allCases) { duration in
+                    Text(duration.title).tag(duration)
                 }
             }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding)
+            .labelsHidden()
+            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
+            .fixedSize()
         }
+        .settingsRow()
+    }
+
+    private var languageRow: some View {
+        HStack {
+            Text(fanBarText("界面语言", "Interface language"))
+            Spacer(minLength: 12)
+            Picker(
+                fanBarText("界面语言", "Interface language"),
+                selection: Binding(
+                    get: { languageRawValue },
+                    set: {
+                        languageRawValue = $0
+                        SettingsWindowPresenter.shared.updateTitle()
+                    }
+                )
+            ) {
+                ForEach(FanBarLanguage.allCases) { language in
+                    Text(language.title).tag(language.rawValue)
+                }
+            }
+            .labelsHidden()
+            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
+            .fixedSize()
+        }
+        .settingsRow()
+    }
+
+    private var softwareUpdateRow: some View {
+        let updater = SoftwareUpdateController.shared
+        return Toggle(
+            isOn: Binding(
+                get: { updater.automaticallyChecksForUpdates },
+                set: { updater.setAutomaticallyChecksForUpdates($0) }
+            )
+        ) {
+            SettingsRowText(title: fanBarText("自动检查更新", "Automatically check for updates"))
+        }
+        .toggleStyle(.switch)
+        .settingsRow()
     }
 
     private var freeSoftwareNotice: some View {

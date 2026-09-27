@@ -100,6 +100,9 @@ final class FanController: ObservableObject {
     @Published private(set) var temperatureHistory: [ThermalReading] = []
     @Published private(set) var launchAtLoginEnabled = false
     @Published private(set) var launchAtLoginRequiresApproval = false
+    /// Persisted default applied each time control leaves Automatic.
+    @Published private(set) var defaultAutomaticRestoreDuration: AutomaticRestoreDuration = .thirtyMinutes
+    /// The current manual session's duration; panel edits change only this.
     @Published private(set) var automaticRestoreDuration: AutomaticRestoreDuration = .thirtyMinutes
     @Published private(set) var automaticRestoreDeadline: Date?
     @Published private(set) var curveTemperatureCelsius: Double?
@@ -248,6 +251,7 @@ final class FanController: ObservableObject {
         ) as? Int,
             let savedDuration = AutomaticRestoreDuration(rawValue: savedValue)
         {
+            defaultAutomaticRestoreDuration = savedDuration
             automaticRestoreDuration = savedDuration
         }
         notificationCenter?.delegate = notificationDelegate
@@ -949,9 +953,19 @@ final class FanController: ObservableObject {
         curveMissingTemperatureSamples = 0
     }
 
+    /// Changes the default from Settings. An in-progress manual session keeps
+    /// its own duration; the new default applies from the next switch.
+    func setDefaultAutomaticRestoreDuration(_ duration: AutomaticRestoreDuration) {
+        defaultAutomaticRestoreDuration = duration
+        UserDefaults.standard.set(duration.rawValue, forKey: automaticRestorePreferenceKey)
+        if mode == .automatic {
+            automaticRestoreDuration = duration
+        }
+    }
+
+    /// Adjusts only the current manual session from the panel.
     func setAutomaticRestoreDuration(_ duration: AutomaticRestoreDuration) {
         automaticRestoreDuration = duration
-        UserDefaults.standard.set(duration.rawValue, forKey: automaticRestorePreferenceKey)
         if mode != .automatic {
             scheduleAutomaticRestore()
         }
@@ -1059,6 +1073,8 @@ final class FanController: ObservableObject {
         automaticRestoreTask?.cancel()
         automaticRestoreTask = nil
         automaticRestoreDeadline = nil
+        // Back in Automatic: the next manual session starts from the default.
+        automaticRestoreDuration = defaultAutomaticRestoreDuration
     }
 
     /// Starts/replaces local mode feedback so a second attempt immediately
