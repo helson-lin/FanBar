@@ -24,7 +24,9 @@ struct FanRotorView: View {
     /// Real fan RPM is too fast to render directly without aliasing. A fixed
     /// perceptual scale keeps different fans proportional to their actual RPM.
     private var visualRotationsPerSecond: Double {
-        min(max(Double(fan.currentRPM) / 5_000, 0.18), 1.15)
+        // A stopped fan must look stopped; the floor only keeps slow fans visibly turning.
+        guard fan.currentRPM > 0 else { return 0 }
+        return min(max(Double(fan.currentRPM) / 5_000, 0.18), 1.15)
     }
 
     private var airflowIntensity: Double {
@@ -33,7 +35,8 @@ struct FanRotorView: View {
     }
 
     private var airflowRotationsPerSecond: Double {
-        0.12 + airflowIntensity * 0.42
+        guard fan.currentRPM > 0 else { return 0 }
+        return 0.12 + airflowIntensity * 0.42
     }
 
     var body: some View {
