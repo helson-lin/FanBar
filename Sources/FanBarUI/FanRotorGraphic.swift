@@ -43,6 +43,8 @@ public struct FanRotorGraphic: View {
                 phase: airflowPhase
             )
             .frame(width: 104, height: 104)
+            // No airflow streaks around a stopped fan.
+            .opacity(currentRPM > 0 ? 1 : 0)
 
             ZStack {
                 Circle()
