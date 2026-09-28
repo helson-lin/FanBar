@@ -73,6 +73,34 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 | Intel | `FanBar-<version>-x86_64.dmg` |
 | Universal（Sparkle 在线更新使用） | `FanBar-<version>.dmg` |
 
+### 通过 Homebrew 安装
+
+安装 [Homebrew](https://brew.sh) 后，将本仓库添加为 tap 并安装：
+
+```sh
+brew tap helson-lin/fanbar https://github.com/helson-lin/FanBar.git
+brew install --cask helson-lin/fanbar/fanbar
+```
+
+Cask 会把已签名、公证的通用版应用安装到 `/Applications`，同时支持 Apple Silicon
+和 Intel。启动 FanBar 后，按提示批准控制服务即可调节风扇。如果此前已手动安装，
+请先退出 FanBar，并将已有的 `/Applications/FanBar.app` 移到废纸篓，再通过 Homebrew 安装。
+
+FanBar 仍可通过 Sparkle 自动更新；也可以明确使用 Homebrew 升级：
+
+```sh
+brew update
+brew upgrade --cask helson-lin/fanbar/fanbar
+```
+
+卸载前先退出 FanBar，然后运行：
+
+```sh
+brew uninstall --cask helson-lin/fanbar/fanbar
+```
+
+添加 `--zap` 可同时删除偏好设置和缓存。卸载风扇控制服务时，Homebrew 可能要求输入管理员密码。
+
 ### 系统要求
 
 - macOS 11 Big Sur 或更高版本
@@ -173,6 +201,20 @@ GitHub Actions 同样会在推送和 Pull Request 时验证 universal2 构建。
 git tag -a v0.4.3 -m "FanBar 0.4.3"
 git push origin v0.4.3
 ```
+
+### 更新 Homebrew Cask
+
+通过本地脚本或 CI 发布稳定版后，运行以下命令下载通用 DMG、计算校验和，并将生成的
+Cask 变更提交为 PR：
+
+```sh
+python3 scripts/update-homebrew-cask.py          # 最新稳定版
+# 或：python3 scripts/update-homebrew-cask.py v0.4.14
+```
+
+脚本需要 Python 3 和已登录的 `gh` CLI，会拒绝草稿、预发布版本及缺少通用 DMG 的版本。
+将 `Casks/fanbar.rb` 合并到 `main` 后，用户即可通过 `brew update` 获取新版。
+Homebrew CI 会检查 Cask 格式、下载校验和、安装和卸载。
 
 ## ⭐ Star 趋势
 
