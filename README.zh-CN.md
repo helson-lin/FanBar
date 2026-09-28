@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/helson-lin/FanBar?color=brightgreen" alt="license">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases/latest">
     <img src="https://img.shields.io/github/v/release/helson-lin/FanBar?color=brightgreen" alt="release">
@@ -184,7 +184,9 @@ git push origin v0.4.3
 
 ## 🙏 致谢与许可
 
-FanBar 源代码采用 [GNU 通用公共许可证 v3.0（GPL-3.0）](LICENSE) 授权。
+Copyright © 2024–2026 Jarin He。FanBar 源代码采用 [GNU 通用公共许可证 v3.0（GPL-3.0）](LICENSE) 授权。
+
+你可以使用、修改和再分发 FanBar（包括商业用途），但须遵守 GPL-3.0：保留版权与许可声明，并以相同许可证公开所分发修改版本的源代码。
 
 **名称与图标不在授权范围内。**「FanBar」名称及 FanBar 图标/Logo 不属于 GPL-3.0 的授权范围。分发修改版本时必须更改名称并替换图标，以免与官方 FanBar 混淆。
 
