@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="LICENSE">
-    <img src="https://img.shields.io/badge/license-GPLv3%20%2B%20Commons%20Clause-blue" alt="license">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases/latest">
     <img src="https://img.shields.io/github/v/release/helson-lin/FanBar?color=brightgreen" alt="release">
