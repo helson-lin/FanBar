@@ -1,0 +1,45 @@
+name: Homebrew cask
+
+on:
+  pull_request:
+    paths:
+      - Casks/**
+      - scripts/update-homebrew-cask.py
+      - .github/workflows/homebrew.yml
+  push:
+    branches: [main]
+    paths:
+      - Casks/**
+      - scripts/update-homebrew-cask.py
+      - .github/workflows/homebrew.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cask:
+    runs-on: macos-15
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tap the checked-out cask
+        run: |
+          tap_dir="$(brew --repository)/Library/Taps/helson-lin/homebrew-fanbar"
+          mkdir -p "$(dirname "$tap_dir")"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+      - name: Check cask style and release download
+        run: |
+          brew style --cask helson-lin/fanbar/fanbar
+          brew audit --cask helson-lin/fanbar/fanbar
+          brew fetch --cask helson-lin/fanbar/fanbar
+      - name: Verify installation and removal
+        run: |
+          brew install --cask helson-lin/fanbar/fanbar
+          test -d /Applications/FanBar.app
+          codesign --verify --deep --strict /Applications/FanBar.app
+          lipo -verify_arch arm64 x86_64 /Applications/FanBar.app/Contents/MacOS/FanBar
+          brew uninstall --cask helson-lin/fanbar/fanbar
+          test ! -d /Applications/FanBar.app

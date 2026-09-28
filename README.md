@@ -81,6 +81,36 @@ The latest notarized build is on the [GitHub Releases](https://github.com/helson
 | Intel | `FanBar-<version>-x86_64.dmg` |
 | Universal (Sparkle updates use this) | `FanBar-<version>.dmg` |
 
+### Install with Homebrew
+
+With [Homebrew](https://brew.sh) installed, add this repository as a tap and install:
+
+```sh
+brew tap helson-lin/fanbar https://github.com/helson-lin/FanBar.git
+brew install --cask helson-lin/fanbar/fanbar
+```
+
+The cask installs the signed, notarized universal app for Apple Silicon and Intel
+into `/Applications`. Launch FanBar and approve its control service to enable fan
+control. If you already installed FanBar manually, quit it and move the existing
+`/Applications/FanBar.app` to the Trash before installing through Homebrew.
+
+FanBar can update itself through Sparkle. To upgrade explicitly with Homebrew:
+
+```sh
+brew update
+brew upgrade --cask helson-lin/fanbar/fanbar
+```
+
+To uninstall, quit FanBar first, then run:
+
+```sh
+brew uninstall --cask helson-lin/fanbar/fanbar
+```
+
+Add `--zap` to also remove saved preferences and caches. Homebrew may request an
+administrator password to unload the fan-control service.
+
 ### Requirements
 
 - macOS 11 Big Sur or later
@@ -201,6 +231,21 @@ When CI publishing is enabled, push a tag matching the app version:
 git tag -a v0.4.3 -m "FanBar 0.4.3"
 git push origin v0.4.3
 ```
+
+### Update the Homebrew cask
+
+After publishing a stable release (locally or from CI), download and hash its
+universal DMG, then submit the resulting cask change in a PR:
+
+```sh
+python3 scripts/update-homebrew-cask.py          # Latest stable release
+# Or: python3 scripts/update-homebrew-cask.py v0.4.14
+```
+
+The script requires Python 3 and an authenticated `gh` CLI. It rejects drafts,
+prereleases, and releases missing the universal DMG. Merge `Casks/fanbar.rb` into
+`main` to make the new version available through `brew update`. The Homebrew CI
+workflow checks cask style, the download checksum, installation, and removal.
 
 ## ⭐ Star History
 
