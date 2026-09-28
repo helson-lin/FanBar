@@ -212,6 +212,10 @@ git push origin v0.4.3
 
 ## 🙏 Acknowledgements and license
 
+FanBar's source code is licensed under the [GNU General Public License v3.0](LICENSE).
+
+**Name and icon are excluded.** The "FanBar" name and the FanBar icon/logo are not covered by the GPL-3.0 license. If you distribute a modified version, you must rename it and replace the icon so it cannot be confused with the official FanBar.
+
 The Apple Silicon control sequence references the MIT-licensed [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete third-party attribution.
 
 Thanks to these people for reporting bugs and helping make FanBar better:
