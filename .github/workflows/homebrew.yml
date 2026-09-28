@@ -40,6 +40,6 @@ jobs:
           brew install --cask helson-lin/fanbar/fanbar
           test -d /Applications/FanBar.app
           codesign --verify --deep --strict /Applications/FanBar.app
-          lipo -verify_arch arm64 x86_64 /Applications/FanBar.app/Contents/MacOS/FanBar
+          lipo /Applications/FanBar.app/Contents/MacOS/FanBar -verify_arch arm64 x86_64
           brew uninstall --cask helson-lin/fanbar/fanbar
           test ! -d /Applications/FanBar.app
