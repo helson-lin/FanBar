@@ -8,6 +8,7 @@ enum FanHardwareError: LocalizedError {
     case operation(String, Int32)
     case invalidValue(String)
     case unlockTimeout(Int)
+    case modeKeyMissing
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +20,11 @@ enum FanHardwareError: LocalizedError {
             fanBarFormat("SMC 键 %@ 返回了无效数据", "SMC key %@ returned invalid data", key)
         case .unlockTimeout(let fan):
             fanBarFormat("风扇 %d 的系统模式解锁超时", "Timed out unlocking system mode for fan %d", fan + 1)
+        case .modeKeyMissing:
+            fanBarText(
+                "此 Mac 的 SMC 未提供风扇模式键（F0Md/F0md），无法手动控制风扇",
+                "This Mac's SMC has no fan mode key (F0Md/F0md/FS!), so manual fan control is unavailable"
+            )
         }
     }
 }
@@ -38,13 +44,22 @@ struct HardwareFan {
 /// MIT-licensed macos-smc-fan interoperability research by Alexander Goodkind.
 final class SMCFanDriver {
     private static let log = Logger(subsystem: FanBarService.helperBundleID, category: "driver")
-    private let modeKeyFormat: String
+    /// How this Mac switches a fan between system and manual control.
+    private enum ModeControl {
+        /// Apple Silicon and newer Intel: one mode byte per fan (`F0Md` / `F0md`).
+        case perFan(String)
+        /// Older Intel (e.g. Mac mini 2014): `FS! ` is a bitmask, bit N = fan N forced manual.
+        case forceMask
+    }
+
+    private static let forceMaskKey = "FS! "
+    private let modeControl: ModeControl?
     private let hasForceTest: Bool
 
     init() throws {
         let result = fanbar_smc_open()
         guard result == 0 else { throw FanHardwareError.unavailable(result) }
-        modeKeyFormat = SMCFanDriver.detectModeKey()
+        modeControl = SMCFanDriver.detectModeControl()
         hasForceTest = (try? SMCFanDriver.read("Ftst")) != nil
     }
 
@@ -62,14 +77,14 @@ final class SMCFanDriver {
         }
 
         return try (0..<count).map { index in
-            let mode = try Self.read(modeKey(index))
+            let isManual = try isManualMode(fan: index)
             return HardwareFan(
                 index: index,
                 actual: try Self.readFloat("F\(index)Ac"),
                 target: try Self.readFloat("F\(index)Tg"),
                 minimum: try Self.readFloat("F\(index)Mn"),
                 maximum: try Self.readFloat("F\(index)Mx"),
-                isManual: (Self.bytes(of: mode).first ?? 0) == 1
+                isManual: isManual
             )
         }
     }
@@ -131,8 +146,17 @@ final class SMCFanDriver {
         var firstError: Error?
         for index in 0..<count {
             do {
-                try Self.writeBytes(modeKey(index), bytes: [0])
+                if case .perFan = modeControl {
+                    try setMode(fan: index, manual: false)
+                }
                 try Self.writeFloat("F\(index)Tg", value: 0)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+        if case .forceMask = modeControl {
+            do {
+                try Self.writeBytes(Self.forceMaskKey, bytes: [0, 0])
             } catch {
                 if firstError == nil { firstError = error }
             }
@@ -148,7 +172,12 @@ final class SMCFanDriver {
     }
 
     private func enableManualMode(fan index: Int) throws {
-        let key = modeKey(index)
+        guard let modeControl else { throw FanHardwareError.modeKeyMissing }
+        if case .forceMask = modeControl {
+            try setMode(fan: index, manual: true)
+            return
+        }
+        let key = modeKey(index) ?? ""
         if (try? Self.writeBytes(key, bytes: [1])) != nil {
             return
         }
@@ -173,18 +202,54 @@ final class SMCFanDriver {
         throw FanHardwareError.unlockTimeout(index)
     }
 
-    private func modeKey(_ index: Int) -> String {
-        String(format: modeKeyFormat, index)
+    private func modeKey(_ index: Int) -> String? {
+        guard case .perFan(let format) = modeControl else { return nil }
+        return String(format: format, index)
     }
 
-    private static func detectModeKey() -> String {
+    private func isManualMode(fan index: Int) throws -> Bool {
+        switch modeControl {
+        case .perFan:
+            return (Self.bytes(of: try Self.read(modeKey(index) ?? "")).first ?? 0) == 1
+        case .forceMask:
+            return Self.forceMask(from: try Self.read(Self.forceMaskKey)) & (1 << UInt16(index)) != 0
+        case nil:
+            return false
+        }
+    }
+
+    private func setMode(fan index: Int, manual: Bool) throws {
+        switch modeControl {
+        case .perFan:
+            try Self.writeBytes(modeKey(index) ?? "", bytes: [manual ? 1 : 0])
+        case .forceMask:
+            var mask = Self.forceMask(from: try Self.read(Self.forceMaskKey))
+            let bit = UInt16(1) << UInt16(index)
+            mask = manual ? (mask | bit) : (mask & ~bit)
+            try Self.writeBytes(Self.forceMaskKey, bytes: [UInt8(mask >> 8), UInt8(mask & 0xff)])
+        case nil:
+            throw FanHardwareError.modeKeyMissing
+        }
+    }
+
+    private static func forceMask(from value: FanBarSMCValue) -> UInt16 {
+        let raw = bytes(of: value)
+        guard raw.count >= 2 else { return UInt16(raw.first ?? 0) }
+        return UInt16(raw[0]) << 8 | UInt16(raw[1])
+    }
+
+    private static func detectModeControl() -> ModeControl? {
         for format in ["F%dmd", "F%dMd"] {
             let candidate = String(format: format, 0)
             if (try? read(candidate)) != nil {
-                return format
+                return .perFan(format)
             }
         }
-        return "F%dMd"
+        if (try? read(forceMaskKey)) != nil {
+            return .forceMask
+        }
+        log.error("No fan mode key (F0md/F0Md/FS!) found in SMC")
+        return nil
     }
 
     private static func key(_ string: String) -> UInt32 {
