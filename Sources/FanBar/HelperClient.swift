@@ -81,6 +81,10 @@ final class HelperClient: @unchecked Sendable {
     private let requestTimeout: TimeInterval
     /// Until the caller reports the real count, assume the most fans the helper accepts.
     private var expectedFanCount = FanControlTiming.maximumFanCount
+    /// Called after a timed-out connection is torn down. The helper restores
+    /// automatic control once its last client disconnects, so the owner must
+    /// re-apply any manual mode it still believes is active.
+    var onConnectionReset: (@Sendable () -> Void)?
 
     init(requestTimeout: TimeInterval = 3) {
         self.requestTimeout = max(requestTimeout, 0.01)
@@ -322,5 +326,6 @@ final class HelperClient: @unchecked Sendable {
         connection = nil
         lock.unlock()
         current?.invalidate()
+        if current != nil { onConnectionReset?() }
     }
 }

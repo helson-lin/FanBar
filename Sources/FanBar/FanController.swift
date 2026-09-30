@@ -187,6 +187,11 @@ final class FanController: ObservableObject {
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
     private var wakeObserver: NSObjectProtocol?
+    private var sleepObserver: NSObjectProtocol?
+    /// Time left on the restore timer when the Mac went to sleep; standby
+    /// does not count toward the manual session.
+    private var automaticRestoreRemainingAtSleep: TimeInterval?
+    private var reapplyTask: Task<Void, Never>?
     private var helperMigrationAttempted = false
     private var highTemperatureNotificationRequestID = 0
     private var thermalAlertMonitor = ThermalAlertMonitor(
@@ -261,6 +266,16 @@ final class FanController: ObservableObject {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
+        helperClient.onConnectionReset = { [weak self] in
+            Task { @MainActor in self?.scheduleReapplyCurrentMode(after: 1) }
+        }
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.pauseAutomaticRestoreForSleep() }
+        }
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
@@ -268,21 +283,58 @@ final class FanController: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                if let deadline = self.automaticRestoreDeadline, deadline <= Date() {
-                    self.restoreAutomaticAfterTimer()
+                self.resumeAutomaticRestoreAfterWake()
+                // The SMC may reset fan modes during sleep and answers slowly
+                // right after wake; give it a moment before writing again.
+                self.scheduleReapplyCurrentMode(after: 2)
+            }
+        }
+    }
+
+    private func pauseAutomaticRestoreForSleep() {
+        guard let deadline = automaticRestoreDeadline else { return }
+        automaticRestoreRemainingAtSleep = max(0, deadline.timeIntervalSinceNow)
+        automaticRestoreTask?.cancel()
+        automaticRestoreTask = nil
+    }
+
+    private func resumeAutomaticRestoreAfterWake() {
+        guard let remaining = automaticRestoreRemainingAtSleep else { return }
+        automaticRestoreRemainingAtSleep = nil
+        guard mode != .automatic, automaticRestoreDuration != .never else { return }
+        scheduleAutomaticRestore(interval: remaining)
+    }
+
+    private func scheduleReapplyCurrentMode(after delay: TimeInterval) {
+        reapplyTask?.cancel()
+        reapplyTask = Task { @MainActor [weak self] in
+            // Retry a few times; the first write after wake or a reset can time out.
+            for attempt in 0..<3 {
+                let wait = attempt == 0 ? delay : 2
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+                } catch {
                     return
                 }
-                switch self.mode {
-                case .automatic:
-                    break
-                case .temperatureCurve:
-                    if let reading = self.latestThermalReading() {
-                        self.updateTemperatureCurve(using: reading, force: true)
-                    }
-                case .fixed(let rpm):
-                    self.applyFixedRPM(rpm, resetsAutomaticRestore: false)
+                guard let self, !Task.isCancelled else { return }
+                guard self.isBusy || self.curveUpdateTask != nil else {
+                    self.reapplyCurrentMode()
+                    return
                 }
             }
+        }
+    }
+
+    private func reapplyCurrentMode() {
+        switch mode {
+        case .automatic:
+            break
+        case .temperatureCurve:
+            if let reading = latestThermalReading() {
+                updateTemperatureCurve(using: reading, force: true)
+            }
+        case .fixed(let rpm):
+            applyFixedRPM(rpm, resetsAutomaticRestore: false)
         }
     }
 
@@ -324,6 +376,8 @@ final class FanController: ObservableObject {
                 message = fanBarText("由 macOS 自动管理", "Managed automatically by macOS")
             }
         } catch {
+            // The IOKit connection can go stale across sleep; reopen next tick.
+            self.localClient = nil
             isAvailable = false
             publishUnavailableWidgetSnapshot()
             message = error.localizedDescription
@@ -814,7 +868,9 @@ final class FanController: ObservableObject {
               curveUpdateTask == nil else { return }
         guard let temperature = controlTemperature(from: reading) else {
             curveMissingTemperatureSamples += 1
-            if curveMissingTemperatureSamples >= 3 {
+            // Idle GPUs briefly drop out of the sensor list; only give up
+            // after ~30 s with no usable chip temperature at all.
+            if curveMissingTemperatureSamples >= 15 {
                 message = fanBarText("温度传感器不可用，正在恢复系统控制…", "Temperature sensor unavailable; restoring system control…")
                 restoreAutomatic(triggeredByTimer: false)
             }
@@ -877,7 +933,8 @@ final class FanController: ObservableObject {
         case .cpu:
             return reading.cpuCelsius
         case .gpu:
-            return reading.gpuCelsius
+            // A powered-down GPU reports nothing; CPU is the closest proxy.
+            return reading.gpuCelsius ?? reading.cpuCelsius
         case .ssd:
             return reading.ssdCelsius
         }
@@ -953,14 +1010,13 @@ final class FanController: ObservableObject {
         curveMissingTemperatureSamples = 0
     }
 
-    /// Changes the default from Settings. An in-progress manual session keeps
-    /// its own duration; the new default applies from the next switch.
+    /// Changes the default from Settings and applies it to any in-progress
+    /// manual session.
     func setDefaultAutomaticRestoreDuration(_ duration: AutomaticRestoreDuration) {
         defaultAutomaticRestoreDuration = duration
         UserDefaults.standard.set(duration.rawValue, forKey: automaticRestorePreferenceKey)
-        if mode == .automatic {
-            automaticRestoreDuration = duration
-        }
+        // "Never" must mean never, including the session already running.
+        setAutomaticRestoreDuration(duration)
     }
 
     /// Adjusts only the current manual session from the panel.
@@ -1025,15 +1081,17 @@ final class FanController: ObservableObject {
         }
     }
 
-    private func scheduleAutomaticRestore() {
+    private func scheduleAutomaticRestore(interval overrideInterval: TimeInterval? = nil) {
         automaticRestoreTask?.cancel()
+        automaticRestoreRemainingAtSleep = nil
         guard mode != .automatic, automaticRestoreDuration != .never else {
             automaticRestoreDeadline = nil
             automaticRestoreTask = nil
             return
         }
 
-        let interval = automaticRestoreTestInterval
+        let interval = overrideInterval
+            ?? automaticRestoreTestInterval
             ?? TimeInterval(automaticRestoreDuration.rawValue)
         let deadline = Date().addingTimeInterval(interval)
         automaticRestoreDeadline = deadline
@@ -1071,6 +1129,7 @@ final class FanController: ObservableObject {
 
     private func clearAutomaticRestore() {
         automaticRestoreTask?.cancel()
+        automaticRestoreRemainingAtSleep = nil
         automaticRestoreTask = nil
         automaticRestoreDeadline = nil
         // Back in Automatic: the next manual session starts from the default.
