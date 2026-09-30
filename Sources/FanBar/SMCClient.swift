@@ -66,6 +66,10 @@ final class SMCClient {
     private var gpuTemperatureKeys: [String]?
     private var ssdTemperatureKeys: [String]?
     private var batteryTemperatureKeys: [String]?
+    private var lastKeyProbe = Date.distantPast
+    /// Sensors of a powered-down block can be missing at launch, so an empty
+    /// probe result is retried instead of being cached for the whole session.
+    private static let emptyProbeRetryInterval: TimeInterval = 30
 
     // Common Intel and Apple Silicon keys, derived from the MIT-licensed
     // exelban/Stats sensor catalogue.
@@ -159,13 +163,24 @@ final class SMCClient {
         return celsius
     }
 
+    private func isTemperatureKey(_ key: String) -> Bool {
+        guard let value = try? read(key) else { return false }
+        return temperature(value) != nil
+    }
+
     private func temperatures(
         cachedKeys: inout [String]?,
         candidates: [String]
     ) -> [Double] {
+        if cachedKeys?.isEmpty == true,
+           Date().timeIntervalSince(lastKeyProbe) >= Self.emptyProbeRetryInterval {
+            cachedKeys = nil
+        }
         if cachedKeys == nil {
-            // Probe once; later samples only touch sensors exposed by this Mac.
-            cachedKeys = candidates.filter { validTemperature(for: $0) != nil }
+            // Keep any key that decodes as a temperature, even if the current
+            // value is out of range (an idle GPU can read near 0 °C).
+            cachedKeys = candidates.filter { isTemperatureKey($0) }
+            lastKeyProbe = Date()
         }
         return (cachedKeys ?? []).compactMap(validTemperature)
     }
