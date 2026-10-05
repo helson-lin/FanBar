@@ -361,4 +361,23 @@ final class FanCurveInteractionTests: XCTestCase {
 
         XCTAssertEqual(contentSize.height, SettingsWindowSizing.preferredMaximumHeight)
     }
+
+    func testDragCanPassNeighborsWithoutSharingTemperature() {
+        func free(_ requested: Double, from current: Double, _ occupied: [Double]) -> Double {
+            FanCurveDragGeometry.freeCelsius(
+                requested: requested, current: current,
+                occupied: occupied, minimum: 30, maximum: 100
+            )
+        }
+        // Past a neighbor: free temperature is used as is.
+        XCTAssertEqual(free(80, from: 60, [70, 90]), 80)
+        // Landing on a neighbor hops past it in the direction of travel.
+        XCTAssertEqual(free(70, from: 60, [70, 90]), 71)
+        XCTAssertEqual(free(70, from: 85, [70, 90]), 69)
+        // Occupied beyond the range edge falls back to the other side.
+        XCTAssertEqual(free(100, from: 90, [100]), 99)
+        // Clamped to range.
+        XCTAssertEqual(free(120, from: 90, [60]), 100)
+        XCTAssertEqual(free(10, from: 40, [60]), 30)
+    }
 }

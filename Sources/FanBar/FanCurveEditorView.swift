@@ -132,7 +132,7 @@ struct FanCurveEditorView: View {
             let points = sortedPoints
             let point = points[index]
             // Steppers keep the point between its neighbors so a precise edit
-            // never reorders the curve or changes which point is selected.
+            // never reorders the curve; dragging on the canvas can reorder it.
             let lower = index > 0 ? points[index - 1].celsius + 1 : FanCurveProfile.minimumCelsius
             let upper = index < points.count - 1
                 ? points[index + 1].celsius - 1
@@ -821,35 +821,24 @@ struct FanCurveCanvas: View {
         celsius: Double,
         fraction: Float
     ) -> (celsius: Double, fraction: Float) {
-        let sorted = profile.points.sorted { $0.celsius < $1.celsius }
-        guard let index = sorted.firstIndex(where: { $0.id == pointID }) else {
-            return (
-                min(max(celsius.rounded(), FanCurveProfile.minimumCelsius), FanCurveProfile.maximumCelsius),
-                min(max(fraction, FanCurveProfile.minimumFraction), FanCurveProfile.maximumFraction)
-            )
-        }
-
-        let lowerBound: Double
-        if index > 0 {
-            lowerBound = sorted[index - 1].celsius + 1
-        } else {
-            lowerBound = FanCurveProfile.minimumCelsius
-        }
-        let upperBound: Double
-        if index < sorted.count - 1 {
-            upperBound = sorted[index + 1].celsius - 1
-        } else {
-            upperBound = FanCurveProfile.maximumCelsius
-        }
-
-        let clampedCelsius = min(max(celsius.rounded(), lowerBound), max(lowerBound, upperBound))
         let clampedFraction = min(
             max(fraction, FanCurveProfile.minimumFraction),
             FanCurveProfile.maximumFraction
         )
+        // A point may be dragged past its neighbors; the profile re-sorts by
+        // temperature and keeps the point's id, so selection follows it.
+        let others = profile.points.filter { $0.id != pointID }
+        let current = profile.points.first { $0.id == pointID }?.celsius ?? celsius
+        let freeCelsius = FanCurveDragGeometry.freeCelsius(
+            requested: celsius,
+            current: current,
+            occupied: others.map(\.celsius),
+            minimum: FanCurveProfile.minimumCelsius,
+            maximum: FanCurveProfile.maximumCelsius
+        )
         // Quantize fraction to 1% for stable drag feedback.
         let quantizedFraction = (clampedFraction * 100).rounded() / 100
-        return (clampedCelsius, quantizedFraction)
+        return (freeCelsius, quantizedFraction)
     }
 
     private func samplePoints(for profile: FanCurveProfile, plot: CGRect) -> [CGPoint] {
@@ -900,6 +889,33 @@ struct FanCurveCanvas: View {
 /// Keeping these calculations independent from SwiftUI prevents local/canvas
 /// coordinate regressions from being hidden inside gesture closures.
 enum FanCurveDragGeometry {
+    /// Whole-degree temperature for a dragged point. Points may pass each other,
+    /// but two points never share a temperature: landing on an occupied one
+    /// hops just past it in the direction of travel, or the other way when that
+    /// side is full or out of range.
+    static func freeCelsius(
+        requested: Double,
+        current: Double,
+        occupied: [Double],
+        minimum: Double,
+        maximum: Double
+    ) -> Double {
+        let target = min(max(requested.rounded(), minimum), maximum)
+        let taken = Set(occupied.map { $0.rounded() })
+        guard taken.contains(target) else { return target }
+
+        let direction: Double = requested >= current ? 1 : -1
+        for step in 1...Int(maximum - minimum) {
+            for sign in [direction, -direction] {
+                let candidate = target + sign * Double(step)
+                if candidate >= minimum, candidate <= maximum, !taken.contains(candidate) {
+                    return candidate
+                }
+            }
+        }
+        return min(max(current.rounded(), minimum), maximum)
+    }
+
     static func grabOffset(pointer: CGPoint, handleCenter: CGPoint) -> CGSize {
         CGSize(
             width: pointer.x - handleCenter.x,
