@@ -88,6 +88,11 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         rpm: Float,
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
+        // NaN survives min/max clamping and would reach the SMC unchanged.
+        guard rpm.isFinite, rpm >= 0 else {
+            reply(false, fanBarText("转速必须是有效的非负数", "RPM must be a finite, non-negative number"))
+            return
+        }
         performWrite("setAllFans", reply: reply) { driver in
             try driver.setAllFans(rpm: rpm)
         }
@@ -170,23 +175,46 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     /// team as the helper itself. Deriving the team from our own signature
     /// keeps Development and Developer ID builds aligned without weakening the
     /// requirement for unsigned/ad-hoc clients, which have no team identifier.
+    ///
+    /// The check is bound to the connection's audit token, never its PID: a
+    /// PID can be recycled or `exec`-replaced by a signed binary after an
+    /// attacker has already opened the connection.
     private static func isAuthorizedClient(_ connection: NSXPCConnection) -> Bool {
-        let attributes = [kSecGuestAttributePid: NSNumber(value: connection.processIdentifier)]
-            as CFDictionary
+        guard let text = clientRequirementText() else { return false }
+        if #available(macOS 13.0, *) {
+            // The system enforces the requirement against the audit token of
+            // every incoming message, so a swapped process is rejected too.
+            connection.setCodeSigningRequirement(text)
+            return true
+        }
+        guard let token = auditToken(of: connection) else { return false }
+        let tokenData = withUnsafeBytes(of: token) { Data($0) }
+        let attributes = [kSecGuestAttributeAudit: tokenData] as CFDictionary
         var code: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
-              let code,
-              let teamID = ownTeamIdentifier()
+              let code
         else { return false }
 
-        let text =
-            "anchor apple generic and identifier \"\(FanBarService.appBundleID)\" " +
-            "and certificate leaf[subject.OU] = \"\(teamID)\""
         var requirement: SecRequirement?
         guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess,
               let requirement
         else { return false }
         return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
+    private static func clientRequirementText() -> String? {
+        guard let teamID = ownTeamIdentifier() else { return nil }
+        return "anchor apple generic and identifier \"\(FanBarService.appBundleID)\" " +
+            "and certificate leaf[subject.OU] = \"\(teamID)\""
+    }
+
+    /// `auditToken` is not public before macOS 13; KVC is the long-standing
+    /// way helpers read it on older systems.
+    private static func auditToken(of connection: NSXPCConnection) -> audit_token_t? {
+        guard let value = connection.value(forKey: "auditToken") as? NSValue else { return nil }
+        var token = audit_token_t()
+        value.getValue(&token, size: MemoryLayout<audit_token_t>.size)
+        return token
     }
 
     private static func ownTeamIdentifier() -> String? {
