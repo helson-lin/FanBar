@@ -145,6 +145,10 @@ updates_root="$(mktemp -d)"
 cleanup() { rm -rf "${updates_root}" }
 trap cleanup EXIT
 ditto "${dmg_path}" "${updates_root}/${dmg_path:t}"
+# generate_appcast embeds a same-named .md as the update's release notes.
+zsh "${project_root}/scripts/extract-update-notes.sh" \
+    "${project_root}/docs/releases/v${version}.md" \
+    "${updates_root}/${dmg_path:t:r}.md"
 
 download_prefix="https://github.com/${repository}/releases/download/${tag}/"
 "${generate_appcast}" \
@@ -152,6 +156,7 @@ download_prefix="https://github.com/${repository}/releases/download/${tag}/"
     --download-url-prefix "${download_prefix}" \
     --link "https://github.com/${repository}" \
     --maximum-deltas 0 \
+    --embed-release-notes \
     "${updates_root}"
 
 appcast_path="${project_root}/dist/appcast.xml"
