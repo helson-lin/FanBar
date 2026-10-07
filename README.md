@@ -33,7 +33,8 @@
   <a href="#-usage">Usage</a> •
   <a href="#️-build-and-run">Build</a> •
   <a href="#️-architecture">Architecture</a> •
-  <a href="#-continuous-integration-and-releases">Releases</a>
+  <a href="#-continuous-integration-and-releases">Releases</a> •
+  <a href="#-report-an-issue">Issues</a>
 </p>
 
 </div>
@@ -139,6 +140,10 @@ Open **Settings → Language** and choose:
 - **简体中文**
 
 The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, and helper errors.
+
+## 🐛 Report an issue
+
+Before submitting, search [existing issues](https://github.com/helson-lin/FanBar/issues). Then [choose an issue form](https://github.com/helson-lin/FanBar/issues/new/choose) for a bug, feature request, or usage question. Bug reports should include the FanBar version, macOS version, Mac model, and steps to reproduce. Please remove personal information from screenshots and logs.
 
 ## 🛠️ Build and run
 

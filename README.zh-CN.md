@@ -33,7 +33,8 @@
   <a href="#-使用方式">使用方式</a> •
   <a href="#️-构建与运行">构建</a> •
   <a href="#️-架构">架构</a> •
-  <a href="#-持续集成与发布">发布</a>
+  <a href="#-持续集成与发布">发布</a> •
+  <a href="#-反馈问题">反馈</a>
 </p>
 
 </div>
@@ -129,6 +130,10 @@ brew uninstall --cask helson-lin/fanbar/fanbar
 - **简体中文**：中文界面
 
 语言设置会同步应用到菜单栏面板、设置窗口、首次使用引导、状态消息和控制服务错误提示。
+
+## 🐛 反馈问题
+
+提交前请先搜索[已有 Issue](https://github.com/helson-lin/FanBar/issues)，再通过 [Issue 表单](https://github.com/helson-lin/FanBar/issues/new/choose)选择问题反馈、功能建议或使用问题。反馈 bug 时请提供 FanBar 版本、macOS 版本、Mac 型号及复现步骤；上传截图或日志前请移除个人信息。
 
 ## 🛠️ 构建与运行
 

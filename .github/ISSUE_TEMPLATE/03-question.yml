@@ -1,0 +1,23 @@
+name: "Question / 使用问题"
+description: "Ask about using or configuring FanBar / 询问 FanBar 的使用或配置"
+title: "[Question] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the README and existing issues first. For a reproducible malfunction, use the bug report form instead.
+
+        请先查看 README 和已有 Issue。如果功能出现可复现的异常，请使用「问题反馈」表单。
+  - type: textarea
+    id: question
+    attributes:
+      label: "Your question / 你的问题"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "What have you tried? / 已尝试的操作"
+      description: "Include your FanBar and macOS versions if relevant. / 如有帮助，请附上 FanBar 和 macOS 版本。"
+    validations:
+      required: false
