@@ -273,5 +273,13 @@ Thanks to these people for reporting bugs and helping make FanBar better:
       <img src="docs/contributors/qingcang.png" width="64" height="64" alt="倾藏's avatar"><br>
       <sub><b>倾藏</b></sub>
     </td>
+    <td align="center">
+      <img src="docs/contributors/yisasayisa.png" width="64" height="64" alt="一撒撒一撒's avatar"><br>
+      <sub><b>一撒撒一撒</b></sub>
+    </td>
+    <td align="center">
+      <img src="docs/contributors/taolela.png" width="64" height="64" alt="Taolela's avatar"><br>
+      <sub><b>Taolela</b></sub>
+    </td>
   </tr>
 </table>
