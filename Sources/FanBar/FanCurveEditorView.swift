@@ -244,8 +244,8 @@ struct FanCurveEditorView: View {
     private var footer: some View {
         HStack(spacing: 12) {
             Text(fanBarText(
-                "拖动控制点，或选中后用上方步进器微调。0% 表示风扇回到怠速。",
-                "Drag a control point, or select one and fine-tune it above. 0% returns the fans to idle."
+                "拖动控制点，或选中后用“温度”“转速”微调。0% 表示风扇回到怠速。",
+                "Drag a control point, or select one and fine-tune its Temp and Speed. 0% returns the fans to idle."
             ))
             .font(.system(size: 11))
             .foregroundColor(.secondary)
@@ -369,7 +369,7 @@ struct FanCurveEditorView: View {
     private var advancedSummary: String {
         fanBarFormat(
             "缓冲 %d°C · 步进 %d%%",
-            "buffer %d°C · step %d%%",
+            "Buffer %d°C · Step %d%%",
             Int(profile.hysteresisCelsius.rounded()),
             Int((profile.maxFractionStepPerUpdate * 100).rounded())
         )

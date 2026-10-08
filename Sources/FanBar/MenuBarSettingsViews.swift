@@ -1,52 +1,15 @@
 import FanBarShared
 import SwiftUI
 
-/// A stylized menu bar with FanBar's live status label between the system
-/// items, so the display choice is judged in context.
-struct MenuBarPreviewStrip: View {
-    @ObservedObject var controller: FanController
-    let displayMode: MenuBarDisplayMode
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var wallpaper: LinearGradient {
-        let colors: [Color] = colorScheme == .dark
-            ? [Color(red: 0.23, green: 0.30, blue: 0.42), Color(red: 0.34, green: 0.25, blue: 0.43)]
-            : [Color(red: 0.62, green: 0.71, blue: 0.84), Color(red: 0.79, green: 0.72, blue: 0.85)]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Spacer(minLength: 0)
-            Image(systemName: "wifi")
-            Image(systemName: "battery.100")
-            MenuBarStatusLabel(controller: controller, displayMode: displayMode)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.14)))
-            Text(Date(), style: .time)
-        }
-        .font(.system(size: 12.5, weight: .medium))
-        .padding(.horizontal, 12)
-        .frame(height: 28)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.6))
-        )
-        .padding(.horizontal, 14)
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity)
-        .background(wallpaper)
-        // Purely illustrative; each option row below carries the same sample.
-        .accessibilityHidden(true)
-    }
-}
-
 /// One selectable menu bar display style, with its own rendered sample.
 struct MenuBarDisplayOptionRow: View {
     @ObservedObject var controller: FanController
     let mode: MenuBarDisplayMode
     let isSelected: Bool
+    /// 1-based place in the option list, read out by VoiceOver because
+    /// these rows are custom buttons rather than a native radio group.
+    let position: Int
+    let count: Int
     let onSelect: () -> Void
 
     var body: some View {
@@ -56,6 +19,7 @@ struct MenuBarDisplayOptionRow: View {
                     .font(.system(size: 14))
                     .foregroundColor(isSelected ? .accentColor : .secondary)
                     .frame(width: 18)
+                    .accessibilityHidden(true)
 
                 SettingsRowText(title: mode.title, detail: mode.detail)
                     .foregroundColor(.primary)
@@ -70,6 +34,10 @@ struct MenuBarDisplayOptionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isSelected
+            ? fanBarFormat("已选择，第 %d 项，共 %d 项", "Selected, %d of %d", position, count)
+            : fanBarFormat("第 %d 项，共 %d 项", "%d of %d", position, count))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

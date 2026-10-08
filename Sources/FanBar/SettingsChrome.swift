@@ -25,8 +25,7 @@ enum SettingsChrome {
 
     static func sectionHeader(
         _ title: String,
-        trailing: String? = nil,
-        action: SettingsSectionAction? = nil
+        trailing: String? = nil
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             // Smaller and secondary so headers label groups rather than
@@ -39,12 +38,6 @@ enum SettingsChrome {
                 Text(trailing)
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
-            }
-            if let action {
-                Button(action.title, action: action.perform)
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.accentColor)
             }
         }
         .padding(.horizontal, 4)
@@ -104,13 +97,6 @@ enum SettingsChrome {
     }
 }
 
-/// Vertically stacks a section header, card, and optional footer with system spacing.
-/// A small text button beside a section header, for a secondary action.
-struct SettingsSectionAction {
-    let title: String
-    let perform: () -> Void
-}
-
 extension View {
     /// Standard settings row: shared insets, minimum height, vertically centered.
     func settingsRow() -> some View {
@@ -121,16 +107,16 @@ extension View {
     }
 }
 
+/// Vertically stacks a section header, card, and optional footer with system spacing.
 struct SettingsSection<Card: View>: View {
     let title: String
     var trailing: String?
-    var action: SettingsSectionAction?
     var footer: String?
     @ViewBuilder var card: () -> Card
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
-            SettingsChrome.sectionHeader(title, trailing: trailing, action: action)
+            SettingsChrome.sectionHeader(title, trailing: trailing)
             SettingsChrome.settingsCard(content: card)
             if let footer {
                 SettingsChrome.sectionFooter(footer)

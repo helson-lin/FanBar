@@ -7,7 +7,6 @@ struct CoolingPresetTiles: View {
     @ObservedObject var controller: FanController
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var visiblePresetsRawValue = CoolingPresetPreferences.defaultRawValue
-    @State private var notice: String?
 
     private static let menuPresetLimit = 2
 
@@ -15,10 +14,14 @@ struct CoolingPresetTiles: View {
         CoolingPresetPreferences.presets(from: visiblePresetsRawValue)
     }
 
+    private var isMenuFull: Bool {
+        menuPresets.count >= Self.menuPresetLimit
+    }
+
     private var menuLimitMessage: String {
         fanBarText(
-            "菜单面板最多显示 2 个预设，请先取消勾选另一个。",
-            "The menu panel shows up to two presets. Uncheck another one first."
+            "菜单面板最多显示 2 个预设，取消勾选一个后可换成其他预设。",
+            "The menu panel shows up to two presets. Uncheck one to choose another."
         )
     }
 
@@ -40,7 +43,9 @@ struct CoolingPresetTiles: View {
                 }
             }
 
-            SettingsChrome.sectionFooter(notice ?? fanBarText(
+            // At the limit the footer states why the other checkboxes are
+            // unavailable, so the reason is visible before anything is tried.
+            SettingsChrome.sectionFooter(isMenuFull ? menuLimitMessage : fanBarText(
                 "点按预设编辑它的曲线。勾选“显示在菜单”后，该预设会作为快捷按钮出现在菜单面板里，最多 2 个。",
                 "Select a preset to edit its curve. Check “Show in menu” to add it as a shortcut button in the menu panel, up to two."
             ))
@@ -112,32 +117,28 @@ struct CoolingPresetTiles: View {
     }
 
     /// A labeled checkbox: whether this preset is a shortcut in the menu panel.
+    /// The system checkbox supplies keyboard focus, the VoiceOver checkbox
+    /// role and the dimmed disabled look.
     private func menuToggle(for preset: FanCoolingPreset) -> some View {
         let isShown = menuPresets.contains(preset)
-        let isBlocked = !isShown && menuPresets.count >= Self.menuPresetLimit
+        let isBlocked = !isShown && isMenuFull
 
-        return Button {
-            toggleMenuShortcut(preset, isShown: isShown)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: isShown ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 13))
-                    .foregroundColor(isShown ? .accentColor : .secondary)
-                Text(fanBarText("显示在菜单", "Show in menu"))
-                    .font(.system(size: 11))
-                    .foregroundColor(isShown ? .primary : .secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        return Toggle(
+            isOn: Binding(
+                get: { isShown },
+                set: { _ in toggleMenuShortcut(preset, isShown: isShown) }
+            )
+        ) {
+            Text(fanBarText("显示在菜单", "Show in menu"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
-        .buttonStyle(.plain)
-        .focusable(false)
-        .opacity(isBlocked ? 0.45 : 1)
+        .toggleStyle(.checkbox)
+        .controlSize(.small)
+        .disabled(isBlocked)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .help(isBlocked ? menuLimitMessage : fanBarFormat(
             "在菜单面板里为“%@”显示快捷按钮",
             "Show a shortcut button for %@ in the menu panel",
@@ -148,8 +149,6 @@ struct CoolingPresetTiles: View {
             "Show %@ in the menu panel",
             preset.title
         ))
-        .accessibilityValue(isShown ? fanBarText("已勾选", "On") : fanBarText("未勾选", "Off"))
-        .accessibilityAddTraits(.isButton)
     }
 
     private func toggleMenuShortcut(_ preset: FanCoolingPreset, isShown: Bool) {
@@ -157,14 +156,9 @@ struct CoolingPresetTiles: View {
         if isShown {
             selection.remove(preset)
         } else {
-            guard selection.count < Self.menuPresetLimit else {
-                // Blocked pins stay tappable so the reason is always reachable.
-                notice = menuLimitMessage
-                return
-            }
+            guard selection.count < Self.menuPresetLimit else { return }
             selection.insert(preset)
         }
-        notice = nil
         visiblePresetsRawValue = CoolingPresetPreferences.rawValue(for: selection)
     }
 }

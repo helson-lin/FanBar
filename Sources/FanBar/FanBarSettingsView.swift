@@ -9,7 +9,8 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable, Identifiable {
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
-    case menuBar
+    /// Raw value kept from the former "Menu Bar" pane so a saved selection survives.
+    case appearance = "menuBar"
     case general
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -19,7 +20,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .cooling: fanBarText("散热", "Cooling")
-        case .menuBar: fanBarText("菜单栏", "Menu Bar")
+        case .appearance: fanBarText("外观", "Appearance")
         case .general: fanBarText("通用", "General")
         }
     }
@@ -27,7 +28,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .cooling: "fan"
-        case .menuBar: "macwindow"
+        case .appearance: "paintbrush"
         case .general: "gearshape"
         }
     }
@@ -45,9 +46,7 @@ struct FanBarSettingsView: View {
     private var panelAnimationEnabled = true
     @AppStorage(SettingsTab.preferenceKey)
     private var selectedTabRawValue = SettingsTab.cooling.rawValue
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The alert temperature is set rarely, so its slider stays tucked away.
-    @State private var isThresholdExpanded = false
+    @State private var isFooterLinkHovered = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -62,7 +61,7 @@ struct FanBarSettingsView: View {
             VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
                 switch currentTab {
                 case .cooling: coolingTab
-                case .menuBar: menuBarTab
+                case .appearance: appearanceTab
                 case .general: generalTab
                 }
             }
@@ -94,27 +93,43 @@ struct FanBarSettingsView: View {
         FanCurveEditorView(controller: controller)
     }
 
-    // MARK: - Menu Bar
+    // MARK: - Appearance
 
+    /// How FanBar looks: in the menu bar, as an app icon, and in motion.
     @ViewBuilder
-    private var menuBarTab: some View {
+    private var appearanceTab: some View {
         SettingsSection(
             title: fanBarText("菜单栏显示", "Menu Bar display"),
             footer: fanBarText("选择状态在菜单栏里的样子。", "Choose how FanBar looks in the menu bar.")
         ) {
-            MenuBarPreviewStrip(controller: controller, displayMode: displayMode)
-
-            ForEach(MenuBarDisplayMode.allCases) { mode in
-                SettingsChrome.rowDivider
+            // Each option renders its own live sample, so the choice is
+            // judged directly without a separate preview.
+            ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
+                if index > 0 {
+                    SettingsChrome.rowDivider
+                }
                 MenuBarDisplayOptionRow(
                     controller: controller,
                     mode: mode,
                     isSelected: mode == displayMode,
+                    position: index + 1,
+                    count: MenuBarDisplayMode.allCases.count,
                     onSelect: { displayModeRawValue = mode.rawValue }
                 )
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(fanBarText("菜单栏显示", "Menu Bar display"))
+
+        SettingsSection(
+            title: fanBarText("App 图标", "App Icon"),
+            footer: fanBarText(
+                "用于访达、启动台和菜单栏面板。",
+                "Used in Finder, Launchpad, and the menu bar panel."
+            )
+        ) {
+            AppIconPickerRow()
+        }
 
         SettingsSection(
             title: fanBarText("动画", "Animation"),
@@ -176,14 +191,7 @@ struct FanBarSettingsView: View {
 
     /// App-level preferences that are set once and rarely revisited.
     private var appSection: some View {
-        SettingsSection(
-            title: "FanBar",
-            trailing: SoftwareUpdateController.shared.currentVersion,
-            action: SettingsSectionAction(
-                title: fanBarText("检查更新…", "Check for Updates…"),
-                perform: { SoftwareUpdateController.shared.checkForUpdates() }
-            )
-        ) {
+        SettingsSection(title: "FanBar") {
             launchAtLoginRow
             SettingsChrome.rowDivider
             languageRow
@@ -278,80 +286,39 @@ struct FanBarSettingsView: View {
         }
     }
 
+    /// Inline stepper: reachable by keyboard and VoiceOver without a
+    /// disclosure step, and matches the curve editor's Advanced rows.
     private var thresholdRow: some View {
         let range = ThermalAlertSettings.thresholdRange
         let value = controller.highTemperatureThresholdCelsius
-        let isEnabled = controller.highTemperatureNotificationsEnabled
-        let isExpanded = isThresholdExpanded && isEnabled
-        return VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 1)) {
-                    isThresholdExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Text(fanBarText("提醒温度", "Alert temperature"))
-                        .foregroundColor(.primary)
-                    Spacer(minLength: 12)
-                    Text(String(format: "%.0f°C", value))
-                        .font(.system(.body, design: .monospaced).weight(.medium))
-                        .foregroundColor(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .foregroundColor(.secondary)
-                        .frame(width: 10)
-                }
-                .settingsRow()
-                .contentShape(Rectangle())
+        let valueText = String(format: "%.0f°C", value)
+        return HStack {
+            SettingsRowText(
+                title: fanBarText("提醒温度", "Alert temperature"),
+                detail: fanBarFormat(
+                    "默认 %.0f°C。",
+                    "Default %.0f°C.",
+                    ThermalAlertSettings.defaultThresholdCelsius
+                )
+            )
+            Spacer(minLength: 12)
+            Stepper(
+                value: Binding(
+                    get: { Int(controller.highTemperatureThresholdCelsius.rounded()) },
+                    set: { controller.setHighTemperatureThreshold(Double($0)) }
+                ),
+                in: Int(range.lowerBound)...Int(range.upperBound)
+            ) {
+                Text(valueText)
+                    .font(.system(size: 12, design: .monospaced))
+                    .frame(width: 40, alignment: .trailing)
             }
-            .buttonStyle(.plain)
-            .focusable(false)
+            .fixedSize()
             .accessibilityLabel(fanBarText("提醒温度", "Alert temperature"))
-            .accessibilityValue(String(format: "%.0f°C", value))
-            .accessibilityHint(isExpanded
-                ? fanBarText("收起温度设置", "Collapse the temperature setting")
-                : fanBarText("展开以调整温度", "Expand to adjust the temperature"))
-
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 6) {
-                    // A slider reaches any value in one drag instead of ±1 clicks.
-                    Slider(
-                        value: Binding(
-                            get: { controller.highTemperatureThresholdCelsius },
-                            set: { controller.setHighTemperatureThreshold($0) }
-                        ),
-                        // No `step:`: macOS would draw a tick for every degree.
-                        // The controller rounds to whole degrees instead.
-                        in: range
-                    ) {
-                        Text(fanBarText("提醒温度", "Alert temperature"))
-                    } minimumValueLabel: {
-                        Text(String(format: "%.0f°", range.lowerBound))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    } maximumValueLabel: {
-                        Text(String(format: "%.0f°", range.upperBound))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                    .labelsHidden()
-                    .accessibilityValue(String(format: "%.0f°C", value))
-
-                    Text(fanBarFormat(
-                        "默认 %.0f°C。",
-                        "Default %.0f°C.",
-                        ThermalAlertSettings.defaultThresholdCelsius
-                    ))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
-                .padding(.bottom, SettingsChrome.rowHorizontalPadding)
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-            }
+            .accessibilityValue(valueText)
         }
-        .disabled(!isEnabled)
+        .settingsRow()
+        .disabled(!controller.highTemperatureNotificationsEnabled)
     }
 
     private var automaticRestoreRow: some View {
@@ -407,36 +374,58 @@ struct FanBarSettingsView: View {
         .settingsRow()
     }
 
+    /// Version, manual check and the automatic-check switch share one row,
+    /// so everything about updates is found in one place.
     private var softwareUpdateRow: some View {
         let updater = SoftwareUpdateController.shared
-        return Toggle(
-            isOn: Binding(
-                get: { updater.automaticallyChecksForUpdates },
-                set: { updater.setAutomaticallyChecksForUpdates($0) }
+        return HStack(spacing: 12) {
+            SettingsRowText(
+                title: fanBarText("自动检查更新", "Automatically check for updates"),
+                detail: fanBarFormat("当前版本 %@", "Current version %@", updater.currentVersion)
             )
-        ) {
-            SettingsRowText(title: fanBarText("自动检查更新", "Automatically check for updates"))
+            Button(fanBarText("检查更新…", "Check for Updates…")) {
+                updater.checkForUpdates()
+            }
+            Toggle(
+                fanBarText("自动检查更新", "Automatically check for updates"),
+                isOn: Binding(
+                    get: { updater.automaticallyChecksForUpdates },
+                    set: { updater.setAutomaticallyChecksForUpdates($0) }
+                )
+            )
+            .labelsHidden()
+            .toggleStyle(.switch)
         }
-        .toggleStyle(.switch)
         .settingsRow()
     }
 
+    /// One quiet line with a single destination: the repository, where the
+    /// license and the Star button both live.
     private var freeSoftwareNotice: some View {
-        HStack(spacing: 6) {
-            Link(destination: URL(string: "https://github.com/helson-lin")!) {
+        Link(destination: URL(string: "https://github.com/helson-lin/FanBar")!) {
+            HStack(spacing: 6) {
                 Image(nsImage: GitHubMark.image)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 12, height: 12)
+                    .accessibilityHidden(true)
+                Text(fanBarText(
+                    "FanBar 免费开源 · 喜欢的话在 GitHub 点个 Star",
+                    "FanBar is free and open source · Star it on GitHub"
+                ))
+                Image(systemName: "arrow.up.right")
+                    .accessibilityHidden(true)
             }
-            .accessibilityLabel(fanBarText("打开 GitHub 主页", "Open the GitHub profile"))
-            .help(fanBarText("在浏览器中打开 GitHub 主页", "Open the GitHub profile in a browser"))
-
-            Text(fanBarText("FanBar 是免费软件，可自由使用。", "FanBar is free software. You are free to use it."))
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .font(.caption)
-        .foregroundColor(.secondary)
+        .foregroundColor(isFooterLinkHovered ? .accentColor : .secondary)
+        .onHover { isFooterLinkHovered = $0 }
+        .help(fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser"))
     }
 }
 
