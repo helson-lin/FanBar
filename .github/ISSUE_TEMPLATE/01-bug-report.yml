@@ -1,0 +1,81 @@
+name: "Bug report / 问题反馈"
+description: "Report something that does not work as expected / 反馈未按预期工作的功能"
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve FanBar! Please search existing issues before submitting. Include enough detail to reproduce the problem, and remove personal information from screenshots and logs.
+
+        感谢帮助改进 FanBar！提交前请搜索已有 Issue，并提供足够信息以便复现。上传截图或日志前请移除个人信息。
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: "Existing issues / 已有 Issue"
+      options:
+        - label: "I searched existing issues and did not find the same problem. / 我已搜索现有 Issue，未发现相同问题。"
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: "FanBar version / FanBar 版本"
+      description: "Find this in the app's About window. / 可在应用的「关于」窗口查看。"
+      placeholder: "e.g. 0.4.14"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: "macOS version / macOS 版本"
+      placeholder: "e.g. macOS 15.6"
+    validations:
+      required: true
+  - type: input
+    id: mac-model
+    attributes:
+      label: "Mac model and chip / Mac 型号与芯片"
+      placeholder: "e.g. MacBook Pro 14-inch (M3 Pro)"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: "Installation method / 安装方式"
+      options:
+        - "GitHub Release / GitHub 发布版"
+        - "Homebrew"
+        - "Built from source / 从源码构建"
+        - "Other or unknown / 其他或不确定"
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "What happened? / 实际发生了什么？"
+      description: "Include any error messages. / 请附上相关错误信息。"
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "What did you expect? / 预期结果是什么？"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to reproduce / 复现步骤"
+      placeholder: |
+        1. Open FanBar / 打开 FanBar
+        2. ...
+        3. Observe ... / 观察到 ...
+      description: "If it happens intermittently, say how often and what you were doing. / 如果问题偶发，请说明频率和当时的操作。"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: "Screenshots or logs / 截图或日志"
+      description: "Drag files here if helpful. Remove personal or sensitive information first. / 可拖入相关文件；请先移除个人或敏感信息。"
+    validations:
+      required: false

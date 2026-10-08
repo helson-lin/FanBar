@@ -38,7 +38,8 @@ struct MenuBarStatusLabel: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: controller.statusIcon)
+            Image(nsImage: MenuBarIconAnimator.staticIcon(symbol: controller.statusIcon))
+                .renderingMode(.template)
                 .foregroundColor(.primary)
 
             if let statusText {

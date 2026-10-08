@@ -13,13 +13,16 @@
 
 <p align="center">
   <a href="LICENSE">
-    <img src="https://img.shields.io/badge/license-GPLv3%20%2B%20Commons%20Clause-blue" alt="license">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases/latest">
     <img src="https://img.shields.io/github/v/release/helson-lin/FanBar?color=brightgreen" alt="release">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases">
     <img src="https://img.shields.io/github/downloads/helson-lin/FanBar/total?color=blue" alt="downloads">
+  </a><!--
+  --><a href="https://github.com/helson-lin/FanBar/releases">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fmain%2Fdocs%2Fbadges%2Fdmg-downloads.json" alt="DMG downloads" title="Cumulative DMG downloads across all releases, including updates; refreshed daily.">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/stargazers">
     <img src="https://img.shields.io/github/stars/helson-lin/FanBar?color=yellow" alt="stars">
@@ -33,7 +36,8 @@
   <a href="#-usage">Usage</a> •
   <a href="#️-build-and-run">Build</a> •
   <a href="#️-architecture">Architecture</a> •
-  <a href="#-continuous-integration-and-releases">Releases</a>
+  <a href="#-continuous-integration-and-releases">Releases</a> •
+  <a href="#-report-an-issue">Issues</a>
 </p>
 
 </div>
@@ -81,6 +85,36 @@ The latest notarized build is on the [GitHub Releases](https://github.com/helson
 | Intel | `FanBar-<version>-x86_64.dmg` |
 | Universal (Sparkle updates use this) | `FanBar-<version>.dmg` |
 
+### Install with Homebrew
+
+With [Homebrew](https://brew.sh) installed, add this repository as a tap and install:
+
+```sh
+brew tap helson-lin/fanbar https://github.com/helson-lin/FanBar.git
+brew install --cask helson-lin/fanbar/fanbar
+```
+
+The cask installs the signed, notarized universal app for Apple Silicon and Intel
+into `/Applications`. Launch FanBar and approve its control service to enable fan
+control. If you already installed FanBar manually, quit it and move the existing
+`/Applications/FanBar.app` to the Trash before installing through Homebrew.
+
+FanBar can update itself through Sparkle. To upgrade explicitly with Homebrew:
+
+```sh
+brew update
+brew upgrade --cask helson-lin/fanbar/fanbar
+```
+
+To uninstall, quit FanBar first, then run:
+
+```sh
+brew uninstall --cask helson-lin/fanbar/fanbar
+```
+
+Add `--zap` to also remove saved preferences and caches. Homebrew may request an
+administrator password to unload the fan-control service.
+
 ### Requirements
 
 - macOS 11 Big Sur or later
@@ -109,6 +143,10 @@ Open **Settings → Language** and choose:
 - **简体中文**
 
 The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, and helper errors.
+
+## 🐛 Report an issue
+
+Before submitting, search [existing issues](https://github.com/helson-lin/FanBar/issues). Then [choose an issue form](https://github.com/helson-lin/FanBar/issues/new/choose) for a bug, feature request, or usage question. Bug reports should include the FanBar version, macOS version, Mac model, and steps to reproduce. Please remove personal information from screenshots and logs.
 
 ## 🛠️ Build and run
 
@@ -202,6 +240,21 @@ git tag -a v0.4.3 -m "FanBar 0.4.3"
 git push origin v0.4.3
 ```
 
+### Update the Homebrew cask
+
+After publishing a stable release (locally or from CI), download and hash its
+universal DMG, then submit the resulting cask change in a PR:
+
+```sh
+python3 scripts/update-homebrew-cask.py          # Latest stable release
+# Or: python3 scripts/update-homebrew-cask.py v0.4.14
+```
+
+The script requires Python 3 and an authenticated `gh` CLI. It rejects drafts,
+prereleases, and releases missing the universal DMG. Merge `Casks/fanbar.rb` into
+`main` to make the new version available through `brew update`. The Homebrew CI
+workflow checks cask style, the download checksum, installation, and removal.
+
 ## ⭐ Star History
 
 <div align="center">
@@ -212,7 +265,9 @@ git push origin v0.4.3
 
 ## 🙏 Acknowledgements and license
 
-FanBar's source code is licensed under the [GNU General Public License v3.0](LICENSE).
+Copyright © 2024–2026 Jarin He. FanBar's source code is licensed under the [GNU General Public License v3.0](LICENSE).
+
+You may use, modify, and redistribute FanBar—including commercially—as long as you comply with the GPL-3.0: keep the copyright and license notices, and release the source of any distributed modified version under the same license.
 
 **Name and icon are excluded.** The "FanBar" name and the FanBar icon/logo are not covered by the GPL-3.0 license. If you distribute a modified version, you must rename it and replace the icon so it cannot be confused with the official FanBar.
 

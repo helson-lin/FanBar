@@ -196,6 +196,10 @@ jobs:
           universal_dmg="dist/FanBar-${version}.dmg"
           test -f "${universal_dmg}"
           cp "${universal_dmg}" "${updates_dir}/"
+          # generate_appcast embeds a same-named .md as the update's release notes.
+          zsh scripts/extract-update-notes.sh \
+            "docs/releases/${GITHUB_REF_NAME}.md" \
+            "${updates_dir}/FanBar-${version}.md"
           print -n "${SPARKLE_PRIVATE_KEY}" | \
             .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
               --ed-key-file - \
@@ -203,6 +207,7 @@ jobs:
                 "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
               --link "https://github.com/${GITHUB_REPOSITORY}" \
               --maximum-deltas 0 \
+              --embed-release-notes \
               "${updates_dir}"
           cp "${updates_dir}/appcast.xml" dist/appcast.xml
           grep -q 'sparkle:edSignature=' dist/appcast.xml

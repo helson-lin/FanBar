@@ -1,0 +1,36 @@
+name: "Feature request / 功能建议"
+description: "Suggest an improvement to FanBar / 提出 FanBar 改进建议"
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first and describe the problem you want to solve. / 请先搜索已有 Issue，并说明想解决的问题。
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: "Existing issues / 已有 Issue"
+      options:
+        - label: "I searched existing issues and did not find the same request. / 我已搜索现有 Issue，未发现相同建议。"
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or use case / 问题或使用场景"
+      description: "What are you trying to do, and what gets in the way? / 你想完成什么？目前有什么障碍？"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposed improvement / 建议的改进"
+      description: "Describe how you would like FanBar to behave. / 请描述希望 FanBar 如何工作。"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives or examples / 替代方案或示例"
+      description: "Optional: current workaround, mockups, or links. / 可选：当前变通方法、示意图或相关链接。"
+    validations:
+      required: false

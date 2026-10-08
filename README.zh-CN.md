@@ -13,13 +13,16 @@
 
 <p align="center">
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/helson-lin/FanBar?color=brightgreen" alt="license">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases/latest">
     <img src="https://img.shields.io/github/v/release/helson-lin/FanBar?color=brightgreen" alt="release">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases">
     <img src="https://img.shields.io/github/downloads/helson-lin/FanBar/total?color=blue" alt="downloads">
+  </a><!--
+  --><a href="https://github.com/helson-lin/FanBar/releases">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fmain%2Fdocs%2Fbadges%2Fdmg-downloads.json" alt="DMG 安装包下载量" title="所有版本 DMG 的累计下载次数，包含更新下载，每日刷新。">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/stargazers">
     <img src="https://img.shields.io/github/stars/helson-lin/FanBar?color=yellow" alt="stars">
@@ -33,7 +36,8 @@
   <a href="#-使用方式">使用方式</a> •
   <a href="#️-构建与运行">构建</a> •
   <a href="#️-架构">架构</a> •
-  <a href="#-持续集成与发布">发布</a>
+  <a href="#-持续集成与发布">发布</a> •
+  <a href="#-反馈问题">反馈</a>
 </p>
 
 </div>
@@ -73,6 +77,34 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 | Intel | `FanBar-<version>-x86_64.dmg` |
 | Universal（Sparkle 在线更新使用） | `FanBar-<version>.dmg` |
 
+### 通过 Homebrew 安装
+
+安装 [Homebrew](https://brew.sh) 后，将本仓库添加为 tap 并安装：
+
+```sh
+brew tap helson-lin/fanbar https://github.com/helson-lin/FanBar.git
+brew install --cask helson-lin/fanbar/fanbar
+```
+
+Cask 会把已签名、公证的通用版应用安装到 `/Applications`，同时支持 Apple Silicon
+和 Intel。启动 FanBar 后，按提示批准控制服务即可调节风扇。如果此前已手动安装，
+请先退出 FanBar，并将已有的 `/Applications/FanBar.app` 移到废纸篓，再通过 Homebrew 安装。
+
+FanBar 仍可通过 Sparkle 自动更新；也可以明确使用 Homebrew 升级：
+
+```sh
+brew update
+brew upgrade --cask helson-lin/fanbar/fanbar
+```
+
+卸载前先退出 FanBar，然后运行：
+
+```sh
+brew uninstall --cask helson-lin/fanbar/fanbar
+```
+
+添加 `--zap` 可同时删除偏好设置和缓存。卸载风扇控制服务时，Homebrew 可能要求输入管理员密码。
+
 ### 系统要求
 
 - macOS 11 Big Sur 或更高版本
@@ -101,6 +133,10 @@ FanBar 支持 macOS 11 Big Sur 及更高版本，适用于 Apple Silicon 与仍�
 - **简体中文**：中文界面
 
 语言设置会同步应用到菜单栏面板、设置窗口、首次使用引导、状态消息和控制服务错误提示。
+
+## 🐛 反馈问题
+
+提交前请先搜索[已有 Issue](https://github.com/helson-lin/FanBar/issues)，再通过 [Issue 表单](https://github.com/helson-lin/FanBar/issues/new/choose)选择问题反馈、功能建议或使用问题。反馈 bug 时请提供 FanBar 版本、macOS 版本、Mac 型号及复现步骤；上传截图或日志前请移除个人信息。
 
 ## 🛠️ 构建与运行
 
@@ -174,6 +210,20 @@ git tag -a v0.4.3 -m "FanBar 0.4.3"
 git push origin v0.4.3
 ```
 
+### 更新 Homebrew Cask
+
+通过本地脚本或 CI 发布稳定版后，运行以下命令下载通用 DMG、计算校验和，并将生成的
+Cask 变更提交为 PR：
+
+```sh
+python3 scripts/update-homebrew-cask.py          # 最新稳定版
+# 或：python3 scripts/update-homebrew-cask.py v0.4.14
+```
+
+脚本需要 Python 3 和已登录的 `gh` CLI，会拒绝草稿、预发布版本及缺少通用 DMG 的版本。
+将 `Casks/fanbar.rb` 合并到 `main` 后，用户即可通过 `brew update` 获取新版。
+Homebrew CI 会检查 Cask 格式、下载校验和、安装和卸载。
+
 ## ⭐ Star 趋势
 
 <div align="center">
@@ -184,7 +234,9 @@ git push origin v0.4.3
 
 ## 🙏 致谢与许可
 
-FanBar 源代码采用 [GNU 通用公共许可证 v3.0（GPL-3.0）](LICENSE) 授权。
+Copyright © 2024–2026 Jarin He。FanBar 源代码采用 [GNU 通用公共许可证 v3.0（GPL-3.0）](LICENSE) 授权。
+
+你可以使用、修改和再分发 FanBar（包括商业用途），但须遵守 GPL-3.0：保留版权与许可声明，并以相同许可证公开所分发修改版本的源代码。
 
 **名称与图标不在授权范围内。**「FanBar」名称及 FanBar 图标/Logo 不属于 GPL-3.0 的授权范围。分发修改版本时必须更改名称并替换图标，以免与官方 FanBar 混淆。
 

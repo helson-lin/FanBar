@@ -217,12 +217,6 @@ final class LegacyStatusItemController: NSObject {
         button.imagePosition = text == nil ? .imageOnly : .imageLeading
         button.imageScaling = .scaleProportionallyDown
         button.imageHugsTitle = true
-        if #available(macOS 11.0, *) {
-            button.symbolConfiguration = NSImage.SymbolConfiguration(
-                pointSize: 11,
-                weight: .medium
-            )
-        }
         // Keep a stable width once text is enabled. A variable-length status
         // item moves its popover anchor whenever a changing value gains or
         // loses a digit, which makes the menu appear to jump while refreshing.
