@@ -90,6 +90,7 @@ ditto "${binary_path}/Sparkle.framework" \
 install_name_tool -add_rpath "@executable_path/../Frameworks" \
     "${bundle_path}/Contents/MacOS/FanBar"
 cp "Assets/FanBar.icns" "${bundle_path}/Contents/Resources/FanBar.icns"
+ditto "Assets/AppIcons" "${bundle_path}/Contents/Resources/AppIcons"
 cp "App/local.fanbar.helper.plist" \
     "${bundle_path}/Contents/Library/LaunchDaemons/local.fanbar.helper.plist"
 cp "THIRD_PARTY_NOTICES.md" "${bundle_path}/Contents/Resources/THIRD_PARTY_NOTICES.md"
