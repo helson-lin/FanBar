@@ -200,20 +200,34 @@ final class MenuBarIconAnimator {
         return rendered
     }
 
-    private static func render(symbol: String, degrees: Double, alpha: CGFloat) -> NSImage {
-        let size = NSSize(width: 14, height: 14)
+    static func render(symbol: String, degrees: Double, alpha: CGFloat) -> NSImage {
+        let size = NSSize(width: 16, height: 16)
         let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let base = NSImage(systemSymbolName: symbol, accessibilityDescription: "FanBar")?
                 .withSymbolConfiguration(config)
             else { return false }
+            // SF Symbols include non-square typographic margins. Drawing into
+            // the whole square distorts the rotor; fit its native aspect ratio.
+            // Keep one point free for the rotated outline and its antialiasing.
+            let available = rect.insetBy(dx: 1, dy: 1)
+            let scale = min(available.width / base.size.width, available.height / base.size.height)
+            let drawnSize = NSSize(width: base.size.width * scale, height: base.size.height * scale)
+            let drawnRect = NSRect(
+                x: rect.midX - drawnSize.width / 2,
+                y: rect.midY - drawnSize.height / 2,
+                width: drawnSize.width,
+                height: drawnSize.height
+            )
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
             NSGraphicsContext.current?.imageInterpolation = .high
             let transform = NSAffineTransform()
             transform.translateX(by: rect.midX, yBy: rect.midY)
             transform.rotate(byDegrees: degrees)
             transform.translateX(by: -rect.midX, yBy: -rect.midY)
             transform.concat()
-            base.draw(in: rect, from: .zero, operation: .sourceOver, fraction: alpha)
+            base.draw(in: drawnRect, from: .zero, operation: .sourceOver, fraction: alpha)
             return true
         }
         image.isTemplate = true
