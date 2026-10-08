@@ -15,6 +15,7 @@ final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
     private var controller: FanController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppIconPreferences.applyAtLaunch()
         guard let controller = Self.pendingController else { return }
         Self.pendingController = nil
         self.controller = controller

@@ -70,7 +70,6 @@ struct FanMenu: View {
                     .transition(slideInTransition)
             }
 
-            launchAtLoginRow
             footer
         }
         .padding(16)
@@ -657,43 +656,6 @@ struct FanMenu: View {
             }
         )
         .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-    }
-
-    private var launchAtLoginRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "power")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.secondary)
-                .frame(width: 20)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(fanBarText("登录时启动 FanBar", "Launch FanBar at login"))
-                    .font(.caption)
-                if controller.launchAtLoginRequiresApproval {
-                    Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
-                        controller.openLoginItemSettings()
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption2)
-                    .foregroundColor(Color.orange)
-                }
-            }
-
-            Spacer()
-
-            Toggle(
-                "",
-                isOn: Binding(
-                    get: { controller.launchAtLoginEnabled },
-                    set: { controller.setLaunchAtLogin($0) }
-                )
-            )
-            .labelsHidden()
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .accessibilityLabel(fanBarText("登录时启动 FanBar", "Launch FanBar at login"))
-        }
-        .padding(.horizontal, 6)
     }
 
     private var unavailableState: some View {
