@@ -48,6 +48,7 @@ struct FanBarSettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The alert temperature is set rarely, so its slider stays tucked away.
     @State private var isThresholdExpanded = false
+    @State private var isStarLinkHovered = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -422,18 +423,37 @@ struct FanBarSettingsView: View {
     }
 
     private var freeSoftwareNotice: some View {
-        HStack(spacing: 6) {
-            Link(destination: URL(string: "https://github.com/helson-lin")!) {
-                Image(nsImage: GitHubMark.image)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 12, height: 12)
-            }
-            .accessibilityLabel(fanBarText("打开 GitHub 主页", "Open the GitHub profile"))
-            .help(fanBarText("在浏览器中打开 GitHub 主页", "Open the GitHub profile in a browser"))
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                Link(destination: URL(string: "https://github.com/helson-lin")!) {
+                    Image(nsImage: GitHubMark.image)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 12, height: 12)
+                }
+                .accessibilityLabel(fanBarText("打开 GitHub 主页", "Open the GitHub profile"))
+                .help(fanBarText("在浏览器中打开 GitHub 主页", "Open the GitHub profile in a browser"))
 
-            Text(fanBarText("FanBar 是免费软件，可自由使用。", "FanBar is free software. You are free to use it."))
+                Text(fanBarText("FanBar 是免费软件，可自由使用。", "FanBar is free software. You are free to use it."))
+            }
+
+            Link(destination: URL(string: "https://github.com/helson-lin/FanBar")!) {
+                HStack(spacing: 6) {
+                    Image(systemName: "star")
+                        .accessibilityHidden(true)
+                    Text(fanBarText("喜欢 FanBar？在 GitHub 点个 Star", "Enjoy FanBar? Star it on GitHub"))
+                    Image(systemName: "arrow.up.right")
+                        .accessibilityHidden(true)
+                }
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(isStarLinkHovered ? .accentColor : .secondary)
+            .onHover { isStarLinkHovered = $0 }
+            .accessibilityLabel(fanBarText("喜欢 FanBar？在 GitHub 点个 Star", "Enjoy FanBar? Star it on GitHub"))
+            .help(fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser"))
         }
         .font(.caption)
         .foregroundColor(.secondary)

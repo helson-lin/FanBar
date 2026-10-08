@@ -1,0 +1,49 @@
+name: Update DMG download badge
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  release:
+    types: [published]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/download-badge.yml
+      - scripts/update-download-badge.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dmg-download-badge
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Count DMG downloads across all releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FANBAR_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/update-download-badge.py --repo "$FANBAR_REPOSITORY"
+
+      - name: Commit updated badge if changed
+        run: |
+          git add docs/badges/dmg-downloads.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: refresh DMG download badge [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
