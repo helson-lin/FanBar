@@ -39,7 +39,9 @@ magick "${normalized_path}" -resize 512x512! "${iconset_path}/icon_256x256@2x.pn
 magick "${normalized_path}" -resize 512x512! "${iconset_path}/icon_512x512.png"
 cp "${normalized_path}" "${iconset_path}/icon_512x512@2x.png"
 
-node "${PWD}/scripts/make-icns.mjs" \
-    "${iconset_path}" \
-    "${PWD}/Assets/FanBar.icns"
+# Let Apple's encoder choose the correct small-icon records. PNG payloads
+# in hand-written icp4/icp5/icp6 records render as colored noise in system UI.
+/usr/bin/iconutil --convert icns \
+    --output "${PWD}/Assets/FanBar.icns" \
+    "${iconset_path}"
 print "Built ${PWD}/Assets/FanBar.icns"
