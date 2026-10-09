@@ -20,6 +20,9 @@ enum SettingsChrome {
     /// Every row reaches at least this height, so one- and two-line rows
     /// and switch/picker rows share one rhythm.
     static let rowMinHeight: CGFloat = 44
+    /// Inset of a highlighted choice inside its card; its corners stay
+    /// concentric with the card's.
+    static let choiceInset: CGFloat = 6
     /// Shared width for trailing pop-up buttons so their leading edges align.
     static let trailingControlMinWidth: CGFloat = 140
 
@@ -76,8 +79,18 @@ enum SettingsChrome {
         }
     }
 
+    /// Separates independent settings. Inset on both sides to the row text,
+    /// so it divides content without cutting across the card.
+    /// Choices within one option group use `choiceHighlight` instead.
     static var rowDivider: some View {
-        Divider().padding(.leading, rowHorizontalPadding)
+        Divider().padding(.horizontal, rowHorizontalPadding)
+    }
+
+    /// Background of one choice in an option group: the selected choice is
+    /// tinted, so the group reads as a single decision rather than a table.
+    static func choiceHighlight(isSelected: Bool) -> some View {
+        RoundedRectangle(cornerRadius: cardCornerRadius - choiceInset, style: .continuous)
+            .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
     }
 
     /// Standard leading-aligned content row padding.
@@ -129,10 +142,12 @@ struct SettingsSection<Card: View>: View {
 struct SettingsRowText: View {
     let title: String
     var detail: String?
+    var titleWeight: Font.Weight = .regular
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
+                .fontWeight(titleWeight)
             if let detail {
                 Text(detail)
                     .font(.caption)

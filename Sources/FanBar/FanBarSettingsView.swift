@@ -107,25 +107,29 @@ struct FanBarSettingsView: View {
                 "Choose FanBar's icon and what it shows in the menu bar."
             )
         ) {
+            // The strip shows the chosen icon and readout between system
+            // items, so their combined width is judged in context.
+            MenuBarPreviewStrip(controller: controller, displayMode: displayMode)
+
             MenuBarIconStylePicker(controller: controller)
 
             SettingsChrome.rowDivider
 
-            // Each option renders its own live sample, so the choice is
-            // judged directly without a separate preview.
-            ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
-                if index > 0 {
-                    SettingsChrome.rowDivider
+            // One decision, so no dividers between choices; the selected
+            // one is tinted instead.
+            VStack(spacing: 2) {
+                ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
+                    MenuBarDisplayOptionRow(
+                        controller: controller,
+                        mode: mode,
+                        isSelected: mode == displayMode,
+                        position: index + 1,
+                        count: MenuBarDisplayMode.allCases.count,
+                        onSelect: { displayModeRawValue = mode.rawValue }
+                    )
                 }
-                MenuBarDisplayOptionRow(
-                    controller: controller,
-                    mode: mode,
-                    isSelected: mode == displayMode,
-                    position: index + 1,
-                    count: MenuBarDisplayMode.allCases.count,
-                    onSelect: { displayModeRawValue = mode.rawValue }
-                )
             }
+            .padding(SettingsChrome.choiceInset)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
