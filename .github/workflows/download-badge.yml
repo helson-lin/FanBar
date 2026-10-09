@@ -34,16 +34,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FANBAR_REPOSITORY: ${{ github.repository }}
-        run: python3 scripts/update-download-badge.py --repo "$FANBAR_REPOSITORY"
+        run: python3 scripts/update-download-badge.py --repo "$FANBAR_REPOSITORY" --output "$RUNNER_TEMP/dmg-downloads.json"
 
-      - name: Commit updated badge if changed
+      # main is protected, so the badge lives on its own unprotected `badges` branch.
+      - name: Publish badge to the badges branch if changed
         run: |
-          git add docs/badges/dmg-downloads.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          worktree="$RUNNER_TEMP/badges"
+          if git ls-remote --exit-code --heads origin badges >/dev/null; then
+            git fetch --depth=1 origin badges
+            git worktree add --detach "$worktree" FETCH_HEAD
+          else
+            git worktree add --detach "$worktree"
+            git -C "$worktree" checkout --orphan badges
+            git -C "$worktree" rm -rf --quiet .
+          fi
+          cp "$RUNNER_TEMP/dmg-downloads.json" "$worktree/dmg-downloads.json"
+          cd "$worktree"
+          git add dmg-downloads.json
           if git diff --cached --quiet; then
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs: refresh DMG download badge [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git commit -m "docs: refresh DMG download badge"
+          git push origin HEAD:refs/heads/badges

@@ -24,7 +24,7 @@
     <img src="https://img.shields.io/github/downloads/helson-lin/FanBar/total?color=blue" alt="downloads">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases">
-    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fmain%2Fdocs%2Fbadges%2Fdmg-downloads.json" alt="DMG 下載次數" title="所有版本 DMG 的累計下載次數，包含更新下載，每日更新。">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fbadges%2Fdmg-downloads.json" alt="DMG 下載次數" title="所有版本 DMG 的累計下載次數，包含更新下載，每日更新。">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/stargazers">
     <img src="https://img.shields.io/github/stars/helson-lin/FanBar?color=yellow" alt="stars">
