@@ -17,10 +17,9 @@ final class LegacyStatusItemController: NSObject {
     private var globalMouseMonitor: Any?
     private let iconAnimator = MenuBarIconAnimator()
     /// NSStatusBarButton top-aligns a multi-line title and clips it, so the
-    /// stacked readout is a separate label centered beside the icon.
-    private lazy var stackedLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "")
-        label.maximumNumberOfLines = 2
+    /// stacked readout is a separate view centered beside the icon.
+    private lazy var stackedLabel: StackedReadoutView = {
+        let label = StackedReadoutView()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.isHidden = true
         return label
@@ -228,7 +227,7 @@ final class LegacyStatusItemController: NSObject {
         let isStacked = displayMode == .temperatureOverFanSpeed
         if isStacked, let text {
             installStackedLabelIfNeeded(in: button)
-            stackedLabel.attributedStringValue = Self.stackedTitle(text)
+            stackedLabel.text = text
             // An invisible title as wide as the widest line keeps AppKit's own
             // icon + title layout, so the icon sits where it does in the other
             // text modes and the label only has to cover the title slot.
@@ -261,7 +260,9 @@ final class LegacyStatusItemController: NSObject {
         let leading = stackedLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor)
         NSLayoutConstraint.activate([
             leading,
-            stackedLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+            stackedLabel.topAnchor.constraint(equalTo: button.topAnchor),
+            stackedLabel.bottomAnchor.constraint(equalTo: button.bottomAnchor),
+            stackedLabel.widthAnchor.constraint(equalToConstant: ceil(Self.stackedPlaceholder.size().width))
         ])
         stackedLabelLeading = leading
     }
@@ -271,25 +272,10 @@ final class LegacyStatusItemController: NSObject {
         .foregroundColor: NSColor.clear
     ])
 
-    private static let stackedFont = NSFont.monospacedDigitSystemFont(
+    fileprivate static let stackedFont = NSFont.monospacedDigitSystemFont(
         ofSize: MenuBarDisplayMode.stackedFontSize,
         weight: .medium
     )
-
-    /// Two tight lines, left-aligned so the digits line up under each other.
-    private static func stackedTitle(_ text: String) -> NSAttributedString {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .left
-        paragraph.minimumLineHeight = stackedLineHeight
-        paragraph.maximumLineHeight = stackedLineHeight
-        return NSAttributedString(string: text, attributes: [
-            .font: stackedFont,
-            .paragraphStyle: paragraph,
-            .foregroundColor: NSColor.labelColor
-        ])
-    }
-
-    private static let stackedLineHeight: CGFloat = 10
 
     /// Width sized to the widest reading each mode can show (not the current
     /// one), so the popover anchor stays put without leaving wide side gaps.
@@ -344,6 +330,45 @@ extension LegacyStatusItemController: NSPopoverDelegate {
         // Also clean up when AppKit closes the transient popover itself.
         stopOutsideClickMonitoring()
         panelVisibility.isVisible = false
+    }
+}
+
+/// Draws the two-line menu bar readout.
+///
+/// AppKit snapshots the status button once per menu bar replicant and assigns
+/// each snapshot's appearance to the button first. An NSTextField answers that
+/// appearance change by invalidating its intrinsic size and display, which
+/// schedules the next snapshot, so the status item never stops redrawing. This
+/// view has no intrinsic size and only repaints when its text changes.
+private final class StackedReadoutView: NSView {
+    private static let lineHeight: CGFloat = 10
+
+    var text = "" {
+        didSet {
+            guard text != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard !lines.isEmpty else { return }
+        // Resolved at draw time, so it follows each replicant's appearance.
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: LegacyStatusItemController.stackedFont,
+            .foregroundColor: NSColor.labelColor
+        ]
+        let font = LegacyStatusItemController.stackedFont
+        var y = ((bounds.height - Self.lineHeight * CGFloat(lines.count)) / 2).rounded()
+        for line in lines {
+            // Center each glyph run within its fixed line box.
+            let baselineOffset = (Self.lineHeight - (font.ascender - font.descender)) / 2
+            NSAttributedString(string: String(line), attributes: attributes)
+                .draw(at: NSPoint(x: 0, y: y + baselineOffset))
+            y += Self.lineHeight
+        }
     }
 }
 
