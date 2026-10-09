@@ -44,7 +44,7 @@ struct FanBarWidgetView: View {
     let entry: FanBarWidgetEntry
 
     private var strings: WidgetStrings {
-        WidgetStrings(isEnglish: entry.snapshot.isEnglish)
+        WidgetStrings(language: entry.snapshot.language)
     }
 
     var body: some View {
@@ -360,14 +360,14 @@ private struct WidgetHiddenFanSummary: View {
 /// honoring FanBar's in-app language preference carried by the snapshot.
 @available(macOS 14.0, *)
 private struct WidgetStrings {
-    let isEnglish: Bool
+    let language: FanBarLanguage
 
     var locale: Locale {
         Locale(identifier: localizationName)
     }
 
     private var localizationName: String {
-        isEnglish ? "en" : "zh-Hans"
+        language.localizationIdentifier
     }
 
     private var bundle: Bundle {
@@ -395,6 +395,6 @@ private extension FanBarWidgetSnapshot {
         cpuCelsius: 48,
         mode: .automatic,
         isAvailable: true,
-        isEnglish: false
+        language: .chinese
     )
 }

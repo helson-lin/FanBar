@@ -41,3 +41,38 @@ struct MenuBarDisplayOptionRow: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
+
+/// The icon row of the Menu Bar card. A pop-up menu scales to any number of
+/// glyphs; each item shows its glyph beside the name, and the display rows
+/// below preview the chosen one at real size.
+struct MenuBarIconStylePicker: View {
+    @ObservedObject var controller: FanController
+    @AppStorage(MenuBarIconStyle.preferenceKey)
+    private var selectedRawValue = MenuBarIconStyle.defaultStyle.rawValue
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SettingsRowText(
+                title: fanBarText("图标", "Icon"),
+                detail: fanBarText(
+                    "由 FanBar 控制风扇时，图标中心变为实心。",
+                    "The hub turns solid while FanBar controls the fans."
+                )
+            )
+            Picker(fanBarText("菜单栏图标", "Menu bar icon"), selection: $selectedRawValue) {
+                ForEach(MenuBarIconStyle.allCases) { style in
+                    HStack {
+                        Image(nsImage: style.image(isManual: controller.isManualStatus))
+                            .renderingMode(.template)
+                        Text(style.title)
+                    }
+                    .tag(style.rawValue)
+                }
+            }
+            .labelsHidden()
+            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
+            .fixedSize()
+        }
+        .settingsRow()
+    }
+}

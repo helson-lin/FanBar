@@ -98,10 +98,19 @@ struct FanBarSettingsView: View {
     /// How FanBar looks: in the menu bar, as an app icon, and in motion.
     @ViewBuilder
     private var appearanceTab: some View {
+        // Icon and readout are one decision about the same status item, so
+        // they share a card instead of two sections.
         SettingsSection(
-            title: fanBarText("菜单栏显示", "Menu Bar display"),
-            footer: fanBarText("选择状态在菜单栏里的样子。", "Choose how FanBar looks in the menu bar.")
+            title: fanBarText("菜单栏", "Menu Bar"),
+            footer: fanBarText(
+                "选择 FanBar 在菜单栏里的图标和显示内容。",
+                "Choose FanBar's icon and what it shows in the menu bar."
+            )
         ) {
+            MenuBarIconStylePicker(controller: controller)
+
+            SettingsChrome.rowDivider
+
             // Each option renders its own live sample, so the choice is
             // judged directly without a separate preview.
             ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
@@ -119,7 +128,7 @@ struct FanBarSettingsView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(fanBarText("菜单栏显示", "Menu Bar display"))
+        .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
 
         SettingsSection(
             title: fanBarText("App 图标", "App Icon"),
@@ -446,9 +455,10 @@ struct ControlServiceBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(state.noticeTitle)
                     .font(.system(size: 13, weight: .semibold))
-                Text(fanBarText(
-                    "曲线已保存，服务可用后才会生效。\(state.noticeDetail)。",
-                    "Your curves are saved and apply once the service is available. \(state.noticeDetail)."
+                Text(fanBarFormat(
+                    "曲线已保存，服务可用后才会生效。%@。",
+                    "Your curves are saved and apply once the service is available. %@.",
+                    state.noticeDetail
                 ))
                 .font(.caption)
                 .foregroundColor(.secondary)

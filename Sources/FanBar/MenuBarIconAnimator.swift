@@ -3,14 +3,14 @@ import AppKit
 /// Keeps the status-item icon rotating while the physical fans are running.
 ///
 /// The controller refreshes fan readings every two seconds and calls
-/// `update(rpm:on:symbolName:)` with the average RPM; the animator spins at a
+/// `update(rpm:on:style:isManual:)` with the average RPM; the animator spins at a
 /// perceptual speed mapped from that reading and coasts to a stop once the
 /// fans halt. A failed mode switch can still flash the icon via
 /// `flashFailure()`.
 ///
 /// The status item is pure AppKit (macOS 11 target), so SF Symbol effects are
 /// unavailable; rotation is produced by pre-rendering quantized frames of the
-/// template symbol. The timer only runs while an animation is active.
+/// template glyph. The timer only runs while an animation is active.
 @MainActor
 final class MenuBarIconAnimator {
     private enum Phase {
@@ -27,7 +27,8 @@ final class MenuBarIconAnimator {
     private weak var button: NSButton?
     private var timer: Timer?
     private var phase: Phase = .idle
-    private var symbolName = "fan"
+    private var style = MenuBarIconStyle.defaultStyle
+    private var isManual = false
     private var angle = 0.0
     private var angularVelocity = 0.0
     private var targetVelocity = 0.0
@@ -54,10 +55,11 @@ final class MenuBarIconAnimator {
 
     /// Follows the live fan reading: spins while fans run, coasts to a stop
     /// when they halt. Called on every controller refresh.
-    func update(rpm: Double, on button: NSButton, symbolName: String) {
+    func update(rpm: Double, on button: NSButton, style: MenuBarIconStyle, isManual: Bool) {
         self.button = button
-        if self.symbolName != symbolName {
-            self.symbolName = symbolName
+        if self.style != style || self.isManual != isManual {
+            self.style = style
+            self.isManual = isManual
             frameCache.removeAll()
         }
 
@@ -184,8 +186,8 @@ final class MenuBarIconAnimator {
     /// Returns the un-rotated, full-opacity icon image — intended for the
     /// static status bar item when the animator is idle. Shares the same
     /// rendering path as the animated frames so the sizes are pixel-identical.
-    static func staticIcon(symbol: String) -> NSImage {
-        render(symbol: symbol, degrees: 0, alpha: 1)
+    static func staticIcon(style: MenuBarIconStyle, isManual: Bool) -> NSImage {
+        style.image(isManual: isManual)
     }
 
     // MARK: - Render
@@ -193,44 +195,10 @@ final class MenuBarIconAnimator {
     /// Returns a cached template frame for the quantized angle and alpha.
     private func frame(at angle: Double, alpha: CGFloat) -> NSImage {
         let quantized = (angle / frameQuantum).rounded() * frameQuantum
-        let key = "\(symbolName)-\(Int(quantized))-\(Int(alpha * 100))"
+        let key = "\(Int(quantized))-\(Int(alpha * 100))"
         if let cached = frameCache[key] { return cached }
-        let rendered = Self.render(symbol: symbolName, degrees: quantized, alpha: alpha)
+        let rendered = style.image(isManual: isManual, degrees: quantized, alpha: alpha)
         frameCache[key] = rendered
         return rendered
-    }
-
-    static func render(symbol: String, degrees: Double, alpha: CGFloat) -> NSImage {
-        let size = NSSize(width: 16, height: 16)
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-        let image = NSImage(size: size, flipped: false) { rect in
-            guard let base = NSImage(systemSymbolName: symbol, accessibilityDescription: "FanBar")?
-                .withSymbolConfiguration(config)
-            else { return false }
-            // SF Symbols include non-square typographic margins. Drawing into
-            // the whole square distorts the rotor; fit its native aspect ratio.
-            // Keep one point free for the rotated outline and its antialiasing.
-            let available = rect.insetBy(dx: 1, dy: 1)
-            let scale = min(available.width / base.size.width, available.height / base.size.height)
-            let drawnSize = NSSize(width: base.size.width * scale, height: base.size.height * scale)
-            let drawnRect = NSRect(
-                x: rect.midX - drawnSize.width / 2,
-                y: rect.midY - drawnSize.height / 2,
-                width: drawnSize.width,
-                height: drawnSize.height
-            )
-            NSGraphicsContext.saveGraphicsState()
-            defer { NSGraphicsContext.restoreGraphicsState() }
-            NSGraphicsContext.current?.imageInterpolation = .high
-            let transform = NSAffineTransform()
-            transform.translateX(by: rect.midX, yBy: rect.midY)
-            transform.rotate(byDegrees: degrees)
-            transform.translateX(by: -rect.midX, yBy: -rect.midY)
-            transform.concat()
-            base.draw(in: drawnRect, from: .zero, operation: .sourceOver, fraction: alpha)
-            return true
-        }
-        image.isTemplate = true
-        return image
     }
 }

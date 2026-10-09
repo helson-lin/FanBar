@@ -10,6 +10,8 @@
     <array>
         <string>en</string>
         <string>zh-Hans</string>
+        <string>zh-Hant</string>
+        <string>ja</string>
     </array>
     <key>CFBundleDisplayName</key>
     <string>FanBar</string>

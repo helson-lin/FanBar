@@ -211,8 +211,10 @@ final class FanController: ObservableObject {
     private let helperBundlePath: String
     private let curveUpdateDeadband: Float = 0.02
 
-    var statusIcon: String {
-        mode == .automatic ? "fan" : "fan.fill"
+    /// Drives the solid-hub menu bar glyph: any mode other than macOS's own
+    /// automatic control counts as FanBar being in charge.
+    var isManualStatus: Bool {
+        mode != .automatic
     }
 
     /// Where refresh ticks publish the widget snapshot. A test run must pass
@@ -1315,7 +1317,7 @@ final class FanController: ObservableObject {
             cpuCelsius: thermal.cpuCelsius,
             mode: widgetSnapshotMode(for: mode),
             isAvailable: true,
-            isEnglish: FanBarLanguage.current.isEnglish
+            language: FanBarLanguage.current
         )
         publishWidgetSnapshotIfNeeded(snapshot)
     }
@@ -1334,7 +1336,7 @@ final class FanController: ObservableObject {
             cpuCelsius: temperatureHistory.last?.cpuCelsius,
             mode: widgetSnapshotMode(for: mode),
             isAvailable: false,
-            isEnglish: FanBarLanguage.current.isEnglish
+            language: FanBarLanguage.current
         )
         publishWidgetSnapshotIfNeeded(snapshot)
     }
@@ -1388,7 +1390,7 @@ final class FanController: ObservableObject {
             let shouldReloadImmediately = previous == nil
                 || isAvailabilityTransition
                 || previous?.mode != snapshot.mode
-                || previous?.isEnglish != snapshot.isEnglish
+                || previous?.language != snapshot.language
             requestWidgetTimelineReloadIfNeeded(force: shouldReloadImmediately)
         }
     }
@@ -1406,7 +1408,7 @@ final class FanController: ObservableObject {
             && lhs.cpuCelsius?.rounded() == rhs.cpuCelsius?.rounded()
             && lhs.mode == rhs.mode
             && lhs.isAvailable == rhs.isAvailable
-            && lhs.isEnglish == rhs.isEnglish
+            && lhs.language == rhs.language
     }
 
     private func requestWidgetTimelineReloadIfNeeded(force: Bool = false) {

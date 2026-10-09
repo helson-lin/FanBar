@@ -6,11 +6,16 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
     case cpuTemperature
     case fanSpeed
     case temperatureAndFanSpeed
+    case temperatureOverFanSpeed
 
     static let preferenceKey = "fanbar.menuBarDisplayMode"
     static let defaultMode = MenuBarDisplayMode.iconOnly
 
     var id: String { rawValue }
+
+    /// Two lines must fit the 22pt menu bar, so the stacked mode uses the
+    /// compact size system extras use for two-row readouts.
+    static let stackedFontSize: CGFloat = 9
 
     var title: String {
         switch self {
@@ -18,6 +23,7 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
         case .cpuTemperature: fanBarText("CPU 温度", "CPU temperature")
         case .fanSpeed: fanBarText("风扇转速", "Fan speed")
         case .temperatureAndFanSpeed: fanBarText("温度与转速", "Temperature + fan speed")
+        case .temperatureOverFanSpeed: fanBarText("温度与转速（上下排列）", "Temperature over fan speed")
         }
     }
 
@@ -27,6 +33,7 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
         case .cpuTemperature: fanBarText("显示当前 CPU 温度，适合快速观察负载变化。", "Show the current CPU temperature for a quick load check.")
         case .fanSpeed: fanBarText("显示全部风扇的平均 RPM，并使用千位分隔。", "Show the average RPM across all fans with grouping separators.")
         case .temperatureAndFanSpeed: fanBarText("同时显示 CPU 温度和平均风扇转速。", "Show CPU temperature and average fan speed together.")
+        case .temperatureOverFanSpeed: fanBarText("温度在上、转速在下，占用更少的菜单栏宽度。", "Stack temperature above fan speed to take less menu bar width.")
         }
     }
 }
@@ -35,16 +42,28 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 struct MenuBarStatusLabel: View {
     @ObservedObject var controller: FanController
     let displayMode: MenuBarDisplayMode
+    @AppStorage(MenuBarIconStyle.preferenceKey)
+    private var iconStyleRawValue = MenuBarIconStyle.defaultStyle.rawValue
+
+    private var iconStyle: MenuBarIconStyle {
+        MenuBarIconStyle(rawValue: iconStyleRawValue) ?? .defaultStyle
+    }
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(nsImage: MenuBarIconAnimator.staticIcon(symbol: controller.statusIcon))
+            Image(nsImage: iconStyle.image(isManual: controller.isManualStatus))
                 .renderingMode(.template)
                 .foregroundColor(.primary)
 
-            if let statusText {
+            if displayMode == .temperatureOverFanSpeed {
+                VStack(alignment: .leading, spacing: -1) {
+                    Text(temperatureText)
+                    Text(fanSpeedText)
+                }
+                .font(.system(size: MenuBarDisplayMode.stackedFontSize, weight: .medium).monospacedDigit())
+            } else if let statusText {
                 Text(statusText)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
             }
         }
         .accessibilityLabel(accessibilityText)
@@ -58,7 +77,7 @@ struct MenuBarStatusLabel: View {
             temperatureText
         case .fanSpeed:
             fanSpeedText
-        case .temperatureAndFanSpeed:
+        case .temperatureAndFanSpeed, .temperatureOverFanSpeed:
             "\(temperatureText) · \(fanSpeedText)"
         }
     }
