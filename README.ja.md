@@ -24,7 +24,7 @@
     <img src="https://img.shields.io/github/downloads/helson-lin/FanBar/total?color=blue" alt="downloads">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/releases">
-    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fmain%2Fdocs%2Fbadges%2Fdmg-downloads.json" alt="DMG ダウンロード数" title="アップデートを含む、全リリースの DMG の累計ダウンロード数（毎日更新）。">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelson-lin%2FFanBar%2Fbadges%2Fdmg-downloads.json" alt="DMG ダウンロード数" title="アップデートを含む、全リリースの DMG の累計ダウンロード数（毎日更新）。">
   </a><!--
   --><a href="https://github.com/helson-lin/FanBar/stargazers">
     <img src="https://img.shields.io/github/stars/helson-lin/FanBar?color=yellow" alt="stars">
