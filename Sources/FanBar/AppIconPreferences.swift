@@ -59,11 +59,42 @@ enum AppIconPreferences {
     private static func apply(_ choice: AppIconChoice) {
         let customImage = choice == .classic ? nil : choice.image
         // `nil` restores the bundle icon for in-app surfaces (menu panel header, alerts).
-        NSApplication.shared.applicationIconImage = customImage
+        // Those draw at 64pt at most, and FanBar has no Dock tile, so a
+        // decoded 1024px icon would hold ~4 MB for nothing.
+        NSApplication.shared.applicationIconImage = customImage.map(inAppIcon(from:))
         // Finder, Launchpad and Spotlight read the icon from disk. Only touch a
         // real app bundle; `swift run` executables have nothing to decorate.
         let bundlePath = Bundle.main.bundlePath
         guard bundlePath.hasSuffix(".app") else { return }
         NSWorkspace.shared.setIcon(customImage, forFile: bundlePath, options: [])
+    }
+
+    /// Largest in-app use is the 64pt alert icon; 128pt @2x leaves headroom.
+    private static let inAppIconPointSize: CGFloat = 128
+
+    private static func inAppIcon(from image: NSImage) -> NSImage {
+        let pointSize = NSSize(width: inAppIconPointSize, height: inAppIconPointSize)
+        guard let representation = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(pointSize.width * 2),
+            pixelsHigh: Int(pointSize.height * 2),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return image }
+        representation.size = pointSize
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        guard let context = NSGraphicsContext(bitmapImageRep: representation) else { return image }
+        NSGraphicsContext.current = context
+        context.imageInterpolation = .high
+        image.draw(in: NSRect(origin: .zero, size: pointSize))
+        let scaled = NSImage(size: pointSize)
+        scaled.addRepresentation(representation)
+        return scaled
     }
 }
