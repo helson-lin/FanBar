@@ -1,0 +1,16 @@
+/* Widget gallery display name shown in the "Add Widget" picker. */
+"widget.displayName" = "FanBar";
+
+/* Widget gallery description shown under the display name in the "Add Widget" picker. */
+"widget.description" = "查看風扇轉速和 CPU 溫度。";
+
+"widget.title" = "風扇";
+"widget.updated" = "更新於";
+"widget.averageRPM" = "平均轉速";
+"widget.fan" = "風扇 %d";
+"widget.more" = "更多";
+"widget.moreFansAverage" = "另外 %d 個風扇，平均 %d RPM";
+"widget.unavailable" = "風扇資料無法使用";
+"widget.mode.automatic" = "自動";
+"widget.mode.smart" = "智慧";
+"widget.mode.manual" = "手動";

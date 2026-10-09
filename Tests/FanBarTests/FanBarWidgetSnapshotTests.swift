@@ -27,7 +27,7 @@ final class FanBarWidgetSnapshotTests: XCTestCase {
             cpuCelsius: 62.5,
             mode: .fixed,
             isAvailable: true,
-            isEnglish: false
+            language: .traditionalChinese
         )
 
         try snapshot.save(containerDirectory: container)
@@ -70,7 +70,7 @@ final class FanBarWidgetSnapshotTests: XCTestCase {
             cpuCelsius: nil,
             mode: .automatic,
             isAvailable: true,
-            isEnglish: true
+            language: .english
         )
 
         XCTAssertThrowsError(try snapshot.save(containerDirectory: container)) { error in
@@ -81,5 +81,13 @@ final class FanBarWidgetSnapshotTests: XCTestCase {
             // actionable from the log alone.
             XCTAssertTrue(reason.contains(container.lastPathComponent), reason)
         }
+    }
+
+    func testLegacySnapshotWithoutLanguageStillDecodes() throws {
+        let json = """
+        {"updatedAt":0,"fans":[],"mode":"automatic","isAvailable":true,"isEnglish":true}
+        """
+        let snapshot = try JSONDecoder().decode(FanBarWidgetSnapshot.self, from: Data(json.utf8))
+        XCTAssertEqual(snapshot.language, .english)
     }
 }

@@ -66,7 +66,9 @@ public struct FanBarWidgetSnapshot: Codable, Equatable, Sendable {
     public let cpuCelsius: Double?
     public let mode: Mode
     public let isAvailable: Bool
-    public let isEnglish: Bool
+    /// The resolved interface language (never `.system`), so the sandboxed
+    /// widget renders in the language FanBar itself is showing.
+    public let language: FanBarLanguage
 
     public init(
         updatedAt: Date = Date(),
@@ -74,14 +76,41 @@ public struct FanBarWidgetSnapshot: Codable, Equatable, Sendable {
         cpuCelsius: Double?,
         mode: Mode,
         isAvailable: Bool,
-        isEnglish: Bool
+        language: FanBarLanguage
     ) {
         self.updatedAt = updatedAt
         self.fans = fans
         self.cpuCelsius = cpuCelsius
         self.mode = mode
         self.isAvailable = isAvailable
-        self.isEnglish = isEnglish
+        self.language = language
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt, fans, cpuCelsius, mode, isAvailable, language
+    }
+
+    /// Snapshots written before Traditional Chinese existed carried only an
+    /// `isEnglish` flag; keep reading them so an updated widget does not drop
+    /// to its placeholder until the app republishes.
+    private enum LegacyCodingKeys: String, CodingKey {
+        case isEnglish
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        fans = try container.decode([Fan].self, forKey: .fans)
+        cpuCelsius = try container.decodeIfPresent(Double.self, forKey: .cpuCelsius)
+        mode = try container.decode(Mode.self, forKey: .mode)
+        isAvailable = try container.decode(Bool.self, forKey: .isAvailable)
+        if let language = try container.decodeIfPresent(FanBarLanguage.self, forKey: .language) {
+            self.language = language
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+            let isEnglish = try legacy.decode(Bool.self, forKey: .isEnglish)
+            language = isEnglish ? .english : .chinese
+        }
     }
 
     /// Resolves the shared snapshot file location inside the App Group container.

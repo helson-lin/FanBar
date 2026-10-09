@@ -16,6 +16,16 @@ final class LegacyStatusItemController: NSObject {
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private let iconAnimator = MenuBarIconAnimator()
+    /// NSStatusBarButton top-aligns a multi-line title and clips it, so the
+    /// stacked readout is a separate label centered beside the icon.
+    private lazy var stackedLabel: NSTextField = {
+        let label = NSTextField(labelWithString: "")
+        label.maximumNumberOfLines = 2
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.isHidden = true
+        return label
+    }()
+    private var stackedLabelLeading: NSLayoutConstraint?
     /// NSPopover keeps its content view alive after closing, so continuous
     /// animations inside it must be told when nobody can see them.
     private let panelVisibility = PanelVisibility()
@@ -179,22 +189,19 @@ final class LegacyStatusItemController: NSObject {
         guard let button = statusItem?.button, let controller else { return }
         let modeRawValue = UserDefaults.standard.string(forKey: MenuBarDisplayMode.preferenceKey)
         let displayMode = MenuBarDisplayMode(rawValue: modeRawValue ?? "") ?? .defaultMode
+        let iconStyle = MenuBarIconStyle.current
         let text: String?
         switch displayMode {
         case .iconOnly:
             text = nil
         case .cpuTemperature:
-            if let temperature = controller.temperatureHistory.last?.cpuCelsius {
-                text = "\(Int(temperature.rounded()))°"
-            } else {
-                text = "—°"
-            }
+            text = temperatureText(for: controller)
         case .fanSpeed:
             text = averageFanSpeed(for: controller)
         case .temperatureAndFanSpeed:
-            let temperature = controller.temperatureHistory.last?.cpuCelsius
-                .map { "\(Int($0.rounded()))°" } ?? "—°"
-            text = "\(temperature) · \(averageFanSpeed(for: controller))"
+            text = "\(temperatureText(for: controller)) · \(averageFanSpeed(for: controller))"
+        case .temperatureOverFanSpeed:
+            text = "\(temperatureText(for: controller))\n\(averageFanSpeed(for: controller))"
         }
 
         // Drive the icon with the live fan reading: it spins while the fans
@@ -205,16 +212,38 @@ final class LegacyStatusItemController: NSObject {
             iconAnimator.update(
                 rpm: averageFanRPM(for: controller),
                 on: button,
-                symbolName: controller.statusIcon
+                style: iconStyle,
+                isManual: controller.isManualStatus
             )
         } else {
             iconAnimator.stop()
         }
         if !iconAnimator.isAnimating {
-            button.image = MenuBarIconAnimator.staticIcon(symbol: controller.statusIcon)
+            button.image = MenuBarIconAnimator.staticIcon(style: iconStyle, isManual: controller.isManualStatus)
         }
-        button.title = text ?? ""
-        button.imagePosition = text == nil ? .imageOnly : .imageLeading
+        // Digits should not change their advance width as the reading changes.
+        button.font = text == nil
+            ? NSFont.systemFont(ofSize: 12, weight: .medium)
+            : NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        let isStacked = displayMode == .temperatureOverFanSpeed
+        if isStacked, let text {
+            installStackedLabelIfNeeded(in: button)
+            stackedLabel.attributedStringValue = Self.stackedTitle(text)
+            // An invisible title as wide as the widest line keeps AppKit's own
+            // icon + title layout, so the icon sits where it does in the other
+            // text modes and the label only has to cover the title slot.
+            button.attributedTitle = Self.stackedPlaceholder
+            button.imagePosition = .imageLeading
+        } else {
+            button.title = text ?? ""
+            button.imagePosition = text == nil ? .imageOnly : .imageLeading
+        }
+        stackedLabel.isHidden = !isStacked
+        if isStacked, let cell = button.cell {
+            button.layoutSubtreeIfNeeded()
+            stackedLabelLeading?.constant = cell.titleRect(forBounds: button.bounds).minX
+        }
+        button.setAccessibilityTitle(isStacked ? text?.replacingOccurrences(of: "\n", with: ", ") : nil)
         button.imageScaling = .scaleProportionallyDown
         button.imageHugsTitle = true
         // Keep a stable width once text is enabled. A variable-length status
@@ -224,12 +253,43 @@ final class LegacyStatusItemController: NSObject {
         if statusItem?.length != targetLength {
             statusItem?.length = targetLength
         }
-
-        // Digits should not change their advance width as the reading changes.
-        button.font = text == nil
-            ? NSFont.systemFont(ofSize: 12, weight: .medium)
-            : NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
     }
+
+    private func installStackedLabelIfNeeded(in button: NSStatusBarButton) {
+        guard stackedLabel.superview !== button else { return }
+        button.addSubview(stackedLabel)
+        let leading = stackedLabel.leadingAnchor.constraint(equalTo: button.leadingAnchor)
+        NSLayoutConstraint.activate([
+            leading,
+            stackedLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor)
+        ])
+        stackedLabelLeading = leading
+    }
+
+    private static let stackedPlaceholder = NSAttributedString(string: "8,888", attributes: [
+        .font: stackedFont,
+        .foregroundColor: NSColor.clear
+    ])
+
+    private static let stackedFont = NSFont.monospacedDigitSystemFont(
+        ofSize: MenuBarDisplayMode.stackedFontSize,
+        weight: .medium
+    )
+
+    /// Two tight lines, left-aligned so the digits line up under each other.
+    private static func stackedTitle(_ text: String) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .left
+        paragraph.minimumLineHeight = stackedLineHeight
+        paragraph.maximumLineHeight = stackedLineHeight
+        return NSAttributedString(string: text, attributes: [
+            .font: stackedFont,
+            .paragraphStyle: paragraph,
+            .foregroundColor: NSColor.labelColor
+        ])
+    }
+
+    private static let stackedLineHeight: CGFloat = 10
 
     /// Width sized to the widest reading each mode can show (not the current
     /// one), so the popover anchor stays put without leaving wide side gaps.
@@ -244,11 +304,20 @@ final class LegacyStatusItemController: NSObject {
             widestText = "8,888"
         case .temperatureAndFanSpeed:
             widestText = "100° · 8,888"
+        case .temperatureOverFanSpeed:
+            // Only the wider of the two lines counts.
+            let textWidth = Self.stackedPlaceholder.size().width
+            return ceil(iconWidth + 3 + textWidth + 3)
         }
         let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         let textWidth = (widestText as NSString).size(withAttributes: [.font: font]).width
         // icon + image/title gap + text + button's horizontal inset on both sides.
         return ceil(iconWidth + 3 + textWidth + 3)
+    }
+
+    private func temperatureText(for controller: FanController) -> String {
+        controller.temperatureHistory.last?.cpuCelsius
+            .map { "\(Int($0.rounded()))°" } ?? "—°"
     }
 
     private func averageFanRPM(for controller: FanController) -> Double {

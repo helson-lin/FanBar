@@ -1,0 +1,16 @@
+/* Widget gallery display name shown in the "Add Widget" picker. */
+"widget.displayName" = "FanBar";
+
+/* Widget gallery description shown under the display name in the "Add Widget" picker. */
+"widget.description" = "ファンの回転数と CPU 温度を表示します。";
+
+"widget.title" = "ファン";
+"widget.updated" = "最終更新";
+"widget.averageRPM" = "平均回転数";
+"widget.fan" = "ファン %d";
+"widget.more" = "その他";
+"widget.moreFansAverage" = "ほか %d 台のファン、平均 %d RPM";
+"widget.unavailable" = "ファンのデータを取得できません";
+"widget.mode.automatic" = "自動";
+"widget.mode.smart" = "スマート";
+"widget.mode.manual" = "手動";

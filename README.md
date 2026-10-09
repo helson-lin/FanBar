@@ -8,7 +8,9 @@
 
 <p align="center">
   <a href="README.md"><strong>English</strong></a> ·
-  <a href="README.zh-CN.md">简体中文</a>
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="README.zh-TW.md">繁體中文</a> ·
+  <a href="README.ja.md">日本語</a>
 </p>
 
 <p align="center">
@@ -46,7 +48,7 @@ FanBar supports macOS 11 Big Sur and later on Apple Silicon Macs and Intel Macs 
 
 ## 📸 Screenshots
 
-English interface. Switch to Simplified Chinese from **Settings → Language** without restarting.
+English interface. Switch to Simplified Chinese, Traditional Chinese, or Japanese from **Settings → General → Interface language** without restarting.
 
 ![FanBar English menu-bar popover](docs/screenshots/fanbar-menu-light-en.jpg)
 
@@ -54,7 +56,7 @@ Settings opens on the Cooling tab. Each panel preset has its own editable temper
 
 ![FanBar English cooling settings](docs/screenshots/fanbar-settings-cooling-light-en.jpg)
 
-Menu Bar controls what the status item shows, previewed live in a simulated menu bar.
+Appearance chooses the menu bar icon and what the status item shows, previewed live in a simulated menu bar.
 
 ![FanBar English menu bar display settings](docs/screenshots/fanbar-settings-menubar-light-en.jpg)
 
@@ -64,7 +66,8 @@ General covers login item, control-service status, high-temperature notification
 
 ## ✨ Highlights
 
-- **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both.
+- **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both — side by side or stacked to save menu bar width.
+- **Six menu bar icons** — Choose Swirl, Ringed, Bold, Propeller, Guard, or Outline; all are optically matched to system icons, and the hub turns solid while FanBar controls the fans.
 - **Desktop widget** — On macOS 14 or later, add FanBar to the desktop to see average RPM, per-fan speeds, CPU temperature, and control mode. WidgetKit refreshes are system-scheduled and are not second-by-second.
 - **Live visualization** — Monitor CPU/GPU temperatures plus SSD and battery temperatures when the Mac exposes them, with a rolling ten-minute chart and airflow motion that follows actual RPM.
 - **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose the Silent, Balanced, Performance, or Extreme panel preset.
@@ -73,7 +76,7 @@ General covers login item, control-service status, high-temperature notification
 - **High-temperature notifications** — Opt in to macOS notifications when CPU or GPU reaches 90°C; each sustained high-temperature episode alerts once and re-arms after cooling down.
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
-- **English and Simplified Chinese** — Choose System, English, or 简体中文 in FanBar Settings.
+- **Four languages** — English, 简体中文, 繁體中文, and 日本語, or follow the system language.
 
 ## ⬇️ Download
 
@@ -136,13 +139,15 @@ On macOS 14 or later, open the Notification Center widget editor and add **FanBa
 
 ### Change the interface language
 
-Open **Settings → Language** and choose:
+Open **Settings → General → Interface language** and choose:
 
-- **System** — follow the Mac's current language (Chinese or English)
+- **System** — follow the Mac's current language (Simplified or Traditional Chinese, Japanese, otherwise English)
 - **English**
 - **简体中文**
+- **繁體中文**
+- **日本語**
 
-The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, and helper errors.
+The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, helper errors, and the desktop widget.
 
 ## 🐛 Report an issue
 
