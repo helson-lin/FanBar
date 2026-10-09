@@ -28,6 +28,10 @@ final class LegacyStatusItemController: NSObject {
     /// NSPopover keeps its content view alive after closing, so continuous
     /// animations inside it must be told when nobody can see them.
     private let panelVisibility = PanelVisibility()
+    /// The panel's SwiftUI tree and its rendered layers cost several MB, so
+    /// it is built on first open and released a while after closing.
+    private var panelReleaseWorkItem: DispatchWorkItem?
+    private static let panelReleaseDelay: TimeInterval = 60
 
     func install(controller: FanController) {
         guard statusItem == nil else { return }
@@ -44,16 +48,6 @@ final class LegacyStatusItemController: NSObject {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        let hostingController = NSHostingController(
-            rootView: PanelRoot(controller: controller, visibility: panelVisibility)
-        )
-        popover.contentViewController = hostingController
-        hostingController.view.layoutSubtreeIfNeeded()
-        let fittingSize = hostingController.view.fittingSize
-        popover.contentSize = NSSize(
-            width: max(384, fittingSize.width),
-            height: max(560, fittingSize.height)
-        )
 
         statusItem = item
         self.popover = popover
@@ -104,6 +98,9 @@ final class LegacyStatusItemController: NSObject {
     /// action is performed in FanBar itself instead of a disconnected tutorial.
     func showPopover() {
         guard let button = statusItem?.button, let popover, !popover.isShown else { return }
+        panelReleaseWorkItem?.cancel()
+        panelReleaseWorkItem = nil
+        installPanelContentIfNeeded(in: popover)
         // A status-item action does not reliably activate an LSUIElement app.
         // Activate before presentation so dynamic AppKit/SwiftUI colors do not
         // change the first time the user clicks inside the popover.
@@ -117,6 +114,34 @@ final class LegacyStatusItemController: NSObject {
         popover.contentViewController?.view.window?.makeKey()
         clearInitialFocus(in: popover)
         startOutsideClickMonitoring()
+    }
+
+    private func installPanelContentIfNeeded(in popover: NSPopover) {
+        guard popover.contentViewController == nil, let controller else { return }
+        let hostingController = NSHostingController(
+            rootView: PanelRoot(controller: controller, visibility: panelVisibility)
+        )
+        popover.contentViewController = hostingController
+        hostingController.view.layoutSubtreeIfNeeded()
+        let fittingSize = hostingController.view.fittingSize
+        popover.contentSize = NSSize(
+            width: max(384, fittingSize.width),
+            height: max(560, fittingSize.height)
+        )
+    }
+
+    /// Keeps a quick reopen instant while letting an idle menu bar app shed
+    /// the panel's view graph.
+    private func schedulePanelRelease() {
+        panelReleaseWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, let popover = self.popover, !popover.isShown else { return }
+            popover.contentViewController = nil
+            self.panelReleaseWorkItem = nil
+            MemoryRelief.returnFreedPages()
+        }
+        panelReleaseWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.panelReleaseDelay, execute: workItem)
     }
 
     /// AppKit hands initial focus to the first control, which draws a focus
@@ -330,6 +355,7 @@ extension LegacyStatusItemController: NSPopoverDelegate {
         // Also clean up when AppKit closes the transient popover itself.
         stopOutsideClickMonitoring()
         panelVisibility.isVisible = false
+        schedulePanelRelease()
     }
 }
 

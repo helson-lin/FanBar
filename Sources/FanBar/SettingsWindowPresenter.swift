@@ -76,6 +76,7 @@ final class SettingsWindowPresenter: NSObject {
             forceOverlayScrollers(in: hostingController.view)
             window.isReleasedWhenClosed = false
             window.isRestorable = false
+            window.delegate = self
             windowController = NSWindowController(window: window)
             shouldCenter = true
         }
@@ -250,6 +251,27 @@ final class SettingsWindowPresenter: NSObject {
     private func activeScreen() -> NSScreen? {
         let pointer = NSEvent.mouseLocation
         return NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
+    }
+}
+
+extension SettingsWindowPresenter: NSWindowDelegate {
+    /// Settings are opened rarely, so a closed window gives back its SwiftUI
+    /// tree instead of holding it for the life of the menu bar app. The
+    /// selected tab is persisted in UserDefaults and survives the rebuild.
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === windowController?.window else { return }
+        if let defaultsObservation {
+            NotificationCenter.default.removeObserver(defaultsObservation)
+            self.defaultsObservation = nil
+        }
+        // Defer past AppKit's own close handling, which still touches the window.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.windowController?.window?.isVisible != true else { return }
+            self.windowController?.window?.contentViewController = nil
+            self.windowController = nil
+            self.settingsHostingController = nil
+            MemoryRelief.returnFreedPages()
+        }
     }
 }
 
