@@ -63,16 +63,23 @@ struct MenuBarDisplayOptionRow: View {
                     .frame(width: 18)
                     .accessibilityHidden(true)
 
-                SettingsRowText(title: mode.title, detail: mode.detail)
-                    .foregroundColor(.primary)
+                // Weight joins the filled radio, so selection never rests on tint alone.
+                SettingsRowText(
+                    title: mode.title,
+                    detail: mode.detail,
+                    titleWeight: isSelected ? .medium : .regular
+                )
+                .foregroundColor(.primary)
 
                 MenuBarStatusLabel(controller: controller, displayMode: mode)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(Color.primary.opacity(0.06)))
             }
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding + 2)
+            // With the group's inset, the radio lines up with other rows' text.
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding - SettingsChrome.choiceInset)
             .padding(.vertical, SettingsChrome.rowVerticalPadding)
+            .background(SettingsChrome.choiceHighlight(isSelected: isSelected))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

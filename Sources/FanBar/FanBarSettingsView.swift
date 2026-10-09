@@ -115,19 +115,21 @@ struct FanBarSettingsView: View {
 
             SettingsChrome.rowDivider
 
-            ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
-                if index > 0 {
-                    SettingsChrome.rowDivider
+            // One decision, so no dividers between choices; the selected
+            // one is tinted instead.
+            VStack(spacing: 2) {
+                ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
+                    MenuBarDisplayOptionRow(
+                        controller: controller,
+                        mode: mode,
+                        isSelected: mode == displayMode,
+                        position: index + 1,
+                        count: MenuBarDisplayMode.allCases.count,
+                        onSelect: { displayModeRawValue = mode.rawValue }
+                    )
                 }
-                MenuBarDisplayOptionRow(
-                    controller: controller,
-                    mode: mode,
-                    isSelected: mode == displayMode,
-                    position: index + 1,
-                    count: MenuBarDisplayMode.allCases.count,
-                    onSelect: { displayModeRawValue = mode.rawValue }
-                )
             }
+            .padding(SettingsChrome.choiceInset)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
