@@ -1,0 +1,30 @@
+---
+import { Check } from "lucide-astro";
+import SectionLabel from "./SectionLabel.astro";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+  <div class="grid gap-14 md:grid-cols-[1.2fr_0.8fr]">
+    <div class="reveal">
+      <SectionLabel>{dict.trust.badge}</SectionLabel>
+      <h2 class="mt-4 font-display text-[1.875rem] leading-[1.25]">{dict.trust.heading}</h2>
+      <p class="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">{dict.trust.body}</p>
+    </div>
+
+    <ul class="reveal reveal-stagger flex flex-col justify-center gap-5">
+      {dict.trust.points.map((point) => (
+        <li class="flex items-start gap-3">
+          <Check class="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent" stroke-width={2} aria-hidden="true" />
+          <span class="text-sm leading-relaxed">{point}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>

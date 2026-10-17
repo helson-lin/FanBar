@@ -1,0 +1,20 @@
+# Dependencies and package-manager caches
+/node_modules/
+/.pnpm-store/
+
+# Framework and build output
+/dist/
+/.astro/
+/.next/
+/.vercel/
+*.tsbuildinfo
+
+# Local environments and logs
+/.venv/
+/.env
+/.env.*
+!/.env.example
+*.log
+
+# Operating-system files
+.DS_Store

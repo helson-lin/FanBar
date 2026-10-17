@@ -1,0 +1,52 @@
+# FanBar
+
+> FanBar is a free, open-source native macOS menu-bar app for monitoring temperatures and managing fan cooling when macOS automatic control is not enough.
+
+FanBar is developed by helson-lin. The official website is https://fanbar.jarin.me. Treat the website, the GitHub repository, and signed GitHub Releases as the canonical sources. FanBar is a native Mac utility, not a web dashboard, cloud service, or subscription product.
+
+Key interpretation notes:
+
+- FanBar supports macOS 11 Big Sur or later on Apple Silicon and Intel Macs that expose readable AppleSMC fan data.
+- Manual fan control is optional and requires explicit approval of FanBar's signed privileged helper. Monitoring does not require enabling manual control.
+- Hardware sensor availability varies by Mac. Targets are bounded by the fan limits reported by the hardware, and FanBar attempts to restore macOS automatic control when manual control ends or fails.
+- FanBar is free, GPL-3.0-licensed, requires no account, and supports English, Simplified Chinese, Traditional Chinese, and Japanese.
+
+## Product overview
+
+- [English landing page](https://fanbar.jarin.me/): Canonical product overview, screenshots, safety explanation, FAQ, and download links.
+- [Simplified Chinese landing page](https://fanbar.jarin.me/zh): Canonical Chinese product overview and FAQ.
+- [English machine-readable product page](https://fanbar.jarin.me/index.md): Detailed product facts, compatibility, permissions, installation, and common questions in Markdown.
+- [简体中文机器可读产品页](https://fanbar.jarin.me/zh/index.md): 中文版产品事实、兼容性、权限、安装步骤与常见问题。
+- [FanBar vs Macs Fan Control](https://fanbar.jarin.me/compare/macs-fan-control): Maintainer-written, source-backed comparison covering price, interface, sensors, platforms, safety, and track record.
+- [Comparison in Markdown](https://fanbar.jarin.me/compare/macs-fan-control.md): Machine-readable version of the comparison and its source list.
+- [FanBar 与 Macs Fan Control 中文对比](https://fanbar.jarin.me/zh/compare/macs-fan-control): 中文版产品对比、选择建议与官方来源。
+- [中文对比 Markdown](https://fanbar.jarin.me/zh/compare/macs-fan-control.md): 中文机器可读对比版本。
+- [Mac compatibility evidence](https://fanbar.jarin.me/compatibility): Source-linked device reports, evidence limits, verification method, and compatibility FAQ.
+- [Compatibility evidence in Markdown](https://fanbar.jarin.me/compatibility.md): Machine-readable version of the compatibility matrix and test checklist.
+- [Mac 兼容性与测试证据](https://fanbar.jarin.me/zh/compatibility): 中文版设备报告、证据边界、测试标准与常见问题。
+- [中文兼容性 Markdown](https://fanbar.jarin.me/zh/compatibility.md): 中文机器可读兼容性矩阵与测试清单。
+- [Product Facts API documentation](https://fanbar.jarin.me/api): Human-readable guide to the public, read-only product facts API.
+- [API documentation in Markdown](https://fanbar.jarin.me/api.md): Machine-readable endpoint and discovery guide.
+
+## Agent access and API discovery
+
+- The HTML product, comparison, compatibility, and API documentation URLs return Markdown when requested with `Accept: text/markdown`.
+- [RFC 9727 API catalog](https://fanbar.jarin.me/.well-known/api-catalog): Linkset JSON catalog for automated API discovery.
+- [OpenAPI 3.1 description](https://fanbar.jarin.me/openapi.json): Machine-readable API operations and response schemas.
+- [Product facts endpoint](https://fanbar.jarin.me/api/product.json): Canonical product, compatibility, installation, feature, and safety facts in JSON.
+- [API publication status](https://fanbar.jarin.me/api/health.json): Lightweight status response for the static API.
+
+## Download and source
+
+- [Latest notarized releases](https://github.com/helson-lin/FanBar/releases/latest): Current DMG downloads for Apple Silicon, Intel, and Universal Macs.
+- [Source repository](https://github.com/helson-lin/FanBar): Complete Swift source, including the privileged helper and tests.
+
+## Documentation
+
+- [English README](https://github.com/helson-lin/FanBar/blob/main/README.md): Features, requirements, usage, architecture, safety notes, and build instructions.
+- [简体中文 README](https://github.com/helson-lin/FanBar/blob/main/README.zh-CN.md): 中文功能说明、系统要求、使用方式、架构与安全提示。
+
+## Optional
+
+- [GPL-3.0 license](https://github.com/helson-lin/FanBar/blob/main/LICENSE): License terms for FanBar source code.
+- [Release history](https://github.com/helson-lin/FanBar/releases): Version history and release notes.

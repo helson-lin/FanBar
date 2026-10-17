@@ -1,0 +1,15 @@
+<svg width="182" height="43" viewBox="0 0 182 43" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+    <rect stroke="#e0e0e0" stroke-width="1" fill="#ffffff" x="0.5" y="0.5" width="181" height="42" rx="10" />
+    <text font-family="Helvetica-Bold, Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#4b5777">
+      <tspan x="44" y="27">Featured on Fazier</tspan>
+    </text>
+    <g transform="translate(1 4)">
+      <path d="M24 31C31.1797 31 37 25.1797 37 18C37 10.8203 31.1797 5 24 5C16.8203 5 11 10.8203 11 18C11 25.1797 16.8203 31 24 31Z" fill="#4b5777" />
+      <path d="M30.7565 10.771H21.4937V13.8542H30.7565V10.771Z" fill="#ffffff" />
+      <path d="M27.1909 17.0638H21.4937V20.1473H27.1909V17.0638Z" fill="#ffffff" />
+      <path d="M21.4936 13.8859H17.9903V17.0721H21.4936V13.8859Z" fill="#ffffff" />
+      <path d="M21.4936 20.1552H17.9903V26.0374H21.4936V20.1552Z" fill="#ffffff" />
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,29 @@
+---
+import SectionLabel from "./SectionLabel.astro";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section id="faq" class="mx-auto max-w-5xl px-6 pb-28 sm:px-8">
+  <div class="reveal">
+    <SectionLabel>{dict.faq.badge}</SectionLabel>
+    <h2 class="mt-4 max-w-lg font-display text-3xl leading-[1.2] tracking-[-0.01em] md:text-4xl">
+      {dict.faq.heading}
+    </h2>
+    <p class="mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">{dict.faq.body}</p>
+  </div>
+
+  <div class="reveal reveal-stagger mt-12 grid grid-cols-1 gap-x-10 gap-y-9 md:grid-cols-2">
+    {dict.faq.items.map((item) => (
+      <article class="border-t border-border pt-5">
+        <h3 class="text-base font-semibold tracking-[-0.01em]">{item.question}</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
+      </article>
+    ))}
+  </div>
+</section>

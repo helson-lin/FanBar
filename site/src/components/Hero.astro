@@ -1,0 +1,90 @@
+---
+import { ArrowRight } from "lucide-astro";
+import SectionLabel from "./SectionLabel.astro";
+import { github, releases, heroScreenshot } from "@/lib/links";
+import type { Dictionary, Locale } from "@/lib/i18n";
+import { compatibilityPath } from "@/lib/routes";
+
+interface Props {
+  locale: Locale;
+  dict: Dictionary;
+}
+
+const { locale, dict } = Astro.props;
+---
+
+<section class="mx-auto max-w-5xl px-6 pt-24 pb-20 sm:px-8 md:pt-28 md:pb-24">
+  <div class="grid items-start gap-10 md:grid-cols-[1.1fr_0.9fr] md:gap-14">
+    <div class="max-w-xl">
+      <SectionLabel>{dict.hero.badge}</SectionLabel>
+
+      <h1 class="mt-6 font-display text-[2.75rem] leading-[1.1] tracking-[-0.02em] md:text-[3.25rem]">
+        {dict.hero.titleLead}{" "}
+        <span class="gradient-text">{dict.hero.titleHighlight}</span>
+      </h1>
+
+      <p class="mt-5 text-lg leading-relaxed text-muted-foreground">
+        {dict.hero.subtitle}
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href={releases}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="group inline-flex h-12 items-center gap-2 rounded-[10px] bg-accent px-6 text-[15px] font-medium text-accent-foreground transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-[#0043d6] active:scale-[0.98]"
+        >
+          {dict.hero.primaryCta}
+          <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </a>
+        <a
+          href={github}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex h-12 items-center rounded-[10px] border border-border px-6 text-[15px] font-medium transition-[color,background-color,border-color,scale] duration-150 ease-out hover:border-foreground active:scale-[0.98]"
+        >
+          {dict.hero.secondaryCta}
+        </a>
+      </div>
+
+      <p class="mt-5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
+        {dict.hero.caption}
+      </p>
+
+      <a
+        href={compatibilityPath(locale)}
+        class="group mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+      >
+        {dict.hero.compatibilityCta}
+        <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </a>
+    </div>
+
+    <div class="mx-auto w-full max-w-[300px] md:max-w-none">
+      <picture>
+        <source
+          type="image/avif"
+          srcset={heroScreenshot.avifSrcSet}
+          sizes={heroScreenshot.sizes}
+        />
+        <source
+          type="image/webp"
+          srcset={heroScreenshot.webpSrcSet}
+          sizes={heroScreenshot.sizes}
+        />
+        <img
+          src={heroScreenshot.src}
+          srcset={heroScreenshot.webpSrcSet}
+          sizes={heroScreenshot.sizes}
+          alt={dict.screenshots.items.popover.alt}
+          width={heroScreenshot.width}
+          height={heroScreenshot.height}
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+          class="block w-full drop-shadow-[0_20px_40px_rgba(15,23,42,0.2)]"
+        />
+      </picture>
+    </div>
+  </div>
+</section>

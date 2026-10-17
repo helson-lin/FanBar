@@ -1,0 +1,33 @@
+---
+import Nav from "./Nav.astro";
+import Hero from "./Hero.astro";
+import Stats from "./Stats.astro";
+import Highlights from "./Highlights.astro";
+import Trust from "./Trust.astro";
+import Screenshots from "./Screenshots.astro";
+import HowItWorks from "./HowItWorks.astro";
+import Faq from "./Faq.astro";
+import FinalCta from "./FinalCta.astro";
+import Footer from "./Footer.astro";
+import type { Dictionary, Locale } from "@/lib/i18n";
+
+interface Props {
+  locale: Locale;
+  dict: Dictionary;
+}
+
+const { locale, dict } = Astro.props;
+---
+
+<Nav locale={locale} dict={dict} />
+<main>
+  <Hero locale={locale} dict={dict} />
+  <Stats locale={locale} dict={dict} />
+  <Highlights dict={dict} />
+  <Trust dict={dict} />
+  <Screenshots dict={dict} />
+  <HowItWorks dict={dict} />
+  <Faq dict={dict} />
+  <FinalCta dict={dict} />
+</main>
+<Footer locale={locale} dict={dict} />

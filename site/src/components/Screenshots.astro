@@ -1,0 +1,46 @@
+---
+import SectionLabel from "./SectionLabel.astro";
+import { screenshotAssets, screenshotKeys } from "@/lib/links";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section id="screenshots" class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+  <div class="reveal">
+    <SectionLabel>{dict.screenshots.badge}</SectionLabel>
+    <h2 class="mt-4 max-w-lg font-display text-3xl leading-[1.2] tracking-[-0.01em] md:text-4xl">
+      {dict.screenshots.heading}
+    </h2>
+  </div>
+
+  <div class="reveal reveal-stagger mt-12 grid grid-cols-1 gap-5 sm:grid-cols-3">
+    {screenshotKeys.map((key) => {
+      const asset = screenshotAssets[key];
+      const item = dict.screenshots.items[key];
+      return (
+        <figure class="overflow-hidden rounded-xl border border-border bg-card">
+          <div class="flex h-64 w-full items-center justify-center border-b border-border bg-card p-3">
+            <img
+              src={asset.src}
+              alt={item.alt}
+              width={asset.width}
+              height={asset.height}
+              loading="lazy"
+              decoding="async"
+              class="h-full w-full object-contain"
+            />
+          </div>
+          <figcaption class="px-[18px] py-4">
+            <div class="text-sm font-semibold">{item.title}</div>
+            <div class="mt-1 text-[13px] text-muted-foreground">{item.description}</div>
+          </figcaption>
+        </figure>
+      );
+    })}
+  </div>
+</section>

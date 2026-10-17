@@ -1,0 +1,69 @@
+---
+import type { Dictionary, Locale } from "@/lib/i18n";
+import { releases } from "@/lib/links";
+import { alternateLocalePath, comparisonPath, homePath } from "@/lib/routes";
+
+interface Props {
+  locale: Locale;
+  dict: Dictionary;
+}
+
+const { locale, dict } = Astro.props;
+const links = [
+  { href: "#highlights", label: dict.nav.highlights },
+  { href: "#screenshots", label: dict.nav.screenshots },
+  { href: "#how", label: dict.nav.howItWorks },
+  { href: "#faq", label: dict.nav.faq },
+  { href: comparisonPath(locale), label: dict.nav.compare },
+  { href: "#download", label: dict.nav.download },
+];
+const homeHref = homePath(locale);
+const switchHref = alternateLocalePath(Astro.url.pathname, locale);
+const navLabel = locale === "en" ? "Main navigation" : "主导航";
+---
+
+<header class="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-sm">
+  <nav
+    aria-label={navLabel}
+    class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 sm:px-8"
+  >
+    <a href={homeHref} class="flex items-center gap-2.5">
+      <img
+        src="/fanbar-icon-64.webp"
+        alt="FanBar icon"
+        width="26"
+        height="26"
+        class="rounded-[7px]"
+      />
+      <span class="text-[16px] font-semibold tracking-[-0.01em]">FanBar</span>
+    </a>
+
+    <div class="hidden items-center gap-8 lg:flex">
+      {links.map((link) => (
+        <a
+          href={link.href.startsWith("#") && Astro.url.pathname !== "/" && Astro.url.pathname !== "/zh" ? `${homeHref}${link.href}` : link.href}
+          class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+
+    <div class="flex items-center gap-4">
+      <a
+        href={switchHref}
+        class="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
+      >
+        {dict.nav.languageSwitch}
+      </a>
+      <a
+        href={releases}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex h-9 items-center rounded-[10px] bg-accent px-[18px] text-sm font-medium text-accent-foreground transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-[#0043d6] active:scale-[0.98]"
+      >
+        {dict.nav.download}
+      </a>
+    </div>
+  </nav>
+</header>

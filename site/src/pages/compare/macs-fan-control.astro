@@ -1,0 +1,333 @@
+---
+import { ArrowRight, Check, ExternalLink, Scale } from "lucide-astro";
+import Footer from "@/components/Footer.astro";
+import Nav from "@/components/Nav.astro";
+import SectionLabel from "@/components/SectionLabel.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getDictionary } from "@/lib/i18n";
+import { github, releases } from "@/lib/links";
+import {
+  comparisonFaq,
+  comparisonMarkdownUrl,
+  comparisonRows,
+  comparisonStructuredData,
+  comparisonUpdated,
+  comparisonUrl,
+  comparisonZhUrl,
+  competitorSources,
+} from "@/lib/macsFanControlComparison";
+
+const locale = "en" as const;
+const dict = getDictionary(locale);
+const title = "FanBar vs Macs Fan Control: Which Mac Fan Control App Should You Choose?";
+const description =
+  "Compare FanBar and Macs Fan Control on price, source code, sensor detail, fan modes, safety, platforms, interface, and track record.";
+
+const fanBarWins = [
+  {
+    title: "Menu-bar native",
+    body: "Temperature, RPM, presets, and curves stay inside a compact native popover. There is no separate main window to manage.",
+  },
+  {
+    title: "Open source, including the helper",
+    body: "Every feature is free under GPL-3.0, and the privileged component that writes fan targets is available for inspection.",
+  },
+  {
+    title: "Modern macOS fit",
+    body: "FanBar is built with SwiftUI for current macOS and includes a WidgetKit desktop widget on macOS 14 and later.",
+  },
+  {
+    title: "No commercial layer",
+    body: "There is no account, advertising, subscription, paid tier, or upgrade prompt inside the app.",
+  },
+];
+
+const competitorWins = [
+  {
+    title: "Longer track record",
+    body: "Its public release history reaches back to 2013, covering far more years of Mac hardware and operating-system changes.",
+  },
+  {
+    title: "Broader sensor granularity",
+    body: "It exposes a larger per-sensor list and can include supported third-party HDD and SSD readings through S.M.A.R.T.",
+  },
+  {
+    title: "Windows through Boot Camp",
+    body: "It provides a Windows build for Intel Macs running Boot Camp. That build is currently offered as a 14-day trial.",
+  },
+  {
+    title: "Wider language coverage",
+    body: "Its interface is translated into most major languages, while FanBar currently ships four.",
+  },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  dict={dict}
+  seo={{
+    title,
+    description,
+    ogDescription: "An honest, source-backed comparison of FanBar and Macs Fan Control for Mac owners.",
+    canonical: comparisonUrl,
+    markdownUrl: comparisonMarkdownUrl,
+    alternates: [
+      { lang: "en", href: comparisonUrl },
+      { lang: "zh-Hans", href: comparisonZhUrl },
+      { lang: "x-default", href: comparisonUrl },
+    ],
+    keywords: [
+      "FanBar vs Macs Fan Control",
+      "Macs Fan Control alternative",
+      "best Mac fan control app",
+      "free Mac fan control",
+      "open source Mac fan control",
+      "Mac fan speed app comparison",
+    ],
+    structuredData: comparisonStructuredData(),
+    preloadHero: false,
+    ogType: "article",
+    publishedTime: comparisonUpdated,
+    modifiedTime: comparisonUpdated,
+  }}
+>
+  <Nav locale={locale} dict={dict} />
+
+  <main>
+    <article>
+      <header class="mx-auto max-w-5xl px-6 pt-14 pb-16 sm:px-8 md:pt-20 md:pb-20">
+        <nav aria-label="Breadcrumb" class="text-sm text-muted-foreground">
+          <ol class="flex flex-wrap items-center gap-2">
+            <li><a href="/" class="transition-colors hover:text-foreground">FanBar</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span>Comparisons</span></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" class="text-foreground">Macs Fan Control</li>
+          </ol>
+        </nav>
+
+        <div class="mt-10 max-w-4xl">
+          <SectionLabel>Evidence-backed comparison</SectionLabel>
+          <h1 class="mt-6 font-display text-[2.65rem] leading-[1.08] tracking-[-0.02em] sm:text-5xl md:text-[3.5rem]">
+            FanBar vs Macs Fan Control:{" "}
+            <span class="gradient-text">which should you choose?</span>
+          </h1>
+          <p class="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+            Macs Fan Control is the mature, sensor-rich choice. FanBar is the fully open-source,
+            menu-bar-native choice. The right answer depends on whether you value breadth and history
+            or simplicity, transparency, and a modern macOS workflow.
+          </p>
+
+          <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            <span>Updated <time datetime={comparisonUpdated}>October 11, 2026</time></span>
+            <span aria-hidden="true">·</span>
+            <a href="#methodology" class="underline decoration-border underline-offset-4 hover:text-foreground">How we verified this</a>
+          </div>
+        </div>
+
+        <aside class="mt-10 max-w-3xl rounded-xl border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
+          <strong class="text-foreground">Disclosure:</strong> We maintain FanBar, so this comparison is written from our perspective.
+          Claims about Macs Fan Control link to CrystalIDEA’s official pages, and we call out the areas where it is the stronger product.
+        </aside>
+      </header>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8">
+          <SectionLabel>TL;DR</SectionLabel>
+          <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">The short answer</h2>
+
+          <div class="mt-9 grid gap-5 md:grid-cols-2">
+            <div class="rounded-xl border border-border bg-background p-7">
+              <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                  <Scale class="h-4 w-4" aria-hidden="true" />
+                </div>
+                <h3 class="text-lg font-semibold">Choose Macs Fan Control if…</h3>
+              </div>
+              <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+                You want the longest track record, detailed access to individual sensors, or Windows support through Boot Camp.
+              </p>
+            </div>
+
+            <div class="rounded-xl border border-accent/30 bg-accent/[0.04] p-7">
+              <div class="flex items-center gap-3">
+                <img src="/fanbar-icon-64.webp" alt="" width="36" height="36" loading="lazy" class="rounded-[10px]" />
+                <h3 class="text-lg font-semibold">Choose FanBar if…</h3>
+              </div>
+              <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+                You want a free, fully open-source app that stays in the menu bar, feels native on modern macOS, and has no paid tier.
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-7 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            Both are legitimate tools, but manual fan control is not risk-free. For everyday use, prefer macOS Automatic or a sensible temperature-based curve.
+          </p>
+        </div>
+      </section>
+
+      <section id="comparison" class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+        <SectionLabel>Quick comparison</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">Feature by feature</h2>
+        <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+          Each competitor claim links to an official CrystalIDEA source. Scroll horizontally on a small screen.
+        </p>
+
+        <div class="mt-10 overflow-x-auto rounded-xl border border-border bg-card">
+          <table class="w-full min-w-[760px] border-collapse text-left text-sm">
+            <caption class="sr-only">Comparison of FanBar and Macs Fan Control</caption>
+            <thead>
+              <tr class="border-b border-border bg-muted/60">
+                <th scope="col" class="w-[18%] px-5 py-4 font-semibold">Criteria</th>
+                <th scope="col" class="w-[41%] px-5 py-4 font-semibold text-accent">FanBar</th>
+                <th scope="col" class="w-[41%] px-5 py-4 font-semibold">Macs Fan Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr class="border-b border-border last:border-b-0">
+                  <th scope="row" class="px-5 py-5 align-top font-semibold">{row.criterion}</th>
+                  <td class="px-5 py-5 align-top leading-relaxed text-muted-foreground">{row.fanbar}</td>
+                  <td class="px-5 py-5 align-top leading-relaxed text-muted-foreground">
+                    <p>{row.competitor}</p>
+                    <a
+                      href={row.source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                    >
+                      {row.sourceLabel}<ExternalLink class="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto grid max-w-5xl gap-14 px-6 py-24 sm:px-8 md:grid-cols-2">
+          <div>
+            <SectionLabel>Where Macs Fan Control wins</SectionLabel>
+            <div class="mt-8 space-y-7">
+              {competitorWins.map((item) => (
+                <div class="border-t border-border pt-5">
+                  <h3 class="text-base font-semibold">{item.title}</h3>
+                  <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <SectionLabel>Where FanBar wins</SectionLabel>
+            <div class="mt-8 space-y-7">
+              {fanBarWins.map((item) => (
+                <div class="border-t border-border pt-5">
+                  <h3 class="text-base font-semibold">{item.title}</h3>
+                  <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+        <SectionLabel>Decision guide</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">Pick the one that fits your workflow</h2>
+
+        <div class="mt-10 grid gap-5 md:grid-cols-2">
+          <div class="rounded-xl border border-border p-7">
+            <h3 class="text-lg font-semibold">Choose Macs Fan Control</h3>
+            <ul class="mt-5 space-y-4">
+              {[
+                "You want the longest public release history and broadest hardware track record.",
+                "You need detailed readings from individual sensors or supported third-party drives.",
+                "You use Windows through Boot Camp on an Intel Mac.",
+              ].map((item) => (
+                <li class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
+                  <Check class="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />{item}
+                </li>
+              ))}
+            </ul>
+            <a href={competitorSources.overview} target="_blank" rel="noopener noreferrer" class="mt-7 inline-flex items-center gap-2 text-sm font-semibold hover:text-accent">
+              Visit Macs Fan Control<ExternalLink class="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+
+          <div class="rounded-xl border border-accent/30 bg-accent/[0.04] p-7">
+            <h3 class="text-lg font-semibold">Choose FanBar</h3>
+            <ul class="mt-5 space-y-4">
+              {[
+                "You want monitoring and control entirely inside the menu bar.",
+                "You want every feature and the privileged helper source to remain public.",
+                "You prefer native SwiftUI, editable presets, and a macOS desktop widget.",
+              ].map((item) => (
+                <li class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
+                  <Check class="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />{item}
+                </li>
+              ))}
+            </ul>
+            <a href={releases} target="_blank" rel="noopener noreferrer" class="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
+              Download FanBar<ArrowRight class="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+          <SectionLabel>FAQ</SectionLabel>
+          <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">Common comparison questions</h2>
+
+          <div class="mt-10 grid gap-x-10 gap-y-9 md:grid-cols-2">
+            {comparisonFaq.map((item) => (
+              <section class="border-t border-border pt-5">
+                <h3 class="text-base font-semibold">{item.question}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
+              </section>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="methodology" class="mx-auto max-w-5xl px-6 py-20 sm:px-8">
+        <SectionLabel>Methodology</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">How this comparison is maintained</h2>
+        <div class="mt-6 max-w-3xl space-y-4 text-sm leading-relaxed text-muted-foreground">
+          <p>
+            FanBar claims are checked against the current source repository. Macs Fan Control claims are checked against CrystalIDEA’s official product, download, support, sensor, licensing, and release-history pages. We avoid volatile metrics such as GitHub star counts.
+          </p>
+          <p>
+            This is a dated snapshot, not a permanent verdict. If a linked source changes, the comparison should be reviewed before its “last updated” date is advanced.
+          </p>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href={github} target="_blank" rel="noopener noreferrer" class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">FanBar source</a>
+          <a href={competitorSources.releaseNotes} target="_blank" rel="noopener noreferrer" class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">Macs Fan Control release notes</a>
+          <a href={comparisonMarkdownUrl} class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">Markdown version</a>
+        </div>
+      </section>
+
+      <section class="relative overflow-hidden bg-foreground text-white">
+        <div class="dots-bg absolute inset-0 opacity-40" aria-hidden="true"></div>
+        <div class="relative mx-auto max-w-2xl px-6 py-20 text-center sm:px-8">
+          <SectionLabel tone="dark" center>Try FanBar</SectionLabel>
+          <h2 class="mt-5 font-display text-4xl leading-tight">Prefer the menu-bar-native option?</h2>
+          <p class="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-white/60">
+            Download the complete app for free, or inspect the source—including its privileged helper—before installing.
+          </p>
+          <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href={releases} target="_blank" rel="noopener noreferrer" class="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 text-[15px] font-medium text-white hover:bg-[#0043d6]">Download FanBar</a>
+            <a href={github} target="_blank" rel="noopener noreferrer" class="inline-flex h-12 items-center rounded-[10px] border border-white/30 px-6 text-[15px] font-medium text-white hover:border-white">Read the source</a>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <Footer locale={locale} dict={dict} />
+</BaseLayout>

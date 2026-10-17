@@ -1,0 +1,12 @@
+---
+import LandingPage from "@/components/LandingPage.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getDictionary } from "@/lib/i18n";
+
+const locale = "en" as const;
+const dict = getDictionary(locale);
+---
+
+<BaseLayout locale={locale} dict={dict}>
+  <LandingPage locale={locale} dict={dict} />
+</BaseLayout>

@@ -1,0 +1,29 @@
+---
+import SectionLabel from "./SectionLabel.astro";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section id="how" class="mx-auto max-w-5xl px-6 pb-28 sm:px-8">
+  <div class="reveal">
+    <SectionLabel>{dict.howItWorks.badge}</SectionLabel>
+    <h2 class="mt-4 max-w-lg font-display text-3xl leading-[1.2] tracking-[-0.01em] md:text-4xl">
+      {dict.howItWorks.heading}
+    </h2>
+  </div>
+
+  <ol class="reveal reveal-stagger mt-12 grid grid-cols-1 gap-10 sm:grid-cols-3">
+    {dict.howItWorks.steps.map((item) => (
+      <li class="border-t-2 border-accent pt-5">
+        <div class="font-mono text-[13px] text-muted-foreground">{item.step}</div>
+        <h3 class="mt-2.5 text-[17px] font-semibold">{item.title}</h3>
+        <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+      </li>
+    ))}
+  </ol>
+</section>

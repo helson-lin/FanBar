@@ -1,0 +1,27 @@
+---
+interface Props {
+  tone?: "light" | "dark";
+  center?: boolean;
+}
+
+const { tone = "light", center = false } = Astro.props;
+const dark = tone === "dark";
+---
+
+<div
+  class:list={[
+    "inline-flex items-center gap-3 rounded-full border px-5 py-2",
+    dark ? "border-white/25 bg-white/[0.06]" : "border-accent/30 bg-accent/5",
+    center && "self-center",
+  ]}
+>
+  <span class:list={["pulse-dot h-2 w-2 rounded-full", dark ? "bg-white" : "bg-accent"]}></span>
+  <span
+    class:list={[
+      "font-mono text-xs uppercase tracking-[0.15em]",
+      dark ? "text-white/85" : "text-accent",
+    ]}
+  >
+    <slot />
+  </span>
+</div>

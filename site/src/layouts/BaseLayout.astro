@@ -1,0 +1,146 @@
+---
+import "@/styles/global.css";
+import { locales, type Dictionary, type Locale } from "@/lib/i18n";
+import { github, heroScreenshot } from "@/lib/links";
+import {
+  HTML_LANG,
+  LOCALE_URLS,
+  OG_LOCALE,
+  siteName,
+  siteUrl,
+  structuredData,
+} from "@/lib/seo";
+
+interface Props {
+  locale: Locale;
+  dict: Dictionary;
+  seo?: {
+    title: string;
+    description: string;
+    canonical: string;
+    ogDescription?: string;
+    keywords?: string[];
+    markdownUrl?: string;
+    structuredData?: unknown;
+    alternates?: { lang: string; href: string }[];
+    preloadHero?: boolean;
+    ogType?: "website" | "article";
+    publishedTime?: string;
+    modifiedTime?: string;
+  };
+}
+
+const { locale, dict, seo } = Astro.props;
+const title = seo?.title ?? dict.meta.title;
+const description = seo?.description ?? dict.meta.description;
+const ogDescription = seo?.ogDescription ?? dict.meta.ogDescription;
+const keywords = seo?.keywords ?? dict.meta.keywords;
+const canonical = seo?.canonical ?? LOCALE_URLS[locale];
+const markdownUrl = seo?.markdownUrl ?? (locale === "en" ? `${siteUrl}/index.md` : `${siteUrl}/zh/index.md`);
+const ogImage = `${siteUrl}/social/fanbar-og.png`;
+const ogAlt = "FanBar — a macOS menu-bar app for reading temperatures and controlling fan speed";
+const alternateLinks = seo
+  ? (seo.alternates ?? [])
+  : locales.map((other) => ({ lang: HTML_LANG[other], href: LOCALE_URLS[other] }));
+const jsonLd = JSON.stringify(seo?.structuredData ?? structuredData(locale, dict)).replace(/</g, "\\u003c");
+---
+
+<!doctype html>
+<html lang={HTML_LANG[locale]}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafafa" />
+    <script is:inline>document.documentElement.classList.add("js");</script>
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywords.join(", ")} />
+    <meta name="application-name" content={siteName} />
+    <meta name="author" content="helson-lin" />
+    <meta name="creator" content="helson-lin" />
+    <meta name="publisher" content="helson-lin" />
+    <meta name="category" content="utilities" />
+    <meta name="robots" content="index, follow" />
+    <meta
+      name="googlebot"
+      content="index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1"
+    />
+
+    <link rel="canonical" href={canonical} />
+    {alternateLinks.map((alternate) => (
+      <link rel="alternate" hreflang={alternate.lang} href={alternate.href} />
+    ))}
+    {!seo && <link rel="alternate" hreflang="x-default" href={siteUrl} />}
+    <link rel="author" href={github} />
+    <link rel="alternate" type="text/markdown" href={markdownUrl} />
+    <link rel="describedby" href={`${siteUrl}/llms.txt`} />
+    <link rel="api-catalog" href={`${siteUrl}/.well-known/api-catalog`} />
+
+    <link rel="icon" href="/fanbar-icon-64.png" type="image/png" sizes="64x64" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/calistoga-latin.woff2" as="font" type="font/woff2" crossorigin />
+    {seo?.preloadHero !== false && (
+      <link
+        rel="preload"
+        href={heroScreenshot.preloadSrc}
+        as="image"
+        type="image/avif"
+        imagesrcset={heroScreenshot.avifSrcSet}
+        imagesizes={heroScreenshot.sizes}
+        fetchpriority="high"
+      />
+    )}
+
+    <meta property="og:type" content={seo?.ogType ?? "website"} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={ogDescription} />
+    <meta property="og:locale" content={OG_LOCALE[locale]} />
+    {!seo && locales.filter((other) => other !== locale).map((other) => (
+      <meta property="og:locale:alternate" content={OG_LOCALE[other]} />
+    ))}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogAlt} />
+    {seo?.publishedTime && <meta property="article:published_time" content={seo.publishedTime} />}
+    {seo?.modifiedTime && <meta property="article:modified_time" content={seo.modifiedTime} />}
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={ogDescription} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={ogAlt} />
+
+    <script type="application/ld+json" set:html={jsonLd}></script>
+  </head>
+  <body class="font-sans antialiased">
+    <slot />
+
+    <script>
+      const elements = document.querySelectorAll(".reveal");
+
+      if (!("IntersectionObserver" in window)) {
+        elements.forEach((element) => element.classList.add("reveal-visible"));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("reveal-visible");
+                observer.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.15, rootMargin: "-60px 0px" },
+        );
+
+        elements.forEach((element) => observer.observe(element));
+      }
+    </script>
+  </body>
+</html>

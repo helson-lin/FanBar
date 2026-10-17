@@ -1,0 +1,261 @@
+---
+import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, FlaskConical } from "lucide-astro";
+import Footer from "@/components/Footer.astro";
+import Nav from "@/components/Nav.astro";
+import SectionLabel from "@/components/SectionLabel.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import {
+  compatibilityFaq,
+  compatibilityMarkdownUrl,
+  compatibilityReports,
+  compatibilityStructuredData,
+  compatibilityUpdated,
+  compatibilityUrl,
+  compatibilityZhUrl,
+  verificationChecklist,
+} from "@/lib/compatibility";
+import { getDictionary } from "@/lib/i18n";
+import { releases } from "@/lib/links";
+
+const locale = "en" as const;
+const dict = getDictionary(locale);
+const title = "FanBar Mac Compatibility and Test Evidence";
+const description =
+  "See which Apple Silicon and Intel Macs have public FanBar reports, what was actually observed, and which functions still need a standardized retest.";
+---
+
+<BaseLayout
+  locale={locale}
+  dict={dict}
+  seo={{
+    title,
+    description,
+    ogDescription: "A transparent, source-linked FanBar compatibility matrix with clear evidence limits.",
+    canonical: compatibilityUrl,
+    markdownUrl: compatibilityMarkdownUrl,
+    alternates: [
+      { lang: "en", href: compatibilityUrl },
+      { lang: "zh-Hans", href: compatibilityZhUrl },
+      { lang: "x-default", href: compatibilityUrl },
+    ],
+    keywords: [
+      "FanBar compatibility",
+      "FanBar Apple Silicon",
+      "FanBar Intel Mac",
+      "Mac fan control compatibility",
+      "Apple Silicon fan control",
+      "Mac fan control test",
+    ],
+    structuredData: compatibilityStructuredData(),
+    preloadHero: false,
+    ogType: "article",
+    publishedTime: compatibilityUpdated,
+    modifiedTime: compatibilityUpdated,
+  }}
+>
+  <Nav locale={locale} dict={dict} />
+
+  <main>
+    <article>
+      <header class="mx-auto max-w-5xl px-6 pt-14 pb-16 sm:px-8 md:pt-20 md:pb-20">
+        <nav aria-label="Breadcrumb" class="text-sm text-muted-foreground">
+          <ol class="flex flex-wrap items-center gap-2">
+            <li><a href="/" class="transition-colors hover:text-foreground">FanBar</a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" class="text-foreground">Compatibility</li>
+          </ol>
+        </nav>
+
+        <div class="mt-10 max-w-4xl">
+          <SectionLabel>Compatibility evidence</SectionLabel>
+          <h1 class="mt-6 font-display text-[2.65rem] leading-[1.08] tracking-[-0.02em] sm:text-5xl md:text-[3.5rem]">
+            Which Macs work with FanBar? <span class="gradient-text">Here is what we can prove.</span>
+          </h1>
+          <p class="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+            FanBar supports macOS 11 and later on Apple Silicon and Intel Macs that expose readable
+            fan data through AppleSMC. This page separates confirmed observations from missing data,
+            so an untested model is never presented as certified.
+          </p>
+
+          <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            <span>Updated <time datetime={compatibilityUpdated}>October 11, 2026</time></span>
+            <span aria-hidden="true">·</span>
+            <a href={compatibilityMarkdownUrl} class="underline decoration-border underline-offset-4 hover:text-foreground">Read as Markdown</a>
+          </div>
+        </div>
+
+        <aside class="mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+          <div class="rounded-xl border border-border bg-card p-5">
+            <div class="flex items-center gap-3">
+              <CheckCircle2 class="h-5 w-5 text-accent" aria-hidden="true" />
+              <h2 class="font-semibold">Maintainer-verified devices</h2>
+            </div>
+            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+              None published yet. A device will only appear here after the full checklist below is run
+              with an exact FanBar build, macOS version, date, and result.
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-5">
+            <div class="flex items-center gap-3">
+              <FlaskConical class="h-5 w-5 text-accent" aria-hidden="true" />
+              <h2 class="font-semibold">Community-reported devices</h2>
+            </div>
+            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {compatibilityReports.length} public reports currently provide useful but incomplete
+              evidence. Each row links to the original GitHub issue and states what was not tested.
+            </p>
+          </div>
+        </aside>
+      </header>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+          <SectionLabel>Public evidence</SectionLabel>
+          <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div class="max-w-2xl">
+              <h2 class="font-display text-3xl tracking-[-0.01em]">Community compatibility reports</h2>
+              <p class="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+                These rows prove only the behavior described in their source. They are not full device certifications.
+              </p>
+            </div>
+            <a
+              href="https://github.com/helson-lin/FanBar/issues/new/choose"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="group inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent"
+            >
+              Report your Mac
+              <ExternalLink class="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+
+          <div class="mt-9 overflow-x-auto rounded-xl border border-border bg-background">
+            <table class="w-full min-w-[920px] border-collapse text-left text-sm">
+              <caption class="sr-only">Public FanBar compatibility evidence by Mac model</caption>
+              <thead>
+                <tr class="border-b border-border bg-muted/60">
+                  <th scope="col" class="px-5 py-4 font-semibold">Mac</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">System</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">What the source shows</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">Evidence limits</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compatibilityReports.map((report) => (
+                  <tr class="border-b border-border last:border-0">
+                    <td class="w-[18%] px-5 py-5 align-top">
+                      <strong class="block text-foreground">{report.device}</strong>
+                      <span class="mt-1 block text-muted-foreground">{report.chip}</span>
+                    </td>
+                    <td class="w-[16%] px-5 py-5 align-top text-muted-foreground">
+                      <span class="block">{report.macOS}</span>
+                      <span class="mt-1 block">FanBar {report.version}</span>
+                    </td>
+                    <td class="w-[25%] px-5 py-5 align-top leading-relaxed text-muted-foreground">{report.evidence}</td>
+                    <td class="w-[27%] px-5 py-5 align-top">
+                      <span class:list={[
+                        "mb-2 inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+                        report.status === "Retest needed"
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-blue-100 text-blue-900",
+                      ]}>{report.status}</span>
+                      <p class="leading-relaxed text-muted-foreground">{report.limits}</p>
+                    </td>
+                    <td class="w-[14%] px-5 py-5 align-top">
+                      <a
+                        href={report.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1.5 font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent"
+                      >
+                        GitHub issue
+                        <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                      <time class="mt-2 block text-xs text-muted-foreground">{report.date}</time>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+            <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <p>
+              <strong>Not listed does not mean unsupported.</strong> It means we do not yet have a source-linked report with enough detail to publish.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+        <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+          <div>
+            <SectionLabel>Test method</SectionLabel>
+            <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">What counts as verified</h2>
+            <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+              A launch screenshot alone is not enough. Maintainer verification requires an exact device,
+              OS, FanBar build, test date, and a pass or fail result for every relevant behavior.
+            </p>
+          </div>
+
+          <ol class="grid gap-3 sm:grid-cols-2">
+            {verificationChecklist.map((item, index) => (
+              <li class="flex gap-3 rounded-xl border border-border bg-card p-4 text-sm leading-relaxed">
+                <span class="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+          <div class="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+            <div>
+              <SectionLabel>FAQ</SectionLabel>
+              <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">Compatibility, permissions, and safety</h2>
+            </div>
+
+            <div class="divide-y divide-border border-y border-border">
+              {compatibilityFaq.map((item) => (
+                <details class="group py-5">
+                  <summary class="flex cursor-pointer list-none items-center justify-between gap-5 font-semibold marker:content-none">
+                    {item.question}
+                    <span aria-hidden="true" class="text-xl font-light text-muted-foreground transition-transform group-open:rotate-45">+</span>
+                  </summary>
+                  <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+        <div class="rounded-2xl bg-[#0d172b] px-6 py-10 text-white sm:px-10 sm:py-12">
+          <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/60">Try FanBar</p>
+          <div class="mt-4 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div class="max-w-2xl">
+              <h2 class="font-display text-3xl leading-tight">Use Automatic first. Enable manual control only when you need it.</h2>
+              <p class="mt-3 text-[15px] leading-relaxed text-white/70">Free, open source, notarized, and available as a DMG or through Homebrew.</p>
+            </div>
+            <a
+              href={releases}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="group inline-flex h-12 shrink-0 items-center gap-2 self-start rounded-[10px] bg-white px-6 text-[15px] font-medium text-[#0d172b] transition-transform active:scale-[0.98] sm:self-auto"
+            >
+              Download FanBar
+              <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <Footer locale={locale} dict={dict} />
+</BaseLayout>

@@ -1,0 +1,56 @@
+---
+import {
+  Activity,
+  BellRing,
+  ChartLine,
+  Languages,
+  LayoutGrid,
+  ShieldCheck,
+  SlidersHorizontal,
+  Thermometer,
+  Waypoints,
+} from "lucide-astro";
+import SectionLabel from "./SectionLabel.astro";
+import { highlightIcons, highlightKeys } from "@/lib/links";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+const iconComponents = {
+  activity: Activity,
+  layoutGrid: LayoutGrid,
+  activityChart: ChartLine,
+  slidersHorizontal: SlidersHorizontal,
+  waypoints: Waypoints,
+  thermometer: Thermometer,
+  bellRing: BellRing,
+  shieldCheck: ShieldCheck,
+  languages: Languages,
+};
+---
+
+<section id="highlights" class="mx-auto max-w-5xl px-6 pt-24 pb-10 sm:px-8">
+  <div class="reveal">
+    <SectionLabel>{dict.highlights.badge}</SectionLabel>
+    <h2 class="mt-4 max-w-lg font-display text-3xl leading-[1.2] tracking-[-0.01em] md:text-4xl">
+      {dict.highlights.heading}
+    </h2>
+  </div>
+
+  <div class="reveal reveal-stagger mt-12 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+    {highlightKeys.map((key) => {
+      const Icon = iconComponents[highlightIcons[key]];
+      const item = dict.highlights.items[key];
+      return (
+        <article class="bg-card p-7">
+          <Icon class="h-5 w-5 text-accent" stroke-width={1.8} aria-hidden="true" />
+          <h3 class="mt-4 text-base font-semibold tracking-[-0.01em]">{item.title}</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+        </article>
+      );
+    })}
+  </div>
+</section>

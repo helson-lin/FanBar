@@ -1,0 +1,244 @@
+---
+import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, FlaskConical } from "lucide-astro";
+import Footer from "@/components/Footer.astro";
+import Nav from "@/components/Nav.astro";
+import SectionLabel from "@/components/SectionLabel.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import {
+  compatibilityFaqZh,
+  compatibilityReportsZh,
+  compatibilityUpdated,
+  compatibilityUrl,
+  compatibilityZhMarkdownUrl,
+  compatibilityZhStructuredData,
+  compatibilityZhUrl,
+  verificationChecklist,
+} from "@/lib/compatibility";
+import { getDictionary } from "@/lib/i18n";
+import { releases } from "@/lib/links";
+
+const locale = "zh" as const;
+const dict = getDictionary(locale);
+const title = "FanBar Mac 兼容性与测试证据";
+const description =
+  "查看哪些 Apple Silicon 与 Intel Mac 有公开的 FanBar 使用报告、实际观察到了什么，以及哪些功能仍需标准化复测。";
+const checklistZh = [
+  "应用可以启动并保持稳定",
+  "CPU 与 GPU 温度可以读取",
+  "硬件提供时可以读取 SSD 与电池温度",
+  "每个风扇都显示当前、最低与最高 RPM",
+  "固定转速可以改变风扇输出，且不超出硬件报告范围",
+  "温控曲线会按预期改变风扇输出",
+  "退出、断连、超时或 Helper 失败时恢复自动控制",
+  "睡眠、唤醒、重启与登录项行为稳定",
+];
+---
+
+<BaseLayout
+  locale={locale}
+  dict={dict}
+  seo={{
+    title,
+    description,
+    ogDescription: "透明、来源可追溯，并明确说明证据边界的 FanBar 兼容性表。",
+    canonical: compatibilityZhUrl,
+    markdownUrl: compatibilityZhMarkdownUrl,
+    alternates: [
+      { lang: "en", href: compatibilityUrl },
+      { lang: "zh-Hans", href: compatibilityZhUrl },
+      { lang: "x-default", href: compatibilityUrl },
+    ],
+    keywords: ["FanBar 兼容性", "FanBar Apple Silicon", "Mac 风扇控制兼容性", "Mac 风扇控制测试"],
+    structuredData: compatibilityZhStructuredData(),
+    preloadHero: false,
+    ogType: "article",
+    publishedTime: compatibilityUpdated,
+    modifiedTime: compatibilityUpdated,
+  }}
+>
+  <Nav locale={locale} dict={dict} />
+
+  <main>
+    <article>
+      <header class="mx-auto max-w-5xl px-6 pt-14 pb-16 sm:px-8 md:pt-20 md:pb-20">
+        <nav aria-label="面包屑" class="text-sm text-muted-foreground">
+          <ol class="flex flex-wrap items-center gap-2">
+            <li><a href="/zh" class="transition-colors hover:text-foreground">FanBar</a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" class="text-foreground">兼容性</li>
+          </ol>
+        </nav>
+
+        <div class="mt-10 max-w-4xl">
+          <SectionLabel>兼容性证据</SectionLabel>
+          <h1 class="mt-6 font-display text-[2.65rem] leading-[1.08] tracking-[-0.02em] sm:text-5xl md:text-[3.5rem]">
+            哪些 Mac 可以运行 FanBar？<span class="gradient-text">以下是目前能证明的部分。</span>
+          </h1>
+          <p class="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+            FanBar 支持 macOS 11 及以上、能通过 AppleSMC 提供可读风扇数据的 Apple Silicon 与 Intel Mac。
+            本页把已观察到的行为与缺失数据分开，未测试的机型不会被写成「已经认证」。
+          </p>
+
+          <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            <span>更新于 <time datetime={compatibilityUpdated}>2026 年 10 月 11 日</time></span>
+            <span aria-hidden="true">·</span>
+            <a href={compatibilityZhMarkdownUrl} class="underline decoration-border underline-offset-4 hover:text-foreground">阅读 Markdown 版本</a>
+          </div>
+        </div>
+
+        <aside class="mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+          <div class="rounded-xl border border-border bg-card p-5">
+            <div class="flex items-center gap-3">
+              <CheckCircle2 class="h-5 w-5 text-accent" aria-hidden="true" />
+              <h2 class="font-semibold">维护者完整实测</h2>
+            </div>
+            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+              目前尚未发布。只有记录了准确 FanBar 构建、macOS 版本、日期，并完成下方全部清单的设备才会列在这里。
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-5">
+            <div class="flex items-center gap-3">
+              <FlaskConical class="h-5 w-5 text-accent" aria-hidden="true" />
+              <h2 class="font-semibold">社区报告</h2>
+            </div>
+            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+              当前有 {compatibilityReportsZh.length} 条公开报告提供了有用但不完整的证据。每一行都链接原始 GitHub Issue，并说明未测试的部分。
+            </p>
+          </div>
+        </aside>
+      </header>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+          <SectionLabel>公开证据</SectionLabel>
+          <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div class="max-w-2xl">
+              <h2 class="font-display text-3xl tracking-[-0.01em]">社区兼容性报告</h2>
+              <p class="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+                每一行只证明来源中明确描述的行为，不代表该设备已经通过完整认证。
+              </p>
+            </div>
+            <a
+              href="https://github.com/helson-lin/FanBar/issues/new/choose"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="group inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent"
+            >
+              提交你的 Mac 报告
+              <ExternalLink class="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+
+          <div class="mt-9 overflow-x-auto rounded-xl border border-border bg-background">
+            <table class="w-full min-w-[920px] border-collapse text-left text-sm">
+              <caption class="sr-only">按 Mac 机型整理的 FanBar 公开兼容性证据</caption>
+              <thead>
+                <tr class="border-b border-border bg-muted/60">
+                  <th scope="col" class="px-5 py-4 font-semibold">Mac</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">系统</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">来源证明了什么</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">证据边界</th>
+                  <th scope="col" class="px-5 py-4 font-semibold">来源</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compatibilityReportsZh.map((report) => (
+                  <tr class="border-b border-border last:border-0">
+                    <td class="w-[18%] px-5 py-5 align-top">
+                      <strong class="block text-foreground">{report.device}</strong>
+                      <span class="mt-1 block text-muted-foreground">{report.chip}</span>
+                    </td>
+                    <td class="w-[16%] px-5 py-5 align-top text-muted-foreground">
+                      <span class="block">{report.macOS}</span>
+                      <span class="mt-1 block">FanBar {report.version}</span>
+                    </td>
+                    <td class="w-[25%] px-5 py-5 align-top leading-relaxed text-muted-foreground">{report.evidence}</td>
+                    <td class="w-[27%] px-5 py-5 align-top">
+                      <span class:list={[
+                        "mb-2 inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+                        report.status === "Retest needed"
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-blue-100 text-blue-900",
+                      ]}>{report.status === "Retest needed" ? "需要复测" : "社区报告"}</span>
+                      <p class="leading-relaxed text-muted-foreground">{report.limits}</p>
+                    </td>
+                    <td class="w-[14%] px-5 py-5 align-top">
+                      <a href={report.source} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent">
+                        GitHub Issue<ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                      <time class="mt-2 block text-xs text-muted-foreground">{report.date}</time>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+            <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <p><strong>没有列出不代表不支持。</strong>它只表示目前缺少足够详细且来源可追溯的公开记录。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+        <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+          <div>
+            <SectionLabel>测试方法</SectionLabel>
+            <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">怎样才算完整验证</h2>
+            <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+              只有启动截图还不够。维护者验证需要记录准确设备、系统、FanBar 构建、测试日期，以及每项行为的通过或失败结果。
+            </p>
+          </div>
+          <ol class="grid gap-3 sm:grid-cols-2">
+            {verificationChecklist.map((_, index) => (
+              <li class="flex gap-3 rounded-xl border border-border bg-card p-4 text-sm leading-relaxed">
+                <span class="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</span>
+                <span>{checklistZh[index]}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+          <div class="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+            <div>
+              <SectionLabel>常见问题</SectionLabel>
+              <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">兼容性、权限与安全</h2>
+            </div>
+            <div class="divide-y divide-border border-y border-border">
+              {compatibilityFaqZh.map((item) => (
+                <details class="group py-5">
+                  <summary class="flex cursor-pointer list-none items-center justify-between gap-5 font-semibold marker:content-none">
+                    {item.question}
+                    <span aria-hidden="true" class="text-xl font-light text-muted-foreground transition-transform group-open:rotate-45">+</span>
+                  </summary>
+                  <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-16 sm:px-8 md:py-20">
+        <div class="rounded-2xl bg-[#0d172b] px-6 py-10 text-white sm:px-10 sm:py-12">
+          <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/60">试用 FanBar</p>
+          <div class="mt-4 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div class="max-w-2xl">
+              <h2 class="font-display text-3xl leading-tight">日常优先使用自动模式，只在需要时启用手动控制。</h2>
+              <p class="mt-3 text-[15px] leading-relaxed text-white/70">免费、开源、经过 Apple 公证，可通过 DMG 或 Homebrew 安装。</p>
+            </div>
+            <a href={releases} target="_blank" rel="noopener noreferrer" class="group inline-flex h-12 shrink-0 items-center gap-2 self-start rounded-[10px] bg-white px-6 text-[15px] font-medium text-[#0d172b] transition-transform active:scale-[0.98] sm:self-auto">
+              下载 FanBar<ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <Footer locale={locale} dict={dict} />
+</BaseLayout>

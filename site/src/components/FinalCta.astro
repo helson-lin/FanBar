@@ -1,0 +1,43 @@
+---
+import SectionLabel from "./SectionLabel.astro";
+import { github, releases } from "@/lib/links";
+import type { Dictionary } from "@/lib/i18n";
+
+interface Props {
+  dict: Dictionary;
+}
+
+const { dict } = Astro.props;
+---
+
+<section id="download" class="relative overflow-hidden bg-foreground text-white">
+  <div class="dots-bg absolute inset-0 opacity-40" aria-hidden="true"></div>
+  <div class="reveal relative mx-auto max-w-xl px-6 py-24 text-center sm:px-8">
+    <SectionLabel tone="dark" center>{dict.finalCta.badge}</SectionLabel>
+    <h2 class="mt-5 font-display text-[2.25rem] leading-[1.2] tracking-[-0.01em] text-white">
+      {dict.finalCta.heading}
+    </h2>
+    <p class="mx-auto mt-4 max-w-sm text-[15px] leading-relaxed text-white/60">{dict.finalCta.body}</p>
+
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a
+        href={releases}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 text-[15px] font-medium text-white transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-[#0043d6] active:scale-[0.98]"
+      >
+        {dict.finalCta.primaryCta}
+      </a>
+      <a
+        href={github}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex h-12 items-center rounded-[10px] border border-white/30 px-6 text-[15px] font-medium text-white transition-[color,background-color,border-color,scale] duration-150 ease-out hover:border-white active:scale-[0.98]"
+      >
+        {dict.finalCta.secondaryCta}
+      </a>
+    </div>
+
+    <p class="mt-5 font-mono text-xs tracking-[0.04em] text-white/40">{dict.finalCta.caption}</p>
+  </div>
+</section>

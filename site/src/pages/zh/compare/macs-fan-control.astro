@@ -1,0 +1,230 @@
+---
+import { ArrowRight, Check, ExternalLink, Scale } from "lucide-astro";
+import Footer from "@/components/Footer.astro";
+import Nav from "@/components/Nav.astro";
+import SectionLabel from "@/components/SectionLabel.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getDictionary } from "@/lib/i18n";
+import { github, releases } from "@/lib/links";
+import {
+  comparisonFaqZh,
+  comparisonRowsZh,
+  comparisonUpdated,
+  comparisonUrl,
+  comparisonZhMarkdownUrl,
+  comparisonZhStructuredData,
+  comparisonZhUrl,
+  competitorSources,
+} from "@/lib/macsFanControlComparison";
+
+const locale = "zh" as const;
+const dict = getDictionary(locale);
+const title = "FanBar 与 Macs Fan Control 对比：应该选择哪一款？";
+const description =
+  "从价格、源代码、传感器细节、风扇模式、安全、平台、界面与项目历史对比 FanBar 和 Macs Fan Control。";
+
+const fanBarWins = [
+  { title: "真正以菜单栏为中心", body: "温度、RPM、预设和曲线都集中在原生菜单栏面板中，不需要额外管理主窗口。" },
+  { title: "完整开源，包括 Helper", body: "全部功能在 GPL-3.0 下免费提供，负责写入风扇目标值的特权组件也可公开审查。" },
+  { title: "更贴近现代 macOS", body: "使用 SwiftUI 构建，并在 macOS 14 及以上提供 WidgetKit 桌面小组件。" },
+  { title: "没有商业层", body: "应用内没有账号、广告、订阅、付费层级或升级提示。" },
+];
+
+const competitorWins = [
+  { title: "项目历史更长", body: "公开发布记录可追溯到 2013 年，经历了更多代 Mac 硬件与系统变化。" },
+  { title: "传感器粒度更丰富", body: "提供更大的逐传感器列表，并可通过 S.M.A.R.T. 读取受支持的第三方 HDD 与 SSD。" },
+  { title: "支持 Boot Camp Windows", body: "为运行 Boot Camp 的 Intel Mac 提供 Windows 版本，目前为 14 天试用。" },
+  { title: "语言覆盖更广", body: "界面已翻译成多数主要语言；FanBar 当前提供四种语言。" },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  dict={dict}
+  seo={{
+    title,
+    description,
+    ogDescription: "面向 Mac 用户、坦诚且有来源支撑的 FanBar 与 Macs Fan Control 对比。",
+    canonical: comparisonZhUrl,
+    markdownUrl: comparisonZhMarkdownUrl,
+    alternates: [
+      { lang: "en", href: comparisonUrl },
+      { lang: "zh-Hans", href: comparisonZhUrl },
+      { lang: "x-default", href: comparisonUrl },
+    ],
+    keywords: ["FanBar 对比 Macs Fan Control", "Macs Fan Control 替代品", "免费 Mac 风扇控制", "开源 Mac 风扇控制"],
+    structuredData: comparisonZhStructuredData(),
+    preloadHero: false,
+    ogType: "article",
+    publishedTime: comparisonUpdated,
+    modifiedTime: comparisonUpdated,
+  }}
+>
+  <Nav locale={locale} dict={dict} />
+
+  <main>
+    <article>
+      <header class="mx-auto max-w-5xl px-6 pt-14 pb-16 sm:px-8 md:pt-20 md:pb-20">
+        <nav aria-label="面包屑" class="text-sm text-muted-foreground">
+          <ol class="flex flex-wrap items-center gap-2">
+            <li><a href="/zh" class="transition-colors hover:text-foreground">FanBar</a></li>
+            <li aria-hidden="true">/</li>
+            <li><span>产品对比</span></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" class="text-foreground">Macs Fan Control</li>
+          </ol>
+        </nav>
+
+        <div class="mt-10 max-w-4xl">
+          <SectionLabel>有来源支撑的对比</SectionLabel>
+          <h1 class="mt-6 font-display text-[2.65rem] leading-[1.08] tracking-[-0.02em] sm:text-5xl md:text-[3.5rem]">
+            FanBar 与 Macs Fan Control：<span class="gradient-text">应该选择哪一款？</span>
+          </h1>
+          <p class="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+            Macs Fan Control 更成熟，传感器覆盖更丰富；FanBar 完全开源，并以菜单栏为核心。
+            选择取决于你更看重硬件覆盖与历史，还是简洁、透明和现代 macOS 使用体验。
+          </p>
+          <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            <span>更新于 <time datetime={comparisonUpdated}>2026 年 10 月 11 日</time></span>
+            <span aria-hidden="true">·</span>
+            <a href="#methodology" class="underline decoration-border underline-offset-4 hover:text-foreground">查看核验方法</a>
+          </div>
+        </div>
+
+        <aside class="mt-10 max-w-3xl rounded-xl border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
+          <strong class="text-foreground">利益披露：</strong>我们是 FanBar 的维护者，因此本文从 FanBar 视角撰写。
+          关于 Macs Fan Control 的事实均链接到 CrystalIDEA 官方页面，它更强的部分也会直接说明。
+        </aside>
+      </header>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-16 sm:px-8">
+          <SectionLabel>简短结论</SectionLabel>
+          <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">先看答案</h2>
+          <div class="mt-9 grid gap-5 md:grid-cols-2">
+            <div class="rounded-xl border border-border bg-background p-7">
+              <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground"><Scale class="h-4 w-4" aria-hidden="true" /></div>
+                <h3 class="text-lg font-semibold">选择 Macs Fan Control，如果……</h3>
+              </div>
+              <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">你希望使用历史最长的方案，需要细分到单个传感器的数据，或需要 Boot Camp Windows 支持。</p>
+            </div>
+            <div class="rounded-xl border border-accent/30 bg-accent/[0.04] p-7">
+              <div class="flex items-center gap-3">
+                <img src="/fanbar-icon-64.webp" alt="" width="36" height="36" loading="lazy" class="rounded-[10px]" />
+                <h3 class="text-lg font-semibold">选择 FanBar，如果……</h3>
+              </div>
+              <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">你需要免费、完整开源、菜单栏原生、符合现代 macOS 使用习惯且没有付费层级的应用。</p>
+            </div>
+          </div>
+          <p class="mt-7 max-w-3xl text-sm leading-relaxed text-muted-foreground">两款工具都是真实可用的选择，但手动控制风扇并非没有风险。日常使用应优先选择 macOS 自动控制或合理的温控曲线。</p>
+        </div>
+      </section>
+
+      <section id="comparison" class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+        <SectionLabel>快速对比</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">逐项比较</h2>
+        <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">每条竞品信息都链接 CrystalIDEA 官方来源。小屏幕可横向滚动查看完整表格。</p>
+        <div class="mt-10 overflow-x-auto rounded-xl border border-border bg-card">
+          <table class="w-full min-w-[760px] border-collapse text-left text-sm">
+            <caption class="sr-only">FanBar 与 Macs Fan Control 对比</caption>
+            <thead>
+              <tr class="border-b border-border bg-muted/60">
+                <th scope="col" class="w-[18%] px-5 py-4 font-semibold">项目</th>
+                <th scope="col" class="w-[41%] px-5 py-4 font-semibold text-accent">FanBar</th>
+                <th scope="col" class="w-[41%] px-5 py-4 font-semibold">Macs Fan Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRowsZh.map((row) => (
+                <tr class="border-b border-border last:border-b-0">
+                  <th scope="row" class="px-5 py-5 align-top font-semibold">{row.criterion}</th>
+                  <td class="px-5 py-5 align-top leading-relaxed text-muted-foreground">{row.fanbar}</td>
+                  <td class="px-5 py-5 align-top leading-relaxed text-muted-foreground">
+                    <p>{row.competitor}</p>
+                    <a href={row.source} target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                      {row.sourceLabel}<ExternalLink class="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="border-y border-border bg-card">
+        <div class="mx-auto grid max-w-5xl gap-14 px-6 py-24 sm:px-8 md:grid-cols-2">
+          <div>
+            <SectionLabel>Macs Fan Control 更强的地方</SectionLabel>
+            <div class="mt-8 space-y-7">{competitorWins.map((item) => <div class="border-t border-border pt-5"><h3 class="text-base font-semibold">{item.title}</h3><p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p></div>)}</div>
+          </div>
+          <div>
+            <SectionLabel>FanBar 更强的地方</SectionLabel>
+            <div class="mt-8 space-y-7">{fanBarWins.map((item) => <div class="border-t border-border pt-5"><h3 class="text-base font-semibold">{item.title}</h3><p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p></div>)}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+        <SectionLabel>选择指南</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">按你的使用方式选择</h2>
+        <div class="mt-10 grid gap-5 md:grid-cols-2">
+          <div class="rounded-xl border border-border p-7">
+            <h3 class="text-lg font-semibold">选择 Macs Fan Control</h3>
+            <ul class="mt-5 space-y-4">
+              {["你希望使用公开发布历史最长、硬件经验最广的方案。", "你需要单个传感器或受支持第三方硬盘的详细读数。", "你在 Intel Mac 上通过 Boot Camp 使用 Windows。"].map((item) => <li class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground"><Check class="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />{item}</li>)}
+            </ul>
+            <a href={competitorSources.overview} target="_blank" rel="noopener noreferrer" class="mt-7 inline-flex items-center gap-2 text-sm font-semibold hover:text-accent">访问 Macs Fan Control<ExternalLink class="h-4 w-4" aria-hidden="true" /></a>
+          </div>
+          <div class="rounded-xl border border-accent/30 bg-accent/[0.04] p-7">
+            <h3 class="text-lg font-semibold">选择 FanBar</h3>
+            <ul class="mt-5 space-y-4">
+              {["你希望监控与控制全部留在菜单栏。", "你希望每项功能与特权 Helper 源码保持公开。", "你偏好原生 SwiftUI、可编辑预设与 macOS 桌面小组件。"].map((item) => <li class="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground"><Check class="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />{item}</li>)}
+            </ul>
+            <a href={releases} target="_blank" rel="noopener noreferrer" class="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">下载 FanBar<ArrowRight class="h-4 w-4" aria-hidden="true" /></a>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="border-y border-border bg-card">
+        <div class="mx-auto max-w-5xl px-6 py-24 sm:px-8">
+          <SectionLabel>常见问题</SectionLabel>
+          <h2 class="mt-4 font-display text-3xl tracking-[-0.01em] md:text-4xl">常见对比问题</h2>
+          <div class="mt-10 grid gap-x-10 gap-y-9 md:grid-cols-2">
+            {comparisonFaqZh.map((item) => <section class="border-t border-border pt-5"><h3 class="text-base font-semibold">{item.question}</h3><p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.answer}</p></section>)}
+          </div>
+        </div>
+      </section>
+
+      <section id="methodology" class="mx-auto max-w-5xl px-6 py-20 sm:px-8">
+        <SectionLabel>核验方法</SectionLabel>
+        <h2 class="mt-4 font-display text-3xl tracking-[-0.01em]">这份对比如何维护</h2>
+        <div class="mt-6 max-w-3xl space-y-4 text-sm leading-relaxed text-muted-foreground">
+          <p>FanBar 信息根据当前源码仓库核对。Macs Fan Control 信息根据 CrystalIDEA 官方产品、下载、支持、传感器、许可与发布历史页面核对。我们不使用 GitHub 星标数等易波动指标。</p>
+          <p>这是带日期的阶段性快照，不是永久结论。链接来源发生变化后，应重新核对内容，再更新「最后更新」日期。</p>
+        </div>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href={github} target="_blank" rel="noopener noreferrer" class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">FanBar 源码</a>
+          <a href={competitorSources.releaseNotes} target="_blank" rel="noopener noreferrer" class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">Macs Fan Control 发布记录</a>
+          <a href={comparisonZhMarkdownUrl} class="inline-flex h-11 items-center rounded-[10px] border border-border px-5 text-sm font-medium hover:border-foreground">Markdown 版本</a>
+        </div>
+      </section>
+
+      <section class="relative overflow-hidden bg-foreground text-white">
+        <div class="dots-bg absolute inset-0 opacity-40" aria-hidden="true"></div>
+        <div class="relative mx-auto max-w-2xl px-6 py-20 text-center sm:px-8">
+          <SectionLabel tone="dark" center>试用 FanBar</SectionLabel>
+          <h2 class="mt-5 font-display text-4xl leading-tight">更喜欢菜单栏原生方案？</h2>
+          <p class="mx-auto mt-4 max-w-lg text-[15px] leading-relaxed text-white/60">免费下载完整应用，或在安装前查看包含特权 Helper 在内的源码。</p>
+          <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href={releases} target="_blank" rel="noopener noreferrer" class="inline-flex h-12 items-center rounded-[10px] bg-accent px-6 text-[15px] font-medium text-white hover:bg-[#0043d6]">下载 FanBar</a>
+            <a href={github} target="_blank" rel="noopener noreferrer" class="inline-flex h-12 items-center rounded-[10px] border border-white/30 px-6 text-[15px] font-medium text-white hover:border-white">查看源码</a>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <Footer locale={locale} dict={dict} />
+</BaseLayout>
