@@ -296,6 +296,10 @@ final class FanController: ObservableObject {
     /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
+    /// Consecutive hardware failures of the curve loop; drives the retry backoff.
+    private var curveConsecutiveFailures = 0
+    /// Next wall-clock time the curve loop may write again after a failure.
+    private var curveRetryNotBefore = Date.distantPast
     private var wakeObserver: NSObjectProtocol?
     private var sleepObserver: NSObjectProtocol?
     /// Time left on the restore timer when the Mac went to sleep; standby
@@ -452,7 +456,10 @@ final class FanController: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.pauseAutomaticRestoreForSleep() }
+            Task { @MainActor in
+                self?.pauseAutomaticRestoreForSleep()
+                self?.releaseFansForSleep()
+            }
         }
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
@@ -484,6 +491,19 @@ final class FanController: ObservableObject {
         automaticRestoreRemainingAtSleep = nil
         guard mode != .automatic, automaticRestoreDuration != .never else { return }
         scheduleAutomaticRestore(interval: remaining)
+    }
+
+    /// Hands the fans to macOS right before sleep, without changing the user's
+    /// mode; the held mode is re-applied after wake by the didWake observer.
+    /// Sleeping with a forced fan state has been observed to leave the SMC
+    /// rejecting every fan write after wake until reboot (issue #114), so the
+    /// forced state never crosses the sleep boundary. Best effort: an in-flight
+    /// curve write may still be queued ahead of this in the helper.
+    private func releaseFansForSleep() {
+        guard mode != .automatic, helperState == .enabled else { return }
+        Task { [helperClient] in
+            try? await helperClient.restoreAutomatic()
+        }
     }
 
     private func scheduleReapplyCurrentMode(after delay: TimeInterval) {
@@ -1500,7 +1520,14 @@ final class FanController: ObservableObject {
     private func updateTemperatureCurve(using reading: ThermalReading, force: Bool = false) {
         guard mode == .temperatureCurve,
               !isBusy,
-              curveUpdateTask == nil else { return }
+              curveUpdateTask == nil,
+              Date() >= curveRetryNotBefore else { return }
+        if curveConsecutiveFailures > 0 {
+            // The first write after a backoff must land even when the target
+            // matches the last successful value: the SMC may never have seen
+            // it, and deadband skipping would leave the stale state in place.
+            curveOutputFraction = nil
+        }
         guard let temperature = controlTemperature(from: reading) else {
             curveMissingTemperatureSamples += 1
             // Idle GPUs briefly drop out of the sensor list; only give up
@@ -1537,12 +1564,27 @@ final class FanController: ObservableObject {
                 try await self.helperClient.setCoolingFraction(fraction)
                 guard self.mode == .temperatureCurve else { return }
                 self.curveOutputFraction = fraction
+                self.curveConsecutiveFailures = 0
+                self.curveRetryNotBefore = .distantPast
                 self.updateCurveMessage()
             } catch {
                 // A transient failure (sleep, helper restart) is not compatibility evidence.
                 guard self.mode == .temperatureCurve else { return }
+                self.curveConsecutiveFailures += 1
+                self.curveRetryNotBefore = Date().addingTimeInterval(
+                    Self.curveFailureBackoff(after: self.curveConsecutiveFailures)
+                )
                 self.messageText = LocalizedControlText {
-                    fanBarFormat("智能温控更新失败：%@", "Smart cooling update failed: %@", error.localizedDescription)
+                    // A wedge that survives an App restart leaves the SMC
+                    // rejecting every fan write; only a reboot resets it (#114).
+                    if self.curveConsecutiveFailures >= 5 {
+                        fanBarText(
+                            "风扇写入持续失败，SMC 可能已锁定；重启电脑可恢复。",
+                            "Fan writes keep failing; the SMC may be locked until reboot."
+                        )
+                    } else {
+                        fanBarFormat("智能温控更新失败：%@", "Smart cooling update failed: %@", error.localizedDescription)
+                    }
                 }
             }
         }
@@ -1640,6 +1682,16 @@ final class FanController: ObservableObject {
         curveTemperatureCelsius = nil
         curveOutputFraction = nil
         curveMissingTemperatureSamples = 0
+        curveConsecutiveFailures = 0
+        curveRetryNotBefore = .distantPast
+    }
+
+    /// Wait before the next curve write after `consecutiveFailures` straight
+    /// failures, in seconds: 0, 2, 5, 10, 20, 40, then 60 s. A dead SMC
+    /// channel used to produce a doomed write every couple of seconds.
+    static func curveFailureBackoff(after consecutiveFailures: Int) -> TimeInterval {
+        let steps: [TimeInterval] = [0, 2, 5, 10, 20, 40, 60]
+        return steps[min(max(consecutiveFailures, 1) - 1, steps.count - 1)]
     }
 
     /// Changes the default from Settings and applies it to any in-progress
