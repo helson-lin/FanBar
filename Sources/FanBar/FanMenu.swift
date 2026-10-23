@@ -778,6 +778,7 @@ struct FanMenu: View {
 
     private static func noticeSymbol(_ notice: ControlNotice) -> String {
         if case .handedBack(_, .missingTemperature, _, _) = notice { return "thermometer" }
+        if case .handedBack(_, .smcRejectingWrites, _, _) = notice { return "exclamationmark.triangle" }
         return "arrow.uturn.backward"
     }
 
@@ -802,7 +803,8 @@ struct FanMenu: View {
                 header: fanBarFormat("重新开启%@，保持", "Turn %@ on again for", ControlNoticeText.modeName(mode, controller: controller)),
                 selected: duration
             ) { controller.turnOnAgain(mode, for: $0) }
-        case .handedBack(let mode, .missingTemperature, let duration, _):
+        case .handedBack(let mode, .missingTemperature, let duration, _),
+             .handedBack(let mode, .smcRejectingWrites, let duration, _):
             PanelTextButton {
                 controller.turnOnAgain(mode, for: duration)
             } label: {

@@ -11,6 +11,8 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     private let makeDriver: () throws -> SMCFanDriver
     private var driver: SMCFanDriver?
     private var activeConnections = 0
+    /// Set between the system's will-sleep and has-powered-on messages.
+    private var isSystemSleeping = false
     private let launchBuild: String
 
     init(
@@ -45,6 +47,32 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
                 RuntimeDiagnostics.shared.record(.helper, .shutdown, .failed)
             }
             driver = nil
+        }
+    }
+
+    /// Runs before the system sleeps; sleep waits for it to return. A fan held in
+    /// manual mode through sleep and dark wakes can leave the SMC refusing every
+    /// mode write until a restart (issue 114), so macOS gets the fans back first.
+    /// The app re-applies its mode after wake.
+    func prepareForSleep() {
+        hardwareQueue.sync {
+            isSystemSleeping = true
+            // Never open the SMC just to go to sleep.
+            guard let driver else { return }
+            Self.log.notice("System will sleep; restoring automatic fan control")
+            RuntimeDiagnostics.shared.record(.helper, .recovery, .started)
+            do {
+                try driver.restoreAutomatic()
+                RuntimeDiagnostics.shared.record(.helper, .recovery, .succeeded)
+            } catch {
+                RuntimeDiagnostics.shared.record(.helper, .recovery, .failed, code: Self.diagnosticCode(error))
+            }
+        }
+    }
+
+    func systemDidWake() {
+        hardwareQueue.sync {
+            isSystemSleeping = false
         }
     }
 
@@ -203,6 +231,15 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
             default: action = .restoreAutomatic
             }
             let requestID = UUID().uuidString.lowercased()
+            // Handing back is always allowed; taking control waits until the Mac is awake.
+            if self.isSystemSleeping, action != .restoreAutomatic {
+                RuntimeDiagnostics.shared.record(.helper, action, .rejected, requestID: requestID, code: Self.systemSleepingCode)
+                reply(false, HelperControlFailure(
+                    code: .systemSleeping,
+                    message: fanBarText("Mac 正在进入睡眠，风扇已交回 macOS", "The Mac is going to sleep; macOS has the fans")
+                ).encodedReply())
+                return
+            }
             RuntimeDiagnostics.shared.record(.helper, action, .started, requestID: requestID)
             do {
                 try body(self.connectedDriver())
@@ -229,6 +266,9 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     private static func invalidRequest(_ message: String) -> String {
         HelperControlFailure(code: .invalidRequest, message: message).encodedReply()
     }
+
+    /// Next to the hardware codes below; a write refused because the Mac is going to sleep.
+    private static let systemSleepingCode = -10004
 
     private static func diagnosticCode(_ error: Error) -> Int {
         guard let hardware = error as? FanHardwareError else { return (error as NSError).code }

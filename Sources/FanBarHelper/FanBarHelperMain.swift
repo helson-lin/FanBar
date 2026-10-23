@@ -22,6 +22,10 @@ enum FanBarHelperMain {
             }
             source.resume()
         }
-        service.run()
+        let power = SystemPowerObserver(willSleep: service.prepareForSleep, didWake: service.systemDidWake)
+        power.start()
+        withExtendedLifetime(power) {
+            service.run()
+        }
     }
 }

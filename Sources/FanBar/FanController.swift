@@ -296,6 +296,7 @@ final class FanController: ObservableObject {
     /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
+    private var curveLockoutBreaker = SMCWriteLockoutBreaker()
     private var wakeObserver: NSObjectProtocol?
     private var sleepObserver: NSObjectProtocol?
     /// Time left on the restore timer when the Mac went to sleep; standby
@@ -1536,11 +1537,19 @@ final class FanController: ObservableObject {
             do {
                 try await self.helperClient.setCoolingFraction(fraction)
                 guard self.mode == .temperatureCurve else { return }
+                self.curveLockoutBreaker.reset()
                 self.curveOutputFraction = fraction
                 self.updateCurveMessage()
             } catch {
                 // A transient failure (sleep, helper restart) is not compatibility evidence.
                 guard self.mode == .temperatureCurve else { return }
+                // A failed write leaves the fans with macOS (the helper rolls back), so
+                // the old output is no base for the next step's rate limit.
+                self.curveOutputFraction = nil
+                if self.curveLockoutBreaker.recordFailure(error) {
+                    self.stopControlForSMCLockout()
+                    return
+                }
                 self.messageText = LocalizedControlText {
                     fanBarFormat("智能温控更新失败：%@", "Smart cooling update failed: %@", error.localizedDescription)
                 }
@@ -1640,6 +1649,23 @@ final class FanController: ObservableObject {
         curveTemperatureCelsius = nil
         curveOutputFraction = nil
         curveMissingTemperatureSamples = 0
+        curveLockoutBreaker.reset()
+    }
+
+    /// The SMC keeps refusing fan-mode writes, so retrying cannot help. Stop
+    /// steering, tell the user a restart is needed, and still ask the helper to
+    /// hand back: clearing the unlock key works even when the mode key refuses.
+    private func stopControlForSMCLockout() {
+        let resumable = currentResumableMode
+        let sessionDuration = automaticRestoreDuration
+        mode = .automatic
+        clearTemperatureCurveState()
+        clearAutomaticRestore()
+        messageText = LocalizedControlText {
+            fanBarText("SMC 拒绝风扇写入，需要重启 Mac 恢复", "The SMC is refusing fan writes; restart your Mac to fix it")
+        }
+        announceHandBack(of: resumable, trigger: .smcRejectingWrites, duration: sessionDuration)
+        Task { [helperClient] in try? await helperClient.restoreAutomatic() }
     }
 
     /// Changes the default from Settings and applies it to any in-progress
@@ -1664,12 +1690,14 @@ final class FanController: ObservableObject {
         case user
         case timer
         case missingTemperature(FanCurveSensor)
+        case smcRejectingWrites
 
         var handBackReason: HandBackReason? {
             switch self {
             case .user: nil
             case .timer: .timer
             case .missingTemperature(let sensor): .missingTemperature(sensor)
+            case .smcRejectingWrites: .smcRejectingWrites
             }
         }
     }
