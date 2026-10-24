@@ -349,6 +349,10 @@ Apple Silicon 的控制序列参考了 MIT 许可的 [`agoodkind/macos-smc-fan`]
       <img src="docs/contributors/taolela.png" width="64" height="64" alt="Taolela 的头像"><br>
       <sub><b>Taolela</b></sub>
     </td>
+    <td align="center">
+      <img src="docs/contributors/estelle00.png" width="64" height="64" alt="Estelle00 的头像"><br>
+      <sub><b>Estelle00</b></sub>
+    </td>
   </tr>
 </table>
 
