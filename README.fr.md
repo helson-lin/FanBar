@@ -382,6 +382,10 @@ Merci aux personnes qui ont signalé des bugs et aidé à améliorer FanBar :
       <img src="docs/contributors/taolela.png" width="64" height="64" alt="Avatar de Taolela"><br>
       <sub><b>Taolela</b></sub>
     </td>
+    <td align="center">
+      <img src="docs/contributors/estelle00.png" width="64" height="64" alt="Avatar de Estelle00"><br>
+      <sub><b>Estelle00</b></sub>
+    </td>
   </tr>
 </table>
 

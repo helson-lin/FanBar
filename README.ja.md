@@ -352,5 +352,9 @@ Apple Silicon の制御手順は、MIT ライセンスの [`agoodkind/macos-smc-
       <img src="docs/contributors/taolela.png" width="64" height="64" alt="Taolelaさんのアバター"><br>
       <sub><b>Taolela</b></sub>
     </td>
+    <td align="center">
+      <img src="docs/contributors/estelle00.png" width="64" height="64" alt="Estelle00さんのアバター"><br>
+      <sub><b>Estelle00</b></sub>
+    </td>
   </tr>
 </table>
