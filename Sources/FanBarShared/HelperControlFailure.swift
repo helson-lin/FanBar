@@ -13,6 +13,8 @@ public struct HelperControlFailure: Codable, Equatable, Sendable {
         case unlockTimeout = "UNLOCK_TIMEOUT"
         case modeKeyMissing = "MODE_KEY_MISSING"
         case invalidRequest = "INVALID_REQUEST"
+        /// The Mac is going to sleep and the fans were handed back to macOS; writes wait for wake.
+        case systemSleeping = "SYSTEM_SLEEPING"
     }
 
     public static let marker = "fanbar-failure-v1:"

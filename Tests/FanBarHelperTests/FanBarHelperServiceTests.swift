@@ -227,6 +227,38 @@ final class FanBarHelperServiceTests: XCTestCase {
         XCTAssertEqual(factory.created, 2)
     }
 
+    // MARK: Sleep and wake
+
+    func testSleepRestoresAutomaticAndHoldsWritesUntilWake() throws {
+        let factory = DriverFactory()
+        let service = makeService(factory)
+        XCTAssertTrue(write { service.setCoolingFraction(1, reply: $0) }.ok)
+
+        service.prepareForSleep()
+        XCTAssertEqual(factory.smc.bytes("F0md"), [0])
+        XCTAssertEqual(factory.smc.bytes("F1md"), [0])
+        XCTAssertEqual(factory.smc.rpm("F0Tg"), 0)
+
+        // A curve tick that lands between will-sleep and sleep must not take the fans back.
+        let refused = write { service.setCoolingFraction(1, reply: $0) }
+        XCTAssertFalse(refused.ok)
+        XCTAssertEqual(HelperControlFailure.decode(reply: try XCTUnwrap(refused.message))?.code, .systemSleeping)
+        XCTAssertEqual(factory.smc.bytes("F0md"), [0])
+        XCTAssertTrue(write { service.restoreAutomatic(reply: $0) }.ok, "Handing back is always allowed")
+
+        service.systemDidWake()
+        XCTAssertTrue(write { service.setCoolingFraction(1, reply: $0) }.ok)
+        XCTAssertEqual(factory.smc.bytes("F0md"), [1])
+    }
+
+    func testSleepWithoutDriverDoesNotOpenTheSMC() {
+        let factory = DriverFactory()
+        let service = makeService(factory)
+        service.prepareForSleep()
+        service.systemDidWake()
+        XCTAssertEqual(factory.created, 0)
+    }
+
     // MARK: Client authorization
 
     func testClientRequirementFailsClosedWithoutTeam() {

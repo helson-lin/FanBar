@@ -12,6 +12,8 @@ enum ResumableMode: Equatable {
 enum HandBackReason: Equatable {
     case timer
     case missingTemperature(FanCurveSensor)
+    /// The SMC kept refusing fan-mode writes; usually only a restart clears it.
+    case smcRejectingWrites
 }
 
 /// Something FanBar did, or is about to do, on its own. The panel shows it
@@ -88,6 +90,12 @@ enum ControlNoticeText {
                 sensor.shortName,
                 modeName(mode, controller: controller)
             )
+        case .handedBack(let mode, .smcRejectingWrites, _, _):
+            return fanBarFormat(
+                "SMC 一直拒绝风扇写入，%@已停止。重启 Mac 可恢复",
+                "The SMC keeps refusing fan writes, so %@ stopped. Restart your Mac to fix it",
+                modeName(mode, controller: controller)
+            )
         }
     }
 
@@ -130,6 +138,17 @@ enum ControlNoticeText {
                 "For safety, macOS now controls the fans."
             )
             content.categoryIdentifier = HandBackNotification.missingTemperatureCategory
+        case .handedBack(let mode, .smcRejectingWrites, _, _):
+            content.title = fanBarFormat(
+                "SMC 拒绝风扇写入，%@已停止",
+                "The SMC is refusing fan writes; %@ stopped",
+                modeName(mode, controller: controller)
+            )
+            content.body = fanBarText(
+                "这通常发生在睡眠唤醒之后，只有重启 Mac 才能恢复。在此之前风扇由 macOS 调节。",
+                "This usually follows sleep and wake, and only a restart clears it. Until then, macOS controls the fans."
+            )
+            content.categoryIdentifier = HandBackNotification.smcRejectingWritesCategory
         }
         return content
     }
@@ -145,6 +164,7 @@ enum HandBackNotification {
     static let soonCategory = "fanbar.hand-back.soon"
     static let endedCategory = "fanbar.hand-back.ended"
     static let missingTemperatureCategory = "fanbar.hand-back.missing-temperature"
+    static let smcRejectingWritesCategory = "fanbar.hand-back.smc-rejecting-writes"
 
     static let keepSameAction = "fanbar.hand-back.keep-same"
     static let keepOnAction = "fanbar.hand-back.keep-on"
@@ -174,6 +194,7 @@ enum HandBackNotification {
             UNNotificationCategory(identifier: soonCategory, actions: [keepSame, keepOn], intentIdentifiers: []),
             UNNotificationCategory(identifier: endedCategory, actions: [turnOnAgain], intentIdentifiers: []),
             UNNotificationCategory(identifier: missingTemperatureCategory, actions: [retry], intentIdentifiers: []),
+            UNNotificationCategory(identifier: smcRejectingWritesCategory, actions: [retry], intentIdentifiers: []),
         ]
     }
 }
@@ -197,5 +218,40 @@ extension HelperClientError {
     var indicatesMissingFanModeKey: Bool {
         if let failure { return failure.code == .modeKeyMissing }
         return message.contains("F0Md/F0md")
+    }
+}
+
+extension HelperClientError {
+    /// The SMC answers reads but refuses to switch a fan's mode: the unlock never
+    /// takes, or the mode write returns kSMCBadCommand (0x82). After a run of sleep
+    /// and dark wakes this can last until the Mac restarts (issue 114).
+    var indicatesSMCWriteLockout: Bool {
+        guard let failure else { return false }
+        return failure.code == .unlockTimeout || failure.resultCode == SMCWriteLockoutBreaker.badCommandResult
+    }
+}
+
+/// Counts curve writes the SMC refused in a row. Retrying every ~11 s forever
+/// only hides a locked-out SMC, so after about a minute FanBar stops and says so.
+struct SMCWriteLockoutBreaker {
+    /// `0x10000 | kSMCBadCommand`, as AppleSMC.c reports an SMC result byte.
+    static let badCommandResult: Int32 = 0x1_0082
+    static let threshold = 5
+
+    private(set) var consecutiveRefusals = 0
+
+    /// Returns true once enough refusals in a row mean the SMC is locked out.
+    /// Any other failure breaks the run: it says nothing about the SMC.
+    mutating func recordFailure(_ error: Error) -> Bool {
+        guard (error as? HelperClientError)?.indicatesSMCWriteLockout == true else {
+            consecutiveRefusals = 0
+            return false
+        }
+        consecutiveRefusals += 1
+        return consecutiveRefusals >= Self.threshold
+    }
+
+    mutating func reset() {
+        consecutiveRefusals = 0
     }
 }

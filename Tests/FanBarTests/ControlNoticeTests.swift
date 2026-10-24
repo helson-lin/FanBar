@@ -112,6 +112,67 @@ final class ControlNoticeTests: XCTestCase {
         XCTAssertEqual(lost.body, "For safety, macOS now controls the fans.")
     }
 
+    func testSMCLockoutNoticeAsksForARestartAndOffersARetry() throws {
+        let controller = makeController()
+        let silent = ResumableMode.preset(.builtIn(.silent))
+        let silentTitle = controller.presetTitle(for: .builtIn(.silent))
+        let notice = ControlNotice.handedBack(mode: silent, reason: .smcRejectingWrites, duration: .never, at: Date())
+
+        XCTAssertEqual(
+            ControlNoticeText.panelMessage(notice, controller: controller, countdown: ""),
+            "The SMC keeps refusing fan writes, so \(silentTitle) stopped. Restart your Mac to fix it"
+        )
+        let content = ControlNoticeText.notificationContent(for: notice, controller: controller)
+        XCTAssertEqual(content.categoryIdentifier, HandBackNotification.smcRejectingWritesCategory)
+        XCTAssertTrue(content.body.contains("only a restart clears it"))
+
+        let category = try XCTUnwrap(HandBackNotification.categories(sessionDuration: .never)
+            .first { $0.identifier == HandBackNotification.smcRejectingWritesCategory })
+        XCTAssertEqual(category.actions.map(\.identifier), [HandBackNotification.turnOnAgainAction])
+    }
+
+    // MARK: SMC write lockout (issue 114)
+
+    private func helperError(_ failure: HelperControlFailure) -> HelperClientError {
+        HelperClientError(message: failure.encodedReply())
+    }
+
+    func testUnlockTimeoutAndBadCommandIndicateALockedOutSMC() {
+        XCTAssertTrue(helperError(HelperControlFailure(code: .unlockTimeout, fanIndex: 0, message: "")).indicatesSMCWriteLockout)
+        XCTAssertTrue(helperError(HelperControlFailure(
+            code: .smcOperationFailed, smcKey: "F0Md", resultCode: 65_666, message: ""
+        )).indicatesSMCWriteLockout)
+
+        XCTAssertFalse(helperError(HelperControlFailure(
+            code: .smcOperationFailed, smcKey: "F0Tg", resultCode: 0x1_0084, message: ""
+        )).indicatesSMCWriteLockout)
+        XCTAssertFalse(helperError(HelperControlFailure(code: .systemSleeping, message: "")).indicatesSMCWriteLockout)
+        XCTAssertFalse(HelperClientError(message: "timeout", isTimeout: true).indicatesSMCWriteLockout)
+    }
+
+    func testBreakerTripsOnlyOnAnUnbrokenRunOfRefusals() {
+        let refused = helperError(HelperControlFailure(code: .unlockTimeout, fanIndex: 0, message: ""))
+        let other = HelperClientError(message: "connection", isConnectionFailure: true)
+        var breaker = SMCWriteLockoutBreaker()
+
+        for _ in 1..<SMCWriteLockoutBreaker.threshold {
+            XCTAssertFalse(breaker.recordFailure(refused))
+        }
+        XCTAssertFalse(breaker.recordFailure(other), "A different failure breaks the run")
+        XCTAssertEqual(breaker.consecutiveRefusals, 0)
+
+        for _ in 1..<SMCWriteLockoutBreaker.threshold {
+            XCTAssertFalse(breaker.recordFailure(refused))
+        }
+        breaker.reset()
+        XCTAssertEqual(breaker.consecutiveRefusals, 0, "A successful write resets the run")
+
+        for _ in 1..<SMCWriteLockoutBreaker.threshold {
+            XCTAssertFalse(breaker.recordFailure(refused))
+        }
+        XCTAssertTrue(breaker.recordFailure(refused))
+    }
+
     func testWarningOffersTheSessionLengthAgain() throws {
         let categories = HandBackNotification.categories(sessionDuration: .oneHour)
         let soon = try XCTUnwrap(categories.first { $0.identifier == HandBackNotification.soonCategory })
