@@ -53,6 +53,9 @@ struct ThermalReading: Codable, Equatable, Sendable {
     let ssdCelsius: Double?
     let batteryCelsius: Double?
     let hasBuiltInBattery: Bool?
+    /// Whole-system power from SMC `PSTR`, already checked for plausibility.
+    /// Nil on Macs without the key and in history saved before it existed.
+    let systemWatts: Double?
 
     init(
         sampledAt: Date,
@@ -61,9 +64,11 @@ struct ThermalReading: Codable, Equatable, Sendable {
         ssdCelsius: Double? = nil,
         batteryCelsius: Double? = nil,
         hasBuiltInBattery: Bool? = nil,
-        cpuHottestCelsius: Double? = nil
+        cpuHottestCelsius: Double? = nil,
+        systemWatts: Double? = nil
     ) {
         self.sampledAt = sampledAt
+        self.systemWatts = SystemPowerReadout.plausible(systemWatts)
         self.cpuCelsius = cpuCelsius
         self.cpuHottestCelsius = cpuHottestCelsius
         self.gpuCelsius = gpuCelsius
@@ -114,6 +119,7 @@ final class SMCClient: FanReadingSource {
     private var ssdTemperatureKeys: [String]?
     private var batteryTemperatureKeys: [String]?
     private var lastKeyProbe = Date.distantPast
+    private var systemPowerPacer = SMCOptionalKeyPacer(retryInterval: emptyProbeRetryInterval)
     /// Sensors of a powered-down block can be missing at launch, so an empty
     /// probe result is retried instead of being cached for the whole session.
     private static let emptyProbeRetryInterval: TimeInterval = 30
@@ -267,6 +273,19 @@ final class SMCClient: FanReadingSource {
             lastKeyProbe = Date()
         }
         return (cachedKeys ?? []).compactMap(validTemperature)
+    }
+
+    /// Desktops and some Intel Macs have no `PSTR`; those read as nil.
+    private func systemPowerWatts(at date: Date) -> Double? {
+        guard systemPowerPacer.shouldRead(at: date) else { return nil }
+        let watts = (try? read("PSTR")).flatMap { value in
+            let bytes = withUnsafeBytes(of: value.bytes) {
+                Array($0.prefix(Int(min(value.data_size, 32))))
+            }
+            return SMCPowerDecoder.watts(dataType: SMCPowerDecoder.typeName(value.data_type), bytes: bytes)
+        }
+        systemPowerPacer.record(found: watts != nil, at: date)
+        return watts
     }
 
     private func average(_ values: [Double]) -> Double? {
@@ -443,7 +462,8 @@ final class SMCClient: FanReadingSource {
                 batteryPack: BatteryTemperatureReader.batteryPack
             ),
             hasBuiltInBattery: BatteryTemperatureReader.hasBuiltInBattery(),
-            cpuHottestCelsius: cpuValues.max()
+            cpuHottestCelsius: cpuValues.max(),
+            systemWatts: systemPowerWatts(at: date)
         )
     }
 }
