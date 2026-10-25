@@ -78,8 +78,8 @@ For documentation or images, check links, image paths, language-specific content
 
 Open a pull request against `main`. Explain the user-visible problem, the resulting behavior, and the checks performed. Link an issue when one exists; include before/after screenshots for UI changes and identify any untested assumptions. Draft pull requests are welcome when you need feedback. Respond to review with focused follow-up commits.
 
-Contributions are made under the repository's [GPL-3.0 license](LICENSE). Preserve applicable third-party notices; do not add code or assets you cannot redistribute under their applicable terms.
+Contributions are made under the repository's [GPL-3.0 license](LICENSE). Before a pull request can be merged, you need to accept the [Contributor License Agreement](CLA.md) once, by checking its box in the pull request template. You keep the copyright in your work; the agreement also lets the maintainer offer FanBar under other terms, such as a paid edition, while accepted contributions stay available under GPL-3.0. Preserve applicable third-party notices; do not add code or assets you cannot redistribute under their applicable terms.
 
 ## 中文提示
 
-欢迎提交问题、翻译、文档和代码改进；四种界面语言都可以用于 Issue。请使用现有问题表单，较大改动先讨论，PR 中说明改动效果和验证方式。安全漏洞请通过 [安全政策](SECURITY.md) 私下报告，社区行为问题请按 [行为准则](CODE_OF_CONDUCT.md) 联系维护者。ad-hoc 包仅用于构建验证，无法验证特权 Helper。克隆后请运行 `zsh scripts/install-git-hooks.sh` 启用提交钩子：提交前会依次检查 SwiftFormat、SwiftLint、Stylelint、未使用代码扫描和全部测试（含 UI 渲染测试），任何一项不通过都无法提交。
+欢迎提交问题、翻译、文档和代码改进；四种界面语言都可以用于 Issue。请使用现有问题表单，较大改动先讨论，PR 中说明改动效果和验证方式。首次提交 PR 前，请阅读并同意 [贡献者许可协议（CLA）](CLA.md)，在 PR 模板中勾选即可；你保留贡献的版权，被合并的贡献会始终以 GPL-3.0 提供。安全漏洞请通过 [安全政策](SECURITY.md) 私下报告，社区行为问题请按 [行为准则](CODE_OF_CONDUCT.md) 联系维护者。ad-hoc 包仅用于构建验证，无法验证特权 Helper。克隆后请运行 `zsh scripts/install-git-hooks.sh` 启用提交钩子：提交前会依次检查 SwiftFormat、SwiftLint、Stylelint、未使用代码扫描和全部测试（含 UI 渲染测试），任何一项不通过都无法提交。
