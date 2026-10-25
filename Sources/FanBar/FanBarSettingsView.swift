@@ -51,7 +51,6 @@ struct FanBarSettingsView: View {
     private var panelAnimationEnabled = true
     @AppStorage(SettingsTab.preferenceKey)
     private var selectedTabRawValue = SettingsTab.cooling.rawValue
-    @State private var isFooterLinkHovered = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -401,21 +400,56 @@ struct FanBarSettingsView: View {
         .settingsRow()
     }
 
-    /// One quiet line with a single destination: the repository, where the
-    /// license and the Star button both live.
+    /// Two quiet lines: the repository, where the license and the Star
+    /// button live, and the donation checkout.
     private var freeSoftwareNotice: some View {
-        Link(destination: URL(string: "https://github.com/helson-lin/FanBar")!) {
-            HStack(spacing: 6) {
+        VStack(spacing: 0) {
+            SettingsFooterLink(
+                destination: FanBarLinks.repository,
+                title: fanBarText(
+                    "FanBar 免费开源 · 喜欢的话在 GitHub 点个 Star",
+                    "FanBar is free and open source · Star it on GitHub"
+                ),
+                help: fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser")
+            ) {
                 Image(nsImage: GitHubMark.image)
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 12, height: 12)
+            }
+            SettingsFooterLink(
+                destination: FanBarLinks.donation,
+                title: fanBarText("支持 FanBar 的开发", "Support FanBar development"),
+                help: fanBarText("在浏览器中打开捐赠页面", "Open the donation page in a browser")
+            ) {
+                Image(systemName: "heart")
+            }
+        }
+    }
+}
+
+/// Pages FanBar opens in the browser.
+enum FanBarLinks {
+    static let repository = URL(string: "https://github.com/helson-lin/FanBar")!
+    /// Dodo Payments checkout for donations.
+    static let donation = URL(string: "https://checkout.dodopayments.com/buy/pdt_0NqThcy5f4slzzZQspCty?quantity=1")!
+}
+
+/// A caption-sized link at the foot of the General tab that turns accent on hover.
+struct SettingsFooterLink<Icon: View>: View {
+    let destination: URL
+    let title: String
+    let help: String
+    @ViewBuilder let icon: () -> Icon
+    @State private var isHovered = false
+
+    var body: some View {
+        Link(destination: destination) {
+            HStack(spacing: 6) {
+                icon()
                     .accessibilityHidden(true)
-                Text(fanBarText(
-                    "FanBar 免费开源 · 喜欢的话在 GitHub 点个 Star",
-                    "FanBar is free and open source · Star it on GitHub"
-                ))
+                Text(title)
                 Image(systemName: "arrow.up.right")
                     .accessibilityHidden(true)
             }
@@ -425,9 +459,9 @@ struct FanBarSettingsView: View {
         }
         .buttonStyle(.plain)
         .font(.caption)
-        .foregroundColor(isFooterLinkHovered ? .accentColor : .secondary)
-        .onHover { isFooterLinkHovered = $0 }
-        .help(fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser"))
+        .foregroundColor(isHovered ? .accentColor : .secondary)
+        .onHover { isHovered = $0 }
+        .help(help)
     }
 }
 

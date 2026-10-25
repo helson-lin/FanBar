@@ -20,5 +20,6 @@
 - [ ] I ran appropriate checks, or explained why they were not run. / 已执行适用检查，或说明未执行原因。
 - [ ] I updated relevant documentation, translations, or regression coverage when needed. / 已按需更新文档、翻译或回归测试。
 - [ ] This PR contains no secrets, private reports, or personal data. / 不包含密钥、私密报告或个人数据。
+- [ ] I have read the [FanBar CLA](https://github.com/helson-lin/FanBar/blob/main/CLA.md) and I agree to its terms. / 已阅读并同意贡献者许可协议。
 
 <!-- Report security vulnerabilities privately using SECURITY.md; do not disclose them in this PR. / 安全漏洞请按安全政策私下报告，不要在此公开。 -->

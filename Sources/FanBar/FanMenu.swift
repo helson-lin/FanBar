@@ -19,6 +19,10 @@ struct FanMenu: View {
 
     @AppStorage(AppIconChoice.preferenceKey)
     private var appIconRawValue = AppIconChoice.classic.rawValue
+    @AppStorage(SupportPrompt.firstUseKey)
+    private var supportPromptFirstUse = 0.0
+    @AppStorage(SupportPrompt.dismissedKey)
+    private var isSupportPromptDismissed = false
 
     @State private var contentHeight: CGFloat = 580
     @State private var chartRange: TemperatureChartRange = .tenMinutes
@@ -72,6 +76,15 @@ struct FanMenu: View {
 
     private var isShowingModeFailureBanner: Bool {
         controller.modeActionFeedback?.kind == .failure
+    }
+
+    private var isShowingSupportPrompt: Bool {
+        SupportPrompt.shouldShow(
+            firstUse: supportPromptFirstUse,
+            dismissed: isSupportPromptDismissed,
+            now: Date(),
+            isShowingOtherNotice: focus?.level == .hot || controller.helperState != .enabled || isShowingModeFailureBanner
+        )
     }
 
     private var visibleCoolingPresets: [CoolingPresetSummary] {
@@ -193,9 +206,24 @@ struct FanMenu: View {
                     .padding(.vertical, PanelLayout.rowVerticalPadding)
             }
 
+            if isShowingSupportPrompt {
+                SupportPromptRow(
+                    onSupport: {
+                        NSWorkspace.shared.open(FanBarLinks.donation)
+                        isSupportPromptDismissed = true
+                    },
+                    onDismiss: { isSupportPromptDismissed = true }
+                )
+                .padding(.horizontal, Self.padding)
+                .padding(.top, 4)
+            }
+
             footer
         }
         .frame(width: Self.panelWidth)
+        .onAppear {
+            if supportPromptFirstUse == 0 { supportPromptFirstUse = Date().timeIntervalSince1970 }
+        }
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: focus?.level == .hot)
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: controller.helperState != .enabled)
     }
