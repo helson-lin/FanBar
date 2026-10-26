@@ -339,7 +339,8 @@ struct PanelResourceList: View {
                     HStack(spacing: 8) {
                         (Text(disk.name).fontWeight(.medium).foregroundColor(.primary)
                             + Text(disk.isInternal ? "" : fanBarText(" · 外置", " · External"))
-                            .foregroundColor(palette.tertiaryText))
+                            .foregroundColor(palette.tertiaryText)
+                            + ssdTemperatureText(for: disk))
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 4)
@@ -359,6 +360,18 @@ struct PanelResourceList: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The SSD sensor only describes the internal drive, so only the startup disk shows it.
+    /// Quiet when normal; takes the SSD warm/hot colors only once it nears its limits.
+    private func ssdTemperatureText(for disk: DiskVolumeUsage) -> Text {
+        guard disk.id == "/", disk.isInternal, let celsius = thermal?.ssdCelsius else { return Text("") }
+        let color: Color = switch ThermalLevel(celsius: celsius, part: .ssd) {
+        case .normal: palette.tertiaryText
+        case .warm: palette.warmInk
+        case .hot: palette.hot
+        }
+        return Text(String(format: " · %.0f°C", celsius)).foregroundColor(color)
     }
 
     private func percent(_ fraction: Double?) -> String {
