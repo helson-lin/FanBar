@@ -39,15 +39,27 @@ final class MenuBarIconRotor {
     private static let spinKey = "spin"
 
     init() {
-        let filter = CIFilter.sourceOutCompositing()
-        // Anything under this solid backdrop is removed, leaving the menu bar.
-        filter.backgroundImage = CIImage(color: CIColor.blue).cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64))
-        eraser.backgroundFilters = [filter]
+        eraser.backgroundFilters = [Self.makeEraserFilter()]
         eraser.masksToBounds = true
         tint.mask = glyph
         for layer in [eraser, tint, glyph] {
             layer.actions = ["position": NSNull(), "bounds": NSNull(), "contents": NSNull(), "backgroundColor": NSNull()]
         }
+    }
+
+    /// Turns whatever lies under the eraser fully transparent, leaving the
+    /// menu bar. Every input is a vector: a CIImage input would make Core
+    /// Animation encode it through an in-process Core Image Metal context,
+    /// which loads about 180 MB of precompiled kernels into the app.
+    static func makeEraserFilter() -> CIFilter {
+        let filter = CIFilter.colorMatrix()
+        let zero = CIVector(x: 0, y: 0, z: 0, w: 0)
+        filter.rVector = zero
+        filter.gVector = zero
+        filter.bVector = zero
+        filter.aVector = zero
+        filter.biasVector = zero
+        return filter
     }
 
     var isAttached: Bool {
