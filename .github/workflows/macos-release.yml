@@ -204,8 +204,10 @@ jobs:
 
       - name: Notarize and staple
         run: |
+          # The default zsh shell does not stop on errors, so a loop would
+          # report only the last DMG. Every DMG must be stapled before release.
           for dmg_path in dist/FanBar-*.dmg; do
-            zsh scripts/notarize-dmg.sh "${dmg_path}"
+            zsh scripts/notarize-dmg.sh "${dmg_path}" || exit 1
           done
 
       - name: Create checksums
