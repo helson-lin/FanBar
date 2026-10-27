@@ -122,7 +122,7 @@ Appearance chooses the menu bar icon and what the status item shows, previewed l
   </tr>
 </table>
 
-General includes local device compatibility checks, control-service status, automatic restore, notifications, language, login, and updates. Log records temperatures and fan speeds to CSV. Longer settings panes scroll.
+General includes local device compatibility checks, control-service status, automatic restore, notifications, language, login, updates, and command-line and Raycast setup. Log records temperatures and fan speeds to CSV. Longer settings panes scroll.
 
 <table>
   <tr>
@@ -145,6 +145,7 @@ General includes local device compatibility checks, control-service status, auto
 - **Smart temperature curves** — Each panel preset has its own editable curve that smoothly adjusts fan output from chip temperature.
 - **Selectable temperature source** — Use CPU, GPU, or SSD temperature for curve control; unavailable sensors trigger the existing safe fallback.
 - **High-temperature notifications** — Opt in to macOS notifications when CPU or GPU reaches a threshold you set (60–105°C, 90°C by default); each sustained high-temperature episode alerts once and re-arms after cooling down. Pick an alert sound that plays even when notification sounds are off or a Focus is on. While hot, the panel offers a one-click switch to maximum cooling.
+- **Command line and Raycast** — The `fanbar` command-line tool reads status and temperatures, switches presets, sets a fixed RPM, or hands the fans back to macOS from Terminal or scripts, with `--json` output for automation. Install it from **Settings → General → Command Line & Automation**, where you can also set up Raycast Script Commands.
 - **CSV log** — Record CPU, GPU, SSD, and battery temperatures, fan speeds, and the control mode every 2–60 seconds to CSV files in `~/Library/Application Support/FanBar/Logs`, starting a new file on launch, at midnight, or never.
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
@@ -208,6 +209,23 @@ administrator password to unload the fan-control service.
 Fixed RPM and panel presets can restore macOS control after 15 minutes, 30 minutes, or one hour.
 
 On macOS 14 or later, open the Notification Center widget editor and add **FanBar**. The widget displays the latest snapshot published by the main app; WidgetKit controls refresh timing, so use the menu-bar popover when you need second-level telemetry.
+
+### Command line and Raycast
+
+Install `fanbar` from **Settings → General → Command Line & Automation → Command-line tool → Install…**. It links `/usr/local/bin/fanbar` to the tool inside the app, so it updates with FanBar.
+
+```sh
+fanbar status                  # mode, preset, fans, temperatures
+fanbar preset set performance
+fanbar mode fixed 3000 --hold  # keep it until you change it
+fanbar mode auto               # hand the fans back to macOS
+```
+
+Without `--hold`, macOS control comes back after the restore timer set in Settings. Add `--json` for machine-readable output. If FanBar isn't running, the command opens it in the background; switching modes needs the approved control service.
+
+For Raycast, click **Set Up in Raycast…** in the same section, then add the script folder once in Raycast (Settings → Extensions → **+** → Add Script Directory). You get commands to switch presets, set a fixed RPM, return to Automatic, and see CPU, GPU, and SSD temperatures in root search.
+
+Full reference: [docs/cli.md](docs/cli.md).
 
 ### Change the interface language
 
