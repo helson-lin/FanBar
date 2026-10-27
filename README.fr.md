@@ -122,7 +122,7 @@ Apparence permet de choisir l’icône de la barre des menus et ce qu’affiche 
   </tr>
 </table>
 
-Général regroupe la vérification locale de compatibilité, l’état du service de contrôle, le retour automatique, les notifications, la langue, l’ouverture à la connexion et les mises à jour. Journal enregistre les températures et la vitesse des ventilateurs au format CSV. Les pages de réglages longues défilent.
+Général regroupe la vérification locale de compatibilité, l’état du service de contrôle, le retour automatique, les notifications, la langue, l’ouverture à la connexion, les mises à jour, ainsi que l’outil en ligne de commande et Raycast. Journal enregistre les températures et la vitesse des ventilateurs au format CSV. Les pages de réglages longues défilent.
 
 <table>
   <tr>
@@ -145,6 +145,7 @@ Général regroupe la vérification locale de compatibilité, l’état du servi
 - **Courbes de température intelligentes** — Chaque profil du panneau a sa propre courbe modifiable, qui ajuste progressivement les ventilateurs selon la température de la puce.
 - **Source de température au choix** — Pilotez la courbe avec la température du CPU, du GPU ou du SSD ; si un capteur est indisponible, le repli de sécurité habituel s’applique.
 - **Alertes de température élevée** — Activez, si vous le souhaitez, des notifications macOS quand le CPU ou le GPU atteint le seuil choisi (60–105 °C, 90 °C par défaut) ; chaque épisode de surchauffe ne déclenche qu’une alerte, réarmée après refroidissement. Choisissez un son d’alerte, joué même si les sons des notifications sont désactivés ou si une concentration est active. En cas de surchauffe, le panneau propose de passer au refroidissement maximal en un clic.
+- **Ligne de commande et Raycast** — L’outil `fanbar` lit l’état et les températures, change de préréglage, fixe un régime ou rend les ventilateurs à macOS depuis le Terminal ou un script, avec une sortie `--json` pour l’automatisation. Installez-le depuis **Réglages → Général → Ligne de commande et automatisation**, où vous pouvez aussi configurer les Script Commands de Raycast.
 - **Journal CSV** — Enregistrez toutes les 2 à 60 secondes les températures du CPU, du GPU, du SSD et de la batterie, la vitesse des ventilateurs et le mode de contrôle dans des fichiers CSV situés dans `~/Library/Application Support/FanBar/Logs`, avec un nouveau fichier au lancement, à minuit ou jamais.
 - **Repli de sécurité** — Les vitesses cibles sont limitées à la plage matérielle indiquée par chaque ventilateur. En cas de fermeture, de déconnexion ou de défaillance du service, FanBar tente de rendre le contrôle automatique à macOS.
 - **Autorisation native** — Au premier lancement, FanBar explique pourquoi le service de contrôle est nécessaire et ouvre la bonne page des Réglages Système.
@@ -209,6 +210,23 @@ demander un mot de passe administrateur pour décharger le service de contrôle 
 La vitesse fixe et les profils du panneau peuvent rendre le contrôle à macOS après 15 minutes, 30 minutes ou une heure.
 
 Sous macOS 14 ou ultérieur, ouvrez l’éditeur de widgets du Centre de notifications et ajoutez **FanBar**. Le widget affiche le dernier relevé publié par l’app ; WidgetKit décide du moment des actualisations, donc utilisez la fenêtre de la barre des menus pour un suivi à la seconde.
+
+### Ligne de commande et Raycast
+
+Dans **Réglages → Général → Ligne de commande et automatisation → Outil en ligne de commande**, cliquez sur **Installer…**. FanBar crée le lien `/usr/local/bin/fanbar` vers l’outil inclus dans l’app, qui se met donc à jour avec FanBar.
+
+```sh
+fanbar status                  # mode, préréglage, ventilateurs, températures
+fanbar preset set performance
+fanbar mode fixed 3000 --hold  # garder jusqu’à modification
+fanbar mode auto               # rendre les ventilateurs à macOS
+```
+
+Sans `--hold`, macOS reprend la main après le délai de retour automatique défini dans les réglages. Ajoutez `--json` pour une sortie lisible par une machine. Si FanBar n’est pas lancé, la commande l’ouvre en arrière-plan ; changer de mode nécessite le service de contrôle approuvé.
+
+Pour Raycast, cliquez sur **Configurer dans Raycast…** dans la même section, puis ajoutez une fois le dossier de scripts dans Raycast (Settings → Extensions → **+** → Add Script Directory). Vous pourrez changer de préréglage, fixer un régime, revenir en automatique et voir les températures CPU, GPU et SSD dans la recherche principale.
+
+Référence complète : [docs/cli.md](docs/cli.md) (en anglais).
 
 ### Changer la langue de l’interface
 
