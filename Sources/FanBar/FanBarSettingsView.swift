@@ -400,16 +400,27 @@ struct FanBarSettingsView: View {
         .settingsRow()
     }
 
-    /// Two quiet lines: the repository, where the license and the Star
-    /// button live, and the donation checkout.
     private var freeSoftwareNotice: some View {
-        VStack(spacing: 0) {
+        SettingsSupportFooter()
+    }
+}
+
+/// One quiet line at the foot of the General tab: FanBar is free and open
+/// source, then a link to Star the repository and a link to the donation checkout.
+struct SettingsSupportFooter: View {
+    /// Read so the footer repaints when the interface language changes.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Match the links' 8pt inset so the dots sit evenly between items.
+            Text(fanBarText("FanBar 免费开源", "FanBar is free and open source"))
+                .padding(.trailing, 8)
+            separator
             SettingsFooterLink(
                 destination: FanBarLinks.repository,
-                title: fanBarText(
-                    "FanBar 免费开源 · 喜欢的话在 GitHub 点个 Star",
-                    "FanBar is free and open source · Star it on GitHub"
-                ),
+                title: fanBarText("在 GitHub 点 Star", "Star on GitHub"),
                 help: fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser")
             ) {
                 Image(nsImage: GitHubMark.image)
@@ -418,14 +429,27 @@ struct FanBarSettingsView: View {
                     .scaledToFit()
                     .frame(width: 12, height: 12)
             }
+            separator
             SettingsFooterLink(
                 destination: FanBarLinks.donation,
-                title: fanBarText("支持 FanBar 的开发", "Support FanBar development"),
-                help: fanBarText("在浏览器中打开捐赠页面", "Open the donation page in a browser")
+                title: fanBarText("支持开发", "Support"),
+                help: fanBarText(
+                    "随意付，用于签名证书与维护。在浏览器中打开支持页面",
+                    "Pay what you want toward signing and upkeep. Opens in your browser."
+                )
             ) {
                 Image(systemName: "heart")
             }
         }
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .lineLimit(1)
+        .fixedSize()
+        .frame(maxWidth: .infinity)
+    }
+
+    private var separator: some View {
+        Text("·").accessibilityHidden(true)
     }
 }
 
