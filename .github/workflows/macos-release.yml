@@ -194,11 +194,25 @@ jobs:
 
       - name: Verify signed release
         run: |
-          for app_path in dist/FanBar.app dist/FanBar-arm64.app dist/FanBar-x86_64.app; do
-            codesign --verify --deep --strict --verbose=2 "${app_path}"
-            lipo -archs "${app_path}/Contents/MacOS/FanBar"
-            lipo -archs "${app_path}/Contents/Library/LaunchServices/local.fanbar.helper"
-            lipo -archs "${app_path}/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget"
+          # The default zsh shell does not stop on errors, so only the last
+          # command would count. Every app must verify and hold its expected slices.
+          for app_path expected_archs in \
+            dist/FanBar.app "arm64 x86_64" \
+            dist/FanBar-arm64.app "arm64" \
+            dist/FanBar-x86_64.app "x86_64"; do
+            codesign --verify --deep --strict --verbose=2 "${app_path}" || exit 1
+            for binary_path in \
+              Contents/MacOS/FanBar \
+              Contents/Library/LaunchServices/local.fanbar.helper \
+              Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget; do
+              archs="$(lipo -archs "${app_path}/${binary_path}")" || exit 1
+              # Sort the slices so the order lipo prints them in does not matter.
+              archs="${(j: :)${(@o)${(@z)archs}}}"
+              if [[ "${archs}" != "${expected_archs}" ]]; then
+                print -u2 "${app_path}/${binary_path}: expected ${expected_archs}, got ${archs}"
+                exit 1
+              fi
+            done
           done
           codesign --verify --verbose=2 dist/FanBar-*.dmg
 
@@ -212,9 +226,11 @@ jobs:
 
       - name: Create checksums
         run: |
+          # The default zsh shell does not stop on errors, so a loop would
+          # report only the last DMG. Every DMG must get its checksum.
           for dmg_path in dist/FanBar-*.dmg; do
             dmg_name="$(basename "${dmg_path}")"
-            (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+            (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256") || exit 1
           done
 
       - name: Generate signed Sparkle appcast
