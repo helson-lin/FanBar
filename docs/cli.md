@@ -64,13 +64,11 @@ been approved) keep the app's wording.
   sudo ln -sf /Applications/FanBar.app/Contents/Helpers/fanbar /usr/local/bin/fanbar
   ```
 
-- **Homebrew:** once a release that contains the tool is published, add this
-  line to `Casks/fanbar.rb`. Adding it earlier breaks installs of releases
-  without it:
-
-  ```ruby
-  binary "#{appdir}/FanBar.app/Contents/Helpers/fanbar"
-  ```
+- **Homebrew:** `brew install --cask helson-lin/fanbar/fanbar` links `fanbar`
+  into Homebrew's `bin` (`/opt/homebrew/bin` on Apple Silicon,
+  `/usr/local/bin` on Intel) through the cask's `binary` line. On Intel, a link
+  installed earlier from Settings occupies the same path; uninstall it there
+  first, or let Homebrew keep it with `--force`.
 
 Every method links into the app rather than copying the tool, so Sparkle
 updates the CLI together with the app.
