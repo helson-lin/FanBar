@@ -323,8 +323,9 @@ git push origin v0.6.3
 
 ### Homebrew cask の更新
 
-安定版を（ローカルまたは CI で）公開したら、ユニバーサル DMG をダウンロードしてハッシュを
-計算し、生成された cask の変更を PR として提出します。
+CI がリリースを公開すると、`macos-release.yml` の `homebrew` ジョブが cask をそのバージョンに固定し、
+`chore/homebrew-cask-<version>` の PR を作成します。チェックが通ったらマージしてください。
+ローカルで公開した場合や別のタグに固定する場合は、スクリプトを実行して cask の変更を PR として提出します。
 
 ```sh
 python3 scripts/update-homebrew-cask.py          # 最新の安定版

@@ -352,8 +352,10 @@ git push origin v0.6.3
 
 ### Mettre à jour le cask Homebrew
 
-Après la publication d’une version stable (en local ou par CI), téléchargez son
-DMG universel et calculez son empreinte, puis proposez la modification du cask dans une PR :
+Quand la CI publie une version, le job `homebrew` de `macos-release.yml` épingle
+le cask sur celle-ci et ouvre une PR `chore/homebrew-cask-<version>` ; fusionnez-la
+une fois les vérifications passées. Après une publication locale, ou pour épingler
+un autre tag, lancez le script et proposez vous-même la modification dans une PR :
 
 ```sh
 python3 scripts/update-homebrew-cask.py          # Dernière version stable

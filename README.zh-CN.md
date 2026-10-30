@@ -321,8 +321,9 @@ git push origin v0.6.3
 
 ### 更新 Homebrew Cask
 
-通过本地脚本或 CI 发布稳定版后，运行以下命令下载通用 DMG、计算校验和，并将生成的
-Cask 变更提交为 PR：
+CI 发布稳定版后，`macos-release.yml` 的 `homebrew` job 会把 Cask 固定到该版本，并自动开出
+`chore/homebrew-cask-<version>` PR，检查通过后合并即可。本地发布，或需要固定到其他 tag 时，
+运行以下命令，再自行把 Cask 变更提交为 PR：
 
 ```sh
 python3 scripts/update-homebrew-cask.py          # 最新稳定版

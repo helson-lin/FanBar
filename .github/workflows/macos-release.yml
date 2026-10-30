@@ -294,3 +294,58 @@ jobs:
           if [[ -n "${FANBAR_CI_KEYCHAIN:-}" && -f "${FANBAR_CI_KEYCHAIN}" ]]; then
             security delete-keychain "${FANBAR_CI_KEYCHAIN}"
           fi
+
+  homebrew:
+    name: Open Homebrew cask pull request
+    # Releases never touch Casks/fanbar.rb, so brew kept installing an old
+    # version until someone remembered to run scripts/update-homebrew-cask.py.
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # Pushes and pull requests made with GITHUB_TOKEN start no workflows, so
+      # the required checks are dispatched on the branch explicitly.
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pin the cask to this release
+        id: cask
+        shell: bash
+        run: |
+          python3 scripts/update-homebrew-cask.py "${GITHUB_REF_NAME}"
+          if git diff --quiet -- Casks/fanbar.rb; then
+            echo "Casks/fanbar.rb already points at ${GITHUB_REF_NAME}."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push branch and open pull request
+        if: steps.cask.outputs.changed == 'true'
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          branch="chore/homebrew-cask-${version}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${branch}"
+          git commit -m "Update Homebrew cask to ${version}" -- Casks/fanbar.rb
+          # A rerun replaces the branch from an earlier attempt.
+          git push --force origin "${branch}"
+
+          if [[ -z "$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[].number')" ]]; then
+            gh pr create --base main --head "${branch}" \
+              --title "Update Homebrew cask to ${version}" \
+              --body "Pins \`Casks/fanbar.rb\` to the ${GITHUB_REF_NAME} universal DMG. Opened by the release workflow; merge once the checks pass."
+          fi
+
+          # Required checks and the cask install test, run on the pushed commit.
+          gh workflow run quality.yml --ref "${branch}"
+          gh workflow run homebrew.yml --ref "${branch}"

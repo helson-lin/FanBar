@@ -41,5 +41,8 @@ jobs:
           test -d /Applications/FanBar.app
           codesign --verify --deep --strict /Applications/FanBar.app
           lipo /Applications/FanBar.app/Contents/MacOS/FanBar -verify_arch arm64 x86_64
+          test "$(readlink "$(brew --prefix)/bin/fanbar")" = /Applications/FanBar.app/Contents/Helpers/fanbar
+          "$(brew --prefix)/bin/fanbar" --version
           brew uninstall --cask helson-lin/fanbar/fanbar
           test ! -d /Applications/FanBar.app
+          test ! -e "$(brew --prefix)/bin/fanbar"
