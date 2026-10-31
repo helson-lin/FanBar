@@ -112,7 +112,7 @@ final class ControlNoticeTests: XCTestCase {
         XCTAssertEqual(lost.body, "For safety, macOS now controls the fans.")
     }
 
-    func testSMCLockoutNoticeAsksForARestartAndOffersARetry() throws {
+    func testSMCLockoutNoticeSaysFanBarRetriesAndOffersARetry() throws {
         let controller = makeController()
         let silent = ResumableMode.preset(.builtIn(.silent))
         let silentTitle = controller.presetTitle(for: .builtIn(.silent))
@@ -120,11 +120,12 @@ final class ControlNoticeTests: XCTestCase {
 
         XCTAssertEqual(
             ControlNoticeText.panelMessage(notice, controller: controller, countdown: ""),
-            "The SMC keeps refusing fan writes, so \(silentTitle) stopped. Restart your Mac to fix it"
+            "The SMC is refusing fan writes for now; \(silentTitle) handed back to macOS and FanBar will keep retrying"
         )
         let content = ControlNoticeText.notificationContent(for: notice, controller: controller)
         XCTAssertEqual(content.categoryIdentifier, HandBackNotification.smcRejectingWritesCategory)
-        XCTAssertTrue(content.body.contains("only a restart clears it"))
+        XCTAssertEqual(content.title, "The SMC is refusing fan writes; \(silentTitle) paused")
+        XCTAssertTrue(content.body.contains("FanBar retries"))
 
         let category = try XCTUnwrap(HandBackNotification.categories(sessionDuration: .never)
             .first { $0.identifier == HandBackNotification.smcRejectingWritesCategory })
