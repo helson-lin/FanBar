@@ -14,7 +14,8 @@ to a target, but anything a PR adds has to pass.
 | Diff coverage | < 60% of executable lines added in `Sources/` are covered (only when the PR adds ≥ 5 such lines) | `python3 scripts/coverage-report.py --base origin/main --min-diff 60` |
 | Stylelint (`compatibility-service.yml`) | compatibility-site CSS breaks `services/compatibility/.stylelintrc.json` | `npm run lint:css` in `services/compatibility` |
 
-Tools: `brew install swiftlint swiftformat`. The pre-commit hook refuses a
+Tools: `zsh scripts/install-lint-tools.sh` installs the SwiftFormat and SwiftLint
+versions CI uses (pinned in `scripts/lint-tools.env`) into `.build/lint-tools/bin`. The pre-commit hook refuses a
 commit until SwiftFormat, SwiftLint (staged Swift), Stylelint (staged
 compatibility-site CSS), the unused-code scan and `swift test` pass. Enable it
 once per clone:
