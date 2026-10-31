@@ -30,6 +30,10 @@ jobs:
           tap_dir="$(brew --repository)/Library/Taps/helson-lin/homebrew-fanbar"
           mkdir -p "$(dirname "$tap_dir")"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+          # Newer Homebrew refuses to load casks from a tap it has not been told to trust.
+          if brew commands | grep -qx trust; then
+            brew trust helson-lin/fanbar
+          fi
       - name: Check cask style and release download
         run: |
           brew style --cask helson-lin/fanbar/fanbar
