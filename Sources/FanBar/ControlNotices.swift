@@ -12,7 +12,7 @@ enum ResumableMode: Equatable {
 enum HandBackReason: Equatable {
     case timer
     case missingTemperature(FanCurveSensor)
-    /// The SMC kept refusing fan-mode writes; usually only a restart clears it.
+    /// The SMC kept refusing fan-mode writes; FanBar retries in the background.
     case smcRejectingWrites
 }
 
@@ -92,8 +92,8 @@ enum ControlNoticeText {
             )
         case .handedBack(let mode, .smcRejectingWrites, _, _):
             return fanBarFormat(
-                "SMC 一直拒绝风扇写入，%@已停止。重启 Mac 可恢复",
-                "The SMC keeps refusing fan writes, so %@ stopped. Restart your Mac to fix it",
+                "SMC 暂时拒绝风扇写入，%@已交回 macOS，FanBar 会自动重试",
+                "The SMC is refusing fan writes for now; %@ handed back to macOS and FanBar will keep retrying",
                 modeName(mode, controller: controller)
             )
         }
@@ -140,13 +140,13 @@ enum ControlNoticeText {
             content.categoryIdentifier = HandBackNotification.missingTemperatureCategory
         case .handedBack(let mode, .smcRejectingWrites, _, _):
             content.title = fanBarFormat(
-                "SMC 拒绝风扇写入，%@已停止",
-                "The SMC is refusing fan writes; %@ stopped",
+                "SMC 拒绝风扇写入，%@已暂停",
+                "The SMC is refusing fan writes; %@ paused",
                 modeName(mode, controller: controller)
             )
             content.body = fanBarText(
-                "这通常发生在睡眠唤醒之后，只有重启 Mac 才能恢复。在此之前风扇由 macOS 调节。",
-                "This usually follows sleep and wake, and only a restart clears it. Until then, macOS controls the fans."
+                "这常在睡眠唤醒后出现，通常几分钟内会自行恢复。期间风扇由 macOS 调节，FanBar 会自动重试。一直不恢复的话，重启 Mac 即可。",
+                "Common after sleep; usually clears in minutes. macOS runs the fans while FanBar retries. Still stuck? Restart your Mac."
             )
             content.categoryIdentifier = HandBackNotification.smcRejectingWritesCategory
         }
@@ -223,8 +223,8 @@ extension HelperClientError {
 
 extension HelperClientError {
     /// The SMC answers reads but refuses to switch a fan's mode: the unlock never
-    /// takes, or the mode write returns kSMCBadCommand (0x82). After a run of sleep
-    /// and dark wakes this can last until the Mac restarts (issue 114).
+    /// takes, or the mode write returns kSMCBadCommand (0x82). After sleep and dark
+    /// wakes this can last minutes, and occasionally until the Mac restarts (issue 114).
     var indicatesSMCWriteLockout: Bool {
         guard let failure else { return false }
         return failure.code == .unlockTimeout || failure.resultCode == SMCWriteLockoutBreaker.badCommandResult
@@ -232,7 +232,8 @@ extension HelperClientError {
 }
 
 /// Counts curve writes the SMC refused in a row. Retrying every ~11 s forever
-/// only hides a locked-out SMC, so after about a minute FanBar stops and says so.
+/// only hides a refusing SMC, so after about a minute FanBar hands back, says
+/// so, and retries far less often (`SMCLockoutRecovery`).
 struct SMCWriteLockoutBreaker {
     /// `0x10000 | kSMCBadCommand`, as AppleSMC.c reports an SMC result byte.
     static let badCommandResult: Int32 = 0x1_0082

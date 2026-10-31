@@ -297,6 +297,8 @@ final class FanController: ObservableObject {
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
     private var curveLockoutBreaker = SMCWriteLockoutBreaker()
+    /// Retries a mode the SMC refused; see `SMCLockoutRecovery`.
+    private lazy var smcLockoutRetrier = makeSMCLockoutRetrier()
     private var wakeObserver: NSObjectProtocol?
     private var sleepObserver: NSObjectProtocol?
     /// Time left on the restore timer when the Mac went to sleep; standby
@@ -463,6 +465,7 @@ final class FanController: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.resumeAutomaticRestoreAfterWake()
+                self.smcLockoutRetrier.restartAfterWake()
                 // The SMC may reset fan modes during sleep and answers slowly
                 // right after wake; give it a moment before writing again.
                 self.scheduleReapplyCurrentMode(after: 2)
@@ -1652,9 +1655,10 @@ final class FanController: ObservableObject {
         curveLockoutBreaker.reset()
     }
 
-    /// The SMC keeps refusing fan-mode writes, so retrying cannot help. Stop
-    /// steering, tell the user a restart is needed, and still ask the helper to
-    /// hand back: clearing the unlock key works even when the mode key refuses.
+    /// The SMC keeps refusing fan-mode writes. Stop steering and ask the helper
+    /// to hand back (clearing the unlock key works even when the mode key
+    /// refuses), then try the same mode again in the background: the refusal
+    /// often clears by itself minutes after wake.
     private func stopControlForSMCLockout() {
         let resumable = currentResumableMode
         let sessionDuration = automaticRestoreDuration
@@ -1662,10 +1666,50 @@ final class FanController: ObservableObject {
         clearTemperatureCurveState()
         clearAutomaticRestore()
         messageText = LocalizedControlText {
-            fanBarText("SMC 拒绝风扇写入，需要重启 Mac 恢复", "The SMC is refusing fan writes; restart your Mac to fix it")
+            fanBarText("SMC 暂时拒绝风扇写入，FanBar 会自动重试", "The SMC is refusing fan writes for now; FanBar will keep retrying")
         }
         announceHandBack(of: resumable, trigger: .smcRejectingWrites, duration: sessionDuration)
         Task { [helperClient] in try? await helperClient.restoreAutomatic() }
+        guard let resumable else { return }
+        smcLockoutRetrier.start(resumable, duration: sessionDuration)
+    }
+
+    private func makeSMCLockoutRetrier() -> SMCLockoutRetrier {
+        let retrier = SMCLockoutRetrier()
+        retrier.isReady = { [weak self] in
+            guard let self else { return false }
+            return self.mode == .automatic && self.helperState == .enabled && !self.isBusy && self.curveUpdateTask == nil
+        }
+        retrier.resolveWrite = { [weak self] in self?.smcLockoutRecoveryWrite(for: $0) }
+        retrier.perform = { [helperClient] write in
+            switch write {
+            case .fixedRPM(let rpm): try await helperClient.setAllFans(rpm: rpm)
+            case .coolingFraction(let fraction): try await helperClient.setCoolingFraction(fraction)
+            }
+        }
+        retrier.onRecovered = { [weak self] in self?.resumeAfterSMCLockout($0) }
+        retrier.onGaveUp = { [weak self] in
+            self?.messageText = LocalizedControlText {
+                fanBarText("SMC 仍然拒绝风扇写入，重启 Mac 可恢复", "The SMC still refuses fan writes; restarting your Mac clears it")
+            }
+        }
+        return retrier
+    }
+
+    private func resumeAfterSMCLockout(_ recovery: SMCLockoutRecovery) {
+        guard mode == .automatic else { return }
+        turnOnAgain(recovery.mode, for: recovery.duration)
+        guard !isBusy else { return }
+        // The switch did not start, so nothing else will move the fans off the retry's write.
+        Task { [helperClient] in try? await helperClient.restoreAutomatic() }
+    }
+
+    private func smcLockoutRecoveryWrite(for resumable: ResumableMode) -> SMCLockoutRecovery.Write? {
+        var profile: FanCurveProfile?
+        if case .preset(let preset) = resumable, presetExists(preset) {
+            profile = curveProfile(for: preset)
+        }
+        return SMCLockoutRecovery.write(for: resumable, profile: profile, reading: latestThermalReading())
     }
 
     /// Changes the default from Settings and applies it to any in-progress
@@ -2040,6 +2084,8 @@ final class FanController: ObservableObject {
     }
 
     private func beginModeAction(_ message: LocalizedControlText) {
+        // Every mode switch starts here; once one is under way, stop retrying the refused mode.
+        smcLockoutRetrier.cancel()
         modeActionFeedback = ModeActionFeedback(kind: .inProgress, localizedMessage: message)
     }
 
