@@ -26,6 +26,9 @@ Documentation-only changes skip both, which counts as a pass.
 - In a fresh clone, run `zsh scripts/install-git-hooks.sh` before the first
   commit. Check with `git config --get core.hooksPath`, which must print
   `.githooks`.
+- Run `zsh scripts/install-lint-tools.sh` too: the hook refuses to run with a
+  SwiftFormat or SwiftLint version other than the one CI pins in
+  `scripts/lint-tools.env`.
 - Never commit with `--no-verify`, and never unset `core.hooksPath`.
 - If the hook cannot run (SwiftLint or SwiftFormat missing, Sparkle cannot be
   resolved, the build fails), fix the environment. Do not work around it, and do

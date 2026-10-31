@@ -58,7 +58,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install linters
-        run: brew install swiftlint swiftformat
+        # Versions are pinned in scripts/lint-tools.env so a new upstream rule
+        # can't fail CI on code nobody touched.
+        run: |
+          zsh scripts/install-lint-tools.sh
+          echo "$PWD/.build/lint-tools/bin" >> "$GITHUB_PATH"
 
       - name: SwiftLint (new violations only)
         # Existing violations live in .swiftlint-baseline.json; --strict turns
