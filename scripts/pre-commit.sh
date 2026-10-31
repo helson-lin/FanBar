@@ -41,9 +41,16 @@ ignored='^(docs/|.*\.md$|LICENSE$|\.github/ISSUE_TEMPLATE/|services/compatibilit
 swift_relevant=$(print -l -- "${staged[@]}" "${deleted[@]}" | grep -Ev "$ignored" || true)
 
 if (( ${#swift_files} )); then
+  # CI runs the versions pinned in scripts/lint-tools.env; a different local
+  # version can pass here and fail there (or the reverse).
+  source scripts/lint-tools.env
+  [[ -d .build/lint-tools/bin ]] && path=("$PWD/.build/lint-tools/bin" $path)
   for tool in swiftlint swiftformat; do
-    command -v "$tool" >/dev/null || fail "$tool is not installed (brew install $tool)."
+    command -v "$tool" >/dev/null || fail "$tool is not installed (zsh scripts/install-lint-tools.sh)."
   done
+  [[ "$(swiftformat --version)" == "$SWIFTFORMAT_VERSION" && "$(swiftlint version)" == "$SWIFTLINT_VERSION" ]] \
+    || fail "SwiftFormat $(swiftformat --version) / SwiftLint $(swiftlint version) differ from CI's \
+$SWIFTFORMAT_VERSION / $SWIFTLINT_VERSION; run 'zsh scripts/install-lint-tools.sh'."
   step "SwiftFormat"
   swiftformat --lint --quiet "${swift_files[@]}" \
     || fail "run 'swiftformat ${swift_files[*]}' and stage the result."

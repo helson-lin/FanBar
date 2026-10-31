@@ -79,8 +79,7 @@ final class LegacyStatusItemController: NSObject {
     }
 
     private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
-        guard let signal, statusItem?.button != nil else { return }
-        guard SwitchFeedbackPreferences.isEnabled else { return }
+        guard let signal, statusItem?.button != nil, SwitchFeedbackPreferences.isEnabled else { return }
         // A switch spins the icon while the request runs and once more when it
         // lands, even with the fans stopped; a failure flashes instead.
         switch signal {
