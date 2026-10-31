@@ -34,6 +34,18 @@ Documentation-only changes skip both, which counts as a pass.
 - The hook tests the working tree, so stage every Swift change under `Sources/`
   and `Tests/` before committing.
 
+## Claude Code enforces these rules
+
+`.claude/settings.json` runs `.claude/hooks/agent_guard.py` before every shell
+command and file edit in Claude Code. It **denies** skipping or redirecting the
+git hook, growing the lint baseline or the unused-code allowlist, new
+`swiftlint:disable` markers, hand edits to generated contracts, and branch
+protection changes. It **asks the maintainer** before pushing to `main`,
+pushing release tags, merging, releasing, deploying the service, posting on
+GitHub, or editing workflows, git hooks and the guard itself. Other agents do
+not run it, so the rules above still apply to them. Test the guard with
+`python3 -m unittest discover -s .claude/hooks`.
+
 ## What usually fails CI
 
 - **Translations.** Every `fanBarText` / `fanBarFormat` call needs a matching
