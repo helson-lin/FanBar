@@ -120,7 +120,10 @@ struct FanCurveEditorView: View {
                     set: { controller.setCurveSensor($0) }
                 )
             ) {
-                ForEach(FanCurveSensor.allCases) { sensor in
+                ForEach(FanCurveSensor.selectable(
+                    reading: controller.temperatureHistory.last,
+                    current: profile.sensor
+                )) { sensor in
                     Text(sensor.title).tag(sensor)
                 }
             }

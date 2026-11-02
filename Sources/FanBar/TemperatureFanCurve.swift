@@ -11,6 +11,14 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// Sources the curve editor offers. Battery is left out on a Mac without one, where it
+    /// could never be read and control would fall back to macOS; a profile already using it
+    /// keeps the option so the selection never silently changes.
+    static func selectable(reading: ThermalReading?, current: FanCurveSensor) -> [FanCurveSensor] {
+        let hasBattery = reading?.hasBuiltInBattery == true || reading?.batteryCelsius != nil
+        return allCases.filter { $0 != .battery || hasBattery || $0 == current }
+    }
+
     var title: String {
         switch self {
         case .maxChip: fanBarText("CPU/GPU 较高者", "Higher of CPU/GPU")
