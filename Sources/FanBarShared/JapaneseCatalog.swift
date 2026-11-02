@@ -1,5 +1,5 @@
 // Localization keys and user-facing paragraphs remain intact for catalog extraction.
-// swiftlint:disable line_length type_body_length
+// swiftlint:disable file_length line_length type_body_length
 import Foundation
 
 /// Japanese copy for every `fanBarText` / `fanBarFormat` call, keyed by the
@@ -625,4 +625,4 @@ enum JapaneseCatalog {
     ]
 }
 
-// swiftlint:enable line_length type_body_length
+// swiftlint:enable file_length line_length type_body_length
