@@ -212,8 +212,9 @@ struct PanelResourceList: View {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(palette.secondaryText)
-            // Color is never the only cue: a raised level is also said in words.
-            if let name = level.spokenName {
+            // Only critical is said in words on screen; elevated stays color-only
+            // (VoiceOver still hears it via spokenName, see ResourceLevel).
+            if let name = level.visibleName {
                 Text(name)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(level == .critical ? palette.hot : palette.warmInk)
@@ -241,11 +242,8 @@ struct PanelResourceList: View {
         let summary: Text = {
             let total = Text(fanBarFormat("共 %@", "%@ total", wholeGigabytes(diskTotalBytes)))
             switch level {
-            case .normal:
+            case .normal, .elevated:
                 return total
-            case .elevated:
-                return Text(fanBarText("空间偏低", "Space low")).fontWeight(.semibold).foregroundColor(palette.warmInk)
-                    + Text(" · ") + total
             case .critical:
                 return Text(fanBarText("空间不足", "Almost full")).fontWeight(.semibold).foregroundColor(palette.hot)
                     + Text(" · ") + total
@@ -509,6 +507,13 @@ enum ResourceLevel: Equatable {
         case .elevated: fanBarText("空间偏低", "Space low")
         case .critical: fanBarText("空间不足", "Almost full")
         }
+    }
+
+    /// On screen, only the critical tier gets a word — elevated is advisory, not
+    /// actionable, so color + the percentage already in view is enough and a label
+    /// would just read as alarm. VoiceOver still gets `spokenName` at both tiers.
+    var visibleName: String? {
+        self == .critical ? spokenName : nil
     }
 }
 
