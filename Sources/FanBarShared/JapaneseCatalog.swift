@@ -615,6 +615,13 @@ enum JapaneseCatalog {
         "App, compressed and cached memory": "アプリ、圧縮、キャッシュ",
         "Load and graphics memory": "負荷とグラフィックスメモリ",
         "Free space; expand to see every disk": "空き容量。展開するとすべてのディスクを表示",
+        "%d processes for this user · 100%% is one core": "このユーザのプロセス %d 個 · 100%% = 1 コア",
+        "Apps using the most CPU": "CPU 使用率の高いアプリ",
+        "Hide app list": "アプリのリストを隠す",
+        "Hide the apps using the most CPU": "CPU 使用率の高いアプリを隠す",
+        "Measuring…": "計測中…",
+        "Opens Activity Monitor": "アクティビティモニタを開きます",
+        "Show the apps using the most CPU": "CPU 使用率の高いアプリを表示",
     ]
 }
 

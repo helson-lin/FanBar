@@ -603,6 +603,13 @@ enum FrenchCatalog {
         "App, compressed and cached memory": "Mémoire des apps, compressée et en cache",
         "Load and graphics memory": "Charge et mémoire graphique",
         "Free space; expand to see every disk": "Espace libre ; développer pour voir tous les disques",
+        "%d processes for this user · 100%% is one core": "%d processus de cet utilisateur · 100 %% = un cœur",
+        "Apps using the most CPU": "Apps utilisant le plus le CPU",
+        "Hide app list": "Masquer la liste des apps",
+        "Hide the apps using the most CPU": "Masquer les apps utilisant le plus le CPU",
+        "Measuring…": "Mesure…",
+        "Opens Activity Monitor": "Ouvre le Moniteur d’activité",
+        "Show the apps using the most CPU": "Afficher les apps utilisant le plus le CPU",
     ]
 }
 

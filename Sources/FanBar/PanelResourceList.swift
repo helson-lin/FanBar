@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Resources
 
-/// A two-column resource grid held together by whitespace; disk details expand beneath it.
+/// A two-column resource grid held together by whitespace; disk and CPU details expand beneath it.
 /// Shows the modules chosen in Settings, in order; an odd last module spans its row.
 struct PanelResourceList: View {
     @AppStorage(FanBarLanguage.preferenceKey)
@@ -17,10 +17,12 @@ struct PanelResourceList: View {
     let gpuHistory: [Double]
     let animates: Bool
     var modules: [PanelMonitorModule] = PanelMonitorPreferences.defaultModules
+    /// Sampled only while the CPU detail is open.
+    var topApps: TopAppsSnapshot?
 
     @Binding var expanded: Resource?
     @Environment(\.colorScheme) private var colorScheme
-    @State private var isDiskDetailRevealed = false
+    @State private var isDetailRevealed = false
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
@@ -33,21 +35,28 @@ struct PanelResourceList: View {
         VStack(spacing: 0) {
             resourceGrid
                 .padding(.vertical, 7)
-            if expanded == .disk, modules.contains(.disk) {
+            // One detail at a time: opening the CPU list closes the disk list and vice versa.
+            if let detail = expanded, detail == .disk || detail == .cpu, modules.contains(detail) {
                 PanelDivider()
-                diskDetail
-                    .padding(.vertical, PanelLayout.rowVerticalPadding)
-                    // Height changes instantly (see setExpanded); only the drawing eases in.
-                    .opacity(isDiskDetailRevealed ? 1 : 0)
-                    .scaleEffect(isDiskDetailRevealed ? 1 : 0.98, anchor: .top)
-                    .onAppear {
-                        guard animates else {
-                            isDiskDetailRevealed = true
-                            return
-                        }
-                        withAnimation(.easeOut(duration: 0.15)) { isDiskDetailRevealed = true }
+                Group {
+                    if detail == .disk {
+                        diskDetail
+                    } else {
+                        PanelTopAppsDetail(snapshot: topApps, palette: palette) { setExpanded(nil) }
                     }
-                    .onDisappear { isDiskDetailRevealed = false }
+                }
+                .padding(.vertical, PanelLayout.rowVerticalPadding)
+                // Height changes instantly (see setExpanded); only the drawing eases in.
+                .opacity(isDetailRevealed ? 1 : 0)
+                .scaleEffect(isDetailRevealed ? 1 : 0.98, anchor: .top)
+                .id(detail)
+                .onAppear {
+                    guard animates else {
+                        isDetailRevealed = true
+                        return
+                    }
+                    withAnimation(.easeOut(duration: 0.15)) { isDetailRevealed = true }
+                }
             }
         }
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
@@ -56,7 +65,10 @@ struct PanelResourceList: View {
     private func setExpanded(_ resource: Resource?) {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
-        withTransaction(transaction) { expanded = resource }
+        withTransaction(transaction) {
+            isDetailRevealed = false
+            expanded = resource
+        }
     }
 
     private var resourceGrid: some View {
@@ -81,18 +93,31 @@ struct PanelResourceList: View {
         }
     }
 
+    /// Tappable like the disk cell; it opens the apps using the most CPU.
     private var cpuCell: some View {
-        cell(.cpu, title: "CPU", value: percent(usage.cpuFraction)) {
-            CoreGroups(
-                fractions: usage.cpuCoreFractions,
-                kinds: usage.cpuCoreKinds,
-                coreCount: usage.cpuCoreCount,
-                color: resourceColor(.cpu),
-                barHeight: Self.vizHeight,
-                palette: palette
-            )
-            .padding(.top, 4)
+        let isOpen = expanded == .cpu
+        return Button {
+            setExpanded(isOpen ? nil : .cpu)
+        } label: {
+            cell(.cpu, title: "CPU", value: percent(usage.cpuFraction),
+                 chevron: isOpen ? "chevron.up" : "chevron.down") {
+                CoreGroups(
+                    fractions: usage.cpuCoreFractions,
+                    kinds: usage.cpuCoreKinds,
+                    coreCount: usage.cpuCoreCount,
+                    color: resourceColor(.cpu),
+                    barHeight: Self.vizHeight,
+                    palette: palette
+                )
+                .padding(.top, 4)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PanelDimButtonStyle())
+        .accessibilityAddTraits(isOpen ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(isOpen
+            ? fanBarText("收起占用 CPU 最多的应用", "Hide the apps using the most CPU")
+            : fanBarText("展开占用 CPU 最多的应用", "Show the apps using the most CPU"))
     }
 
     private var memoryCell: some View {
@@ -160,10 +185,11 @@ struct PanelResourceList: View {
         title: String,
         meta: String? = nil,
         value: String,
+        chevron: String? = nil,
         @ViewBuilder viz: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            labelRow(title: title, meta: meta, level: level(resource))
+            labelRow(title: title, meta: meta, level: level(resource), chevron: chevron)
             Text(value)
                 .font(.system(size: 22, weight: .semibold).monospacedDigit())
                 .foregroundColor(.primary)
