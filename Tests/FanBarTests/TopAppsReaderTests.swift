@@ -41,3 +41,34 @@ final class TopAppsReaderTests: XCTestCase {
         XCTAssertNil(reader.sample(now: 2_000_000_000))
     }
 }
+
+@MainActor
+final class TopAppsSamplingTests: XCTestCase {
+    private func makeController() -> FanController {
+        FanController(
+            notificationCenter: nil,
+            widgetSnapshotDestination: .disabled,
+            makeReadingSource: { FakeFanReadingSource() }
+        )
+    }
+
+    /// Opening the CPU detail yields a reading within a second; closing it drops the list.
+    func testSamplingStartsOnDemandAndClearsWhenStopped() {
+        let controller = makeController()
+        XCTAssertNil(controller.topApps)
+
+        controller.setTopAppsSampling(true)
+        let deadline = Date().addingTimeInterval(3)
+        while controller.topApps == nil, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertNotNil(controller.topApps)
+
+        controller.refresh()
+        controller.setTopAppsSampling(false)
+        XCTAssertNil(controller.topApps)
+        // A result already in flight for the closed session is dropped.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        XCTAssertNil(controller.topApps)
+    }
+}

@@ -103,6 +103,28 @@ final class PanelCardLayoutTests: XCTestCase {
         }
     }
 
+    /// The CPU detail shows placeholder rows until a reading arrives, then one row per app.
+    func testCPUDetailListsAppsFromAReading() {
+        let snapshot = TopAppsSnapshot(apps: [
+            TopApp(id: "/System/Applications/Utilities/Activity Monitor.app", name: "Activity Monitor",
+                   bundlePath: "/System/Applications/Utilities/Activity Monitor.app", percent: 148),
+            TopApp(id: "/usr/bin/swift", name: "swift", bundlePath: nil, percent: 4.2),
+        ], processCount: 312)
+        for scheme in [ColorScheme.light, .dark] {
+            func height(_ topApps: TopAppsSnapshot?) -> CGFloat {
+                NSHostingView(rootView: PanelResourceList(
+                    usage: SystemUsage(), thermal: nil, cpuHistory: [], gpuHistory: [],
+                    animates: false, topApps: topApps, expanded: .constant(.cpu)
+                ).frame(width: 336).environment(\.colorScheme, scheme)).fittingSize.height
+            }
+            let listed = height(snapshot)
+            XCTAssertNotEqual(listed, height(nil), accuracy: 0.5)
+            var longer = snapshot
+            longer.apps += (0..<3).map { TopApp(id: "/tmp/tool\($0)", name: "tool\($0)", bundlePath: nil, percent: 1) }
+            XCTAssertEqual(height(longer) - listed, 3 * 32, accuracy: 1)
+        }
+    }
+
     func testPanelFitsScreenWithoutChangingFanControl() throws {
         let controller = FanController(
             notificationCenter: nil, widgetSnapshotDestination: .disabled,
