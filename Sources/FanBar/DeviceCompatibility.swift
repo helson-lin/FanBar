@@ -260,6 +260,7 @@ struct CompatibilitySnapshot: Equatable {
         case .cpu: required = [.cpuTemperature]
         case .gpu: required = [.gpuTemperature]
         case .ssd: required = [.ssdTemperature]
+        case .battery: required = [.batteryTemperature]
         }
         return results.contains { required.contains($0.capability) && $0.status == .available }
     }
