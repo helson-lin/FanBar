@@ -563,11 +563,11 @@ final class FanController: ObservableObject {
     private func sampleTopApps(after delay: TimeInterval = 0) {
         let reader = topAppsReader
         let generation = topAppsGeneration
-        topAppsQueue.asyncAfter(deadline: .now() + delay) {
+        topAppsQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let snapshot = reader.sample() else { return }
-            Task { @MainActor [weak self] in
-                guard let self, isSamplingTopApps, topAppsGeneration == generation else { return }
-                topApps = snapshot
+            Task { @MainActor in
+                guard let self, self.isSamplingTopApps, self.topAppsGeneration == generation else { return }
+                self.topApps = snapshot
             }
         }
     }

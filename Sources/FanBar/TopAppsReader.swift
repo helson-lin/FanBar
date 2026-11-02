@@ -141,12 +141,18 @@ final class TopAppsReader: @unchecked Sendable {
     private static func executablePath(_ pid: pid_t) -> String? {
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
         guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        return string(from: buffer)
+    }
+
+    /// libproc fills a fixed C buffer; the text ends at its first NUL.
+    private static func string(from buffer: [CChar]) -> String? {
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        return String(bytes: bytes, encoding: .utf8)
     }
 
     private static func shortName(_ pid: pid_t) -> String? {
         var buffer = [CChar](repeating: 0, count: 64)
         guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        return string(from: buffer)
     }
 }
