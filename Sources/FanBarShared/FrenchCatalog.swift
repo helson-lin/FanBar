@@ -1,5 +1,5 @@
 // Localization keys and user-facing paragraphs remain intact for catalog extraction.
-// swiftlint:disable line_length type_body_length
+// swiftlint:disable file_length line_length type_body_length
 import Foundation
 
 /// French copy keyed by each call site's English string. `FrenchCatalogTests`
@@ -583,7 +583,27 @@ enum FrenchCatalog {
         "Turn %@ on again for": "Réactiver %@ pendant",
         "This Mac has no fan mode key, so fans can't be controlled manually. Temperatures and speeds still show.": "Ce Mac n’a pas de clé de mode ventilateur : impossible de piloter les ventilateurs manuellement. Les températures et vitesses restent affichées.",
         "Compatibility": "Compatibilité",
+        "Menu Bar Panel": "Panneau de la barre des menus",
+        "Monitoring Modules": "Modules de surveillance",
+        "Shown mid-panel, left to right, top to bottom. Drag a module in the preview or list to move it.": "Affichés au centre du panneau, de gauche à droite et de haut en bas. Faites glisser un module dans l’aperçu ou la liste pour le déplacer.",
+        "Preview · drag to reorder": "Aperçu · glisser pour réorganiser",
+        "No modules. The panel hides the monitoring area.": "Aucun module. Le panneau masque la zone de surveillance.",
+        "With no modules, the panel hides the monitoring area.": "Sans module, le panneau masque la zone de surveillance.",
+        " With Startup Disk hidden, the panel won't warn when space runs low.": " Si le disque de démarrage est masqué, le panneau ne signalera pas le manque d’espace.",
+        "Move Up": "Monter",
+        "Move Down": "Descendre",
+        "All modules added": "Tous les modules sont ajoutés",
+        "Restore Defaults": "Rétablir les valeurs par défaut",
+        "Add Module": "Ajouter un module",
+        "Remove selected module": "Supprimer le module sélectionné",
+        "%d of %d shown": "%d sur %d affichés",
+        "%@ moved to position %d": "%@ déplacé en position %d",
+        "Remove “%@”": "Supprimer « %@ »",
+        "Overall load, performance and efficiency cores": "Charge globale, cœurs de performance et d’efficacité",
+        "App, compressed and cached memory": "Mémoire des apps, compressée et en cache",
+        "Load and graphics memory": "Charge et mémoire graphique",
+        "Free space; expand to see every disk": "Espace libre ; développer pour voir tous les disques",
     ]
 }
 
-// swiftlint:enable line_length type_body_length
+// swiftlint:enable file_length line_length type_body_length

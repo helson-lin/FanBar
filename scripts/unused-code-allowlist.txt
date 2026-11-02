@@ -19,6 +19,10 @@ toolbarAllowedItemIdentifiers      # NSToolbarDelegate
 toolbarSelectableItemIdentifiers   # NSToolbarDelegate
 getSnapshot                        # WidgetKit TimelineProvider
 getTimeline                        # WidgetKit TimelineProvider
+validateDrop                       # SwiftUI DropDelegate (monitoring module reorder)
+dropEntered                        # SwiftUI DropDelegate
+dropUpdated                        # SwiftUI DropDelegate
+performDrop                        # SwiftUI DropDelegate
 
 # Decoded from service responses; kept so the payload shape stays explicit.
 receivedAt                         # CompatibilityReportService receipt

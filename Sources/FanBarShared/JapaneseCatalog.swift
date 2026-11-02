@@ -1,5 +1,5 @@
 // Localization keys and user-facing paragraphs remain intact for catalog extraction.
-// swiftlint:disable line_length type_body_length
+// swiftlint:disable file_length line_length type_body_length
 import Foundation
 
 /// Japanese copy for every `fanBarText` / `fanBarFormat` call, keyed by the
@@ -595,7 +595,27 @@ enum JapaneseCatalog {
         "Turn %@ on again for": "%@を再びオンにする時間",
         "This Mac has no fan mode key, so fans can't be controlled manually. Temperatures and speeds still show.": "この Mac にはファンモードキーがないため、ファンを手動で制御できません。温度と回転数は引き続き表示されます。",
         "Compatibility": "互換性",
+        "Menu Bar Panel": "メニューバーパネル",
+        "Monitoring Modules": "モニタリングモジュール",
+        "Shown mid-panel, left to right, top to bottom. Drag a module in the preview or list to move it.": "パネル中央に左から右、上から下の順に表示されます。プレビューまたはリストでモジュールをドラッグして移動できます。",
+        "Preview · drag to reorder": "プレビュー · ドラッグで並べ替え",
+        "No modules. The panel hides the monitoring area.": "モジュールがありません。パネルにモニタリング領域は表示されません。",
+        "With no modules, the panel hides the monitoring area.": "モジュールがない場合、パネルにモニタリング領域は表示されません。",
+        " With Startup Disk hidden, the panel won't warn when space runs low.": "「起動ディスク」を非表示にすると、空き容量が少なくなってもパネルで通知されません。",
+        "Move Up": "上へ移動",
+        "Move Down": "下へ移動",
+        "All modules added": "すべてのモジュールを追加済み",
+        "Restore Defaults": "デフォルトに戻す",
+        "Add Module": "モジュールを追加",
+        "Remove selected module": "選択したモジュールを削除",
+        "%d of %d shown": "%d / %d 個を表示中",
+        "%@ moved to position %d": "%@ を %d 番目に移動しました",
+        "Remove “%@”": "「%@」を削除",
+        "Overall load, performance and efficiency cores": "全体の負荷、高性能コアと高効率コア",
+        "App, compressed and cached memory": "アプリ、圧縮、キャッシュ",
+        "Load and graphics memory": "負荷とグラフィックスメモリ",
+        "Free space; expand to see every disk": "空き容量。展開するとすべてのディスクを表示",
     ]
 }
 
-// swiftlint:enable line_length type_body_length
+// swiftlint:enable file_length line_length type_body_length

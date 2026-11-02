@@ -80,13 +80,18 @@ final class DeviceCompatibilityTests: XCTestCase {
     }
 
     func testCurveChecksSelectedSourceInsteadOfAnyAvailableSensor() throws {
-        for sensor in [FanCurveSensor.gpu, .ssd] {
+        for sensor in [FanCurveSensor.gpu, .ssd, .battery] {
             let snapshot = snapshot(curve: .requestSucceeded, curveSensor: sensor)
             XCTAssertEqual(try result(.cpuTemperature, in: snapshot).status, .available)
             XCTAssertEqual(try result(.smartCooling, in: snapshot).reasonCode, "NO_CURVE_SENSOR_EVIDENCE")
         }
         let cpu = snapshot(curve: .requestSucceeded, curveSensor: .cpu)
         XCTAssertEqual(try result(.smartCooling, in: cpu).status, .requestSucceeded)
+        let battery = snapshot(
+            thermal: ThermalReading(sampledAt: Date(), cpuCelsius: 52, gpuCelsius: nil, batteryCelsius: 31),
+            curve: .requestSucceeded, curveSensor: .battery
+        )
+        XCTAssertEqual(try result(.smartCooling, in: battery).status, .requestSucceeded)
     }
 
     func testAcceptedAndFailedRequestsRemainSeparateFromVerifiedReadings() throws {

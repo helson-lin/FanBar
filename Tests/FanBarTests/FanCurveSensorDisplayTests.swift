@@ -22,8 +22,11 @@ final class FanCurveSensorDisplayTests: XCTestCase {
 
     func testDescriptionNamesTheSelectedTemperatureSource() {
         let reading = ThermalReading(
-            sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 70, ssdCelsius: 40, cpuHottestCelsius: 99
+            sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 70, ssdCelsius: 40, batteryCelsius: 33.6,
+            cpuHottestCelsius: 99
         )
+        XCTAssertEqual(FanCurveSensor.battery.temperature(in: reading), 33.6)
+        XCTAssertEqual(FanCurveSensor.battery.controlDescription(for: reading), "Following Battery at 34°")
         XCTAssertEqual(FanCurveSensor.cpu.controlDescription(for: reading), "Following CPU average at 55°")
         XCTAssertEqual(FanCurveSensor.gpu.controlDescription(for: reading), "Following GPU at 70°")
         XCTAssertEqual(FanCurveSensor.ssd.controlDescription(for: reading), "Following SSD at 40°")
@@ -36,6 +39,8 @@ final class FanCurveSensorDisplayTests: XCTestCase {
         XCTAssertEqual(FanCurveSensor.gpu.controlDescription(for: reading), "Following CPU (GPU unavailable) at 55°")
         XCTAssertNil(FanCurveSensor.ssd.temperature(in: reading))
         XCTAssertEqual(FanCurveSensor.ssd.controlDescription(for: reading), "Following SSD at —")
+        XCTAssertNil(FanCurveSensor.battery.temperature(in: reading))
+        XCTAssertEqual(FanCurveSensor.battery.controlDescription(for: reading), "Following Battery at —")
     }
 
     @MainActor

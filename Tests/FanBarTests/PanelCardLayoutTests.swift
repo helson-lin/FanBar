@@ -56,6 +56,51 @@ final class PanelCardLayoutTests: XCTestCase {
         }
     }
 
+    func testConfiguredModulesSetRowCountAndHiddenDiskNeverExpands() {
+        var usage = SystemUsage()
+        usage.cpuFraction = 0.3
+        usage.disks = [DiskVolumeUsage(id: "/", name: "Macintosh HD", isInternal: true,
+                                       usedBytes: 400_000_000_000, totalBytes: 1_000_000_000_000)]
+        func height(_ modules: [PanelMonitorModule], expanded: PanelResourceList.Resource? = nil) -> CGFloat {
+            let host = NSHostingView(rootView: PanelResourceList(
+                usage: usage, thermal: nil, cpuHistory: [], gpuHistory: [],
+                animates: false, modules: modules, expanded: .constant(expanded)
+            ).frame(width: 336))
+            XCTAssertEqual(host.fittingSize.width, 336, accuracy: 0.5)
+            return host.fittingSize.height
+        }
+        let oneRow = height([.memory, .gpu])
+        XCTAssertEqual(height([.memory]), oneRow, accuracy: 12)
+        XCTAssertGreaterThan(height([.memory, .gpu, .disk]), oneRow + 40)
+        XCTAssertEqual(height([.cpu, .memory], expanded: .disk), height([.cpu, .memory]), accuracy: 0.5)
+        XCTAssertGreaterThan(height([.disk], expanded: .disk), height([.disk]))
+    }
+
+    /// Modules can be paired in any order, so each one must share the same vertical rhythm.
+    func testEveryModuleCellHasTheSameHeightSoAnyPairLinesUp() {
+        var usage = SystemUsage()
+        usage.cpuFraction = 0.35
+        usage.cpuCoreFractions = Array(repeating: 0.3, count: 12)
+        usage.cpuCoreKinds = Array(repeating: .performance, count: 8) + Array(repeating: .efficiency, count: 4)
+        usage.memory = MemoryBreakdown(appBytes: 16_000_000_000, cachedBytes: 6_000_000_000,
+                                       compressedBytes: 4_000_000_000, totalBytes: 34_359_738_368,
+                                       swapUsedBytes: nil)
+        usage.gpuFraction = 0.71
+        usage.gpuCoreCount = 38
+        usage.gpuMemoryInUseBytes = 1_900_000_000
+        usage.disks = [DiskVolumeUsage(id: "/", name: "Macintosh HD", isInternal: true,
+                                       usedBytes: 870_000_000_000, totalBytes: 926_000_000_000)]
+        let heights = PanelMonitorModule.allCases.map { module in
+            NSHostingView(rootView: PanelResourceList(
+                usage: usage, thermal: nil, cpuHistory: [], gpuHistory: [],
+                animates: false, modules: [module], expanded: .constant(nil)
+            ).frame(width: 336)).fittingSize.height
+        }
+        for height in heights {
+            XCTAssertEqual(height, heights[0], accuracy: 1, "cell heights: \(heights)")
+        }
+    }
+
     func testPanelFitsScreenWithoutChangingFanControl() throws {
         let controller = FanController(
             notificationCenter: nil, widgetSnapshotDestination: .disabled,
