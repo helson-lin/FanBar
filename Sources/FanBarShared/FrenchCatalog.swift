@@ -1,5 +1,5 @@
 // Localization keys and user-facing paragraphs remain intact for catalog extraction.
-// swiftlint:disable line_length type_body_length
+// swiftlint:disable file_length line_length type_body_length
 import Foundation
 
 /// French copy keyed by each call site's English string. `FrenchCatalogTests`
@@ -606,4 +606,4 @@ enum FrenchCatalog {
     ]
 }
 
-// swiftlint:enable line_length type_body_length
+// swiftlint:enable file_length line_length type_body_length

@@ -320,11 +320,11 @@ struct PanelMonitorSettingsSection: View {
         selection = module
         // A drop outside any module never reaches performDrop; clear the drag once the
         // mouse is up so the placeholder styling doesn't linger.
-        Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { timer in
-            if NSEvent.pressedMouseButtons == 0 {
-                timer.invalidate()
-                dragging = nil
+        Task { @MainActor in
+            while NSEvent.pressedMouseButtons != 0 {
+                try? await Task.sleep(nanoseconds: 200_000_000)
             }
+            dragging = nil
         }
         return NSItemProvider(object: module.rawValue as NSString)
     }
