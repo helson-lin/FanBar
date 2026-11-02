@@ -24,6 +24,10 @@ struct FanMenu: View {
     @AppStorage(SupportPrompt.dismissedKey)
     private var isSupportPromptDismissed = false
 
+    /// nil until the user customizes it, which means the default set.
+    @AppStorage(PanelMonitorPreferences.preferenceKey)
+    private var monitorModulesRawValue: String?
+
     @State private var contentHeight: CGFloat = 580
     @State private var chartRange: TemperatureChartRange = .tenMinutes
     @State private var expandedResource: PanelResourceList.Resource?
@@ -93,6 +97,10 @@ struct FanMenu: View {
             from: menuCoolingPresetsRawValue,
             available: all.map(\.id)
         ).compactMap { id in all.first { $0.id == id } }
+    }
+
+    private var monitorModules: [PanelMonitorModule] {
+        PanelMonitorPreferences.modules(from: monitorModulesRawValue)
     }
 
     private var focus: ThermalFocus? {
@@ -186,17 +194,22 @@ struct FanMenu: View {
                     .padding(.bottom, 12)
             }
 
-            divider
+            // With no modules chosen, the area and its divider go away entirely.
+            if !monitorModules.isEmpty {
+                divider
 
-            PanelResourceList(
-                usage: controller.usage,
-                thermal: controller.temperatureHistory.last,
-                cpuHistory: controller.cpuHistory,
-                gpuHistory: controller.gpuHistory,
-                animates: animatesPanel,
-                expanded: $expandedResource
-            )
-            .padding(.horizontal, Self.padding)
+                PanelResourceList(
+                    usage: controller.usage,
+                    thermal: controller.temperatureHistory.last,
+                    cpuHistory: controller.cpuHistory,
+                    gpuHistory: controller.gpuHistory,
+                    animates: animatesPanel,
+                    modules: monitorModules,
+                    expanded: $expandedResource
+                )
+                .padding(.horizontal, Self.padding)
+                .transition(animatesPanel ? .opacity : .identity)
+            }
 
             if controller.isAvailable {
                 divider
@@ -224,6 +237,10 @@ struct FanMenu: View {
         .onAppear {
             if supportPromptFirstUse == 0 { supportPromptFirstUse = Date().timeIntervalSince1970 }
         }
+        .onChange(of: monitorModulesRawValue) { _ in
+            if expandedResource == .disk, !monitorModules.contains(.disk) { expandedResource = nil }
+        }
+        .animation(animatesPanel ? .easeOut(duration: 0.15) : nil, value: monitorModulesRawValue)
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: focus?.level == .hot)
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: controller.helperState != .enabled)
     }

@@ -3,23 +3,20 @@ import SwiftUI
 
 // MARK: - Resources
 
-/// A two-by-two resource grid held together by whitespace; disk details expand beneath it.
+/// A two-column resource grid held together by whitespace; disk details expand beneath it.
+/// Shows the modules chosen in Settings, in order; an odd last module spans its row.
 struct PanelResourceList: View {
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
 
-    enum Resource: Hashable {
-        case cpu
-        case memory
-        case gpu
-        case disk
-    }
+    typealias Resource = PanelMonitorModule
 
     let usage: SystemUsage
     let thermal: ThermalReading?
     let cpuHistory: [Double]
     let gpuHistory: [Double]
     let animates: Bool
+    var modules: [PanelMonitorModule] = PanelMonitorPreferences.defaultModules
 
     @Binding var expanded: Resource?
     @Environment(\.colorScheme) private var colorScheme
@@ -27,14 +24,16 @@ struct PanelResourceList: View {
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
-    /// Height shared by the CPU core bars and the memory bar's row, so the first row lines up.
+    /// Every cell stacks label, value, a visualization `vizHeight` tall (bars sit on its
+    /// bottom edge) and a `captionHeight` caption, so any two modules side by side line up.
     private static let vizHeight: CGFloat = 20
+    private static let captionHeight: CGFloat = 14
 
     var body: some View {
         VStack(spacing: 0) {
             resourceGrid
                 .padding(.vertical, 7)
-            if expanded == .disk {
+            if expanded == .disk, modules.contains(.disk) {
                 PanelDivider()
                 diskDetail
                     .padding(.vertical, PanelLayout.rowVerticalPadding)
@@ -62,58 +61,80 @@ struct PanelResourceList: View {
 
     private var resourceGrid: some View {
         VStack(spacing: 0) {
-            gridRow {
-                cell(.cpu, title: "CPU", value: percent(usage.cpuFraction)) {
-                    CoreGroups(
-                        fractions: usage.cpuCoreFractions,
-                        kinds: usage.cpuCoreKinds,
-                        coreCount: usage.cpuCoreCount,
-                        color: resourceColor(.cpu),
-                        barHeight: Self.vizHeight,
-                        palette: palette
-                    )
-                    .padding(.top, 4)
-                }
-            } trailing: {
-                cell(
-                    .memory,
-                    title: fanBarText("内存", "Memory"),
-                    meta: usage.memory.map(memoryMeta),
-                    value: percent(usage.memoryFraction)
-                ) {
-                    let used = resourceColor(.memory)
-                    VStack(alignment: .leading, spacing: 6) {
-                        MemoryBar(memory: usage.memory, usedColor: used, palette: palette)
-                            .frame(height: 6)
-                            .frame(height: Self.vizHeight, alignment: .bottom)
-                        HStack(spacing: 9) {
-                            memoryKey(used, fanBarText("应用", "App"))
-                            memoryKey(used.opacity(MemoryBar.compressedOpacity), fanBarText("压缩", "Comp."))
-                            memoryKey(palette.memoryCache, fanBarText("缓存", "Cache"))
-                        }
-                    }
-                    .padding(.top, 4)
+            ForEach(PanelMonitorPreferences.rows(modules), id: \.self) { row in
+                if row.count == 2 {
+                    gridRow { moduleCell(row[0]) } trailing: { moduleCell(row[1]) }
+                } else if let only = row.first {
+                    moduleCell(only)
                 }
             }
-            gridRow {
-                cell(
-                    .gpu,
-                    title: "GPU",
-                    meta: usage.gpuCoreCount.map { fanBarFormat("%d 核", "%d cores", $0) },
-                    value: percent(usage.gpuFraction)
-                ) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        CapacityBar(fraction: usage.gpuFraction, color: resourceColor(.gpu), palette: palette)
-                            .frame(height: 6)
-                        summaryText(usage.gpuMemoryInUseBytes.map {
-                            fanBarFormat("显存 %@", "Memory %@", PanelByteFormat.compact($0))
-                        } ?? "—")
-                    }
-                    .padding(.top, 6)
+        }
+    }
+
+    @ViewBuilder
+    private func moduleCell(_ module: PanelMonitorModule) -> some View {
+        switch module {
+        case .cpu: cpuCell
+        case .memory: memoryCell
+        case .gpu: gpuCell
+        case .disk: diskCell
+        }
+    }
+
+    private var cpuCell: some View {
+        cell(.cpu, title: "CPU", value: percent(usage.cpuFraction)) {
+            CoreGroups(
+                fractions: usage.cpuCoreFractions,
+                kinds: usage.cpuCoreKinds,
+                coreCount: usage.cpuCoreCount,
+                color: resourceColor(.cpu),
+                barHeight: Self.vizHeight,
+                palette: palette
+            )
+            .padding(.top, 4)
+        }
+    }
+
+    private var memoryCell: some View {
+        cell(
+            .memory,
+            title: fanBarText("内存", "Memory"),
+            meta: usage.memory.map(memoryMeta),
+            value: percent(usage.memoryFraction)
+        ) {
+            let used = resourceColor(.memory)
+            VStack(alignment: .leading, spacing: 6) {
+                MemoryBar(memory: usage.memory, usedColor: used, palette: palette)
+                    .frame(height: 6)
+                    .frame(height: Self.vizHeight, alignment: .bottom)
+                HStack(spacing: 9) {
+                    memoryKey(used, fanBarText("应用", "App"))
+                    memoryKey(used.opacity(MemoryBar.compressedOpacity), fanBarText("压缩", "Comp."))
+                    memoryKey(palette.memoryCache, fanBarText("缓存", "Cache"))
                 }
-            } trailing: {
-                diskCell
+                .frame(height: Self.captionHeight, alignment: .leading)
             }
+            .padding(.top, 4)
+        }
+    }
+
+    private var gpuCell: some View {
+        cell(
+            .gpu,
+            title: "GPU",
+            meta: usage.gpuCoreCount.map { fanBarFormat("%d 核", "%d cores", $0) },
+            value: percent(usage.gpuFraction)
+        ) {
+            VStack(alignment: .leading, spacing: 6) {
+                CapacityBar(fraction: usage.gpuFraction, color: resourceColor(.gpu), palette: palette)
+                    .frame(height: 6)
+                    .frame(height: Self.vizHeight, alignment: .bottom)
+                summaryText(usage.gpuMemoryInUseBytes.map {
+                    fanBarFormat("显存 %@", "Memory %@", PanelByteFormat.compact($0))
+                } ?? "—")
+                .frame(height: Self.captionHeight, alignment: .leading)
+            }
+            .padding(.top, 4)
         }
     }
 
@@ -226,13 +247,15 @@ struct PanelResourceList: View {
                     CapacityBar(fraction: diskFraction, color: level.color(palette),
                                 palette: palette)
                         .frame(height: 6)
+                        .frame(height: Self.vizHeight, alignment: .bottom)
                     summary
                         .font(.system(size: 11).monospacedDigit())
                         .foregroundColor(palette.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                        .frame(height: Self.captionHeight, alignment: .leading)
                 }
-                .padding(.top, 6)
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.vertical, 9)
