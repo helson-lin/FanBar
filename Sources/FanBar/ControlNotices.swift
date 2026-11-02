@@ -207,6 +207,7 @@ extension FanCurveSensor {
         case .cpu: "CPU"
         case .gpu: "GPU"
         case .ssd: "SSD"
+        case .battery: fanBarText("电池", "Battery")
         }
     }
 }
