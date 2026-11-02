@@ -12,6 +12,7 @@ struct FanMenu: View {
     private var menuCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.isPanelVisible) private var isPanelVisible
     @AppStorage(PanelAnimationPreferences.preferenceKey)
     private var panelAnimationEnabled = true
     @AppStorage(FanBarLanguage.preferenceKey)
@@ -97,6 +98,10 @@ struct FanMenu: View {
             from: menuCoolingPresetsRawValue,
             available: all.map(\.id)
         ).compactMap { id in all.first { $0.id == id } }
+    }
+
+    private var wantsTopApps: Bool {
+        isPanelVisible && expandedResource == .cpu && monitorModules.contains(.cpu)
     }
 
     private var monitorModules: [PanelMonitorModule] {
@@ -205,6 +210,7 @@ struct FanMenu: View {
                     gpuHistory: controller.gpuHistory,
                     animates: animatesPanel,
                     modules: monitorModules,
+                    topApps: controller.topApps,
                     expanded: $expandedResource
                 )
                 .padding(.horizontal, Self.padding)
@@ -238,8 +244,12 @@ struct FanMenu: View {
             if supportPromptFirstUse == 0 { supportPromptFirstUse = Date().timeIntervalSince1970 }
         }
         .onChange(of: monitorModulesRawValue) { _ in
-            if expandedResource == .disk, !monitorModules.contains(.disk) { expandedResource = nil }
+            if let expanded = expandedResource, !monitorModules.contains(expanded) { expandedResource = nil }
         }
+        // Processes are enumerated only while the CPU detail is open in a visible panel.
+        .onAppear { controller.setTopAppsSampling(wantsTopApps) }
+        .onDisappear { controller.setTopAppsSampling(false) }
+        .onChange(of: wantsTopApps) { controller.setTopAppsSampling($0) }
         .animation(animatesPanel ? .easeOut(duration: 0.15) : nil, value: monitorModulesRawValue)
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: focus?.level == .hot)
         .animation(animatesPanel ? .easeOut(duration: 0.2) : nil, value: controller.helperState != .enabled)
@@ -1123,10 +1133,7 @@ struct FanMenu: View {
     }
 
     private func openActivityMonitor() {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.ActivityMonitor") else {
-            return
-        }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        ActivityMonitorLauncher.open()
     }
 }
 

@@ -36,7 +36,7 @@ final class PanelCardLayoutTests: XCTestCase {
         }
     }
 
-    func testOnlyDiskCanExpand() {
+    func testOnlyDiskAndCPUCanExpand() {
         var usage = SystemUsage()
         usage.gpuCoreCount = 80
         usage.gpuMemoryInUseBytes = 64 * 1_073_741_824
@@ -49,10 +49,12 @@ final class PanelCardLayoutTests: XCTestCase {
                 return host.fittingSize.height
             }
             let collapsed = height(expanded: nil)
-            for resource in [PanelResourceList.Resource.cpu, .memory, .gpu] {
+            for resource in [PanelResourceList.Resource.memory, .gpu] {
                 XCTAssertEqual(height(expanded: resource), collapsed, accuracy: 0.5)
             }
             XCTAssertGreaterThan(height(expanded: .disk), collapsed)
+            // Before the first reading the CPU detail shows placeholder rows.
+            XCTAssertGreaterThan(height(expanded: .cpu), collapsed)
         }
     }
 

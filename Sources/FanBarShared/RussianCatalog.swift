@@ -611,6 +611,13 @@ enum RussianCatalog {
         "App, compressed and cached memory": "Приложения, сжатая память и кэш",
         "Load and graphics memory": "Нагрузка и видеопамять",
         "Free space; expand to see every disk": "Свободное место; разверните, чтобы увидеть все диски",
+        "%d processes for this user · 100%% is one core": "Процессов пользователя: %d · 100%% — одно ядро",
+        "Apps using the most CPU": "Приложения, сильнее всего нагружающие ЦП",
+        "Hide app list": "Скрыть список приложений",
+        "Hide the apps using the most CPU": "Скрыть приложения, нагружающие ЦП",
+        "Measuring…": "Измерение…",
+        "Opens Activity Monitor": "Открывает Мониторинг системы",
+        "Show the apps using the most CPU": "Показать приложения, нагружающие ЦП",
     ]
 }
 

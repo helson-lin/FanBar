@@ -185,6 +185,8 @@ final class FanController: ObservableObject {
     /// CPU and GPU utilization over the last minute, oldest first, for the panel's trend lines.
     @Published private(set) var cpuHistory: [Double] = []
     @Published private(set) var gpuHistory: [Double] = []
+    /// Apps using the most CPU; only sampled while the panel's CPU detail is open.
+    @Published private(set) var topApps: TopAppsSnapshot?
     @Published private(set) var launchAtLoginEnabled = false
     @Published private(set) var launchAtLoginRequiresApproval = false
     /// Persisted default applied each time control leaves Automatic.
@@ -324,6 +326,12 @@ final class FanController: ObservableObject {
     private static let temperatureHistorySaveInterval: TimeInterval = 30
     private var lastTemperatureHistorySaveDate: Date?
     private let readUsage: () -> SystemUsage
+    private let topAppsReader = TopAppsReader()
+    /// Enumerating processes takes milliseconds, so it stays off the main thread.
+    private let topAppsQueue = DispatchQueue(label: "local.fanbar.top-apps", qos: .utility)
+    private var isSamplingTopApps = false
+    /// Bumped on every start and stop, so a late result from an earlier session is dropped.
+    private var topAppsGeneration = 0
     /// Sixty seconds at the two-second refresh cadence.
     static let usageHistorySampleCount = 30
 
@@ -536,6 +544,34 @@ final class FanController: ObservableObject {
         lastServiceStatusRefresh = Date()
     }
 
+    /// Enumerating processes costs several milliseconds, so it runs only while the panel is
+    /// open with its CPU detail expanded. A first reading follows half a second after opening
+    /// instead of waiting for the next two-second tick.
+    func setTopAppsSampling(_ enabled: Bool) {
+        guard enabled != isSamplingTopApps else { return }
+        isSamplingTopApps = enabled
+        topAppsGeneration += 1
+        topApps = nil
+        let reader = topAppsReader
+        topAppsQueue.async {
+            reader.reset()
+            if enabled { _ = reader.sample() }
+        }
+        if enabled { sampleTopApps(after: 0.5) }
+    }
+
+    private func sampleTopApps(after delay: TimeInterval = 0) {
+        let reader = topAppsReader
+        let generation = topAppsGeneration
+        topAppsQueue.asyncAfter(deadline: .now() + delay) {
+            guard let snapshot = reader.sample() else { return }
+            Task { @MainActor [weak self] in
+                guard let self, isSamplingTopApps, topAppsGeneration == generation else { return }
+                topApps = snapshot
+            }
+        }
+    }
+
     func refresh() {
         // While a service still needs setup or approval, keep polling every
         // tick so approving it in System Settings shows up right away.
@@ -548,6 +584,9 @@ final class FanController: ObservableObject {
         usage = readUsage()
         Self.appendUsage(usage.cpuFraction, to: &cpuHistory)
         Self.appendUsage(usage.gpuFraction, to: &gpuHistory)
+        if isSamplingTopApps {
+            sampleTopApps()
+        }
         if localClient == nil {
             do {
                 localClient = try makeReadingSource()
