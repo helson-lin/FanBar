@@ -85,4 +85,27 @@ final class FanCurveSensorDisplayTests: XCTestCase {
             "Fans hold the same speed"
         )
     }
+
+    func testBatteryIsOfferedOnlyWhenThisMacHasOne() {
+        // `installed` mirrors ThermalReading.hasBuiltInBattery, where nil means unknown.
+        // swiftlint:disable:next discouraged_optional_boolean
+        func reading(battery: Double?, installed: Bool?) -> ThermalReading {
+            ThermalReading(sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 60, ssdCelsius: 40,
+                           batteryCelsius: battery, hasBuiltInBattery: installed)
+        }
+        let withoutBattery: [FanCurveSensor] = [.maxChip, .cpu, .gpu, .ssd]
+        // Desktop Macs have no battery service at all, so the flag is unknown rather than false.
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: nil), current: .maxChip),
+                       withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: false), current: .cpu),
+                       withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: nil, current: .maxChip), withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: true), current: .maxChip),
+                       FanCurveSensor.allCases)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: 31, installed: nil), current: .maxChip),
+                       FanCurveSensor.allCases)
+        // A profile that already follows the battery keeps it selectable.
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: nil), current: .battery),
+                       FanCurveSensor.allCases)
+    }
 }
