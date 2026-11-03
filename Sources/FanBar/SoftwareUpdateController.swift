@@ -8,11 +8,13 @@ final class SoftwareUpdateController {
     static let shared = SoftwareUpdateController()
 
     private let updaterController: SPUStandardUpdaterController
+    /// Sparkle holds its delegate weakly, so the controller keeps it alive.
+    private let feedDelegate = UsageFeedDelegate(statistics: .shared)
 
     private init() {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: false,
-            updaterDelegate: nil,
+            updaterDelegate: feedDelegate,
             userDriverDelegate: nil
         )
     }
@@ -43,5 +45,31 @@ final class SoftwareUpdateController {
     func checkForUpdates() {
         guard updaterController.updater.canCheckForUpdates else { return }
         updaterController.checkForUpdates(nil)
+    }
+}
+
+/// Thin Sparkle adapter: every decision lives in `UsageStatistics`.
+@MainActor
+final class UsageFeedDelegate: NSObject, SPUUpdaterDelegate {
+    private let statistics: UsageStatistics
+
+    init(statistics: UsageStatistics) {
+        self.statistics = statistics
+    }
+
+    func feedParameters(for updater: SPUUpdater, sendingSystemProfile sendingProfile: Bool) -> [[String: String]] {
+        statistics.feedParameters()
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishLoading appcast: SUAppcast) {
+        statistics.appcastDidLoad()
+    }
+
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        statistics.checkDidFail()
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+        if error != nil { statistics.checkDidFail() }
     }
 }
