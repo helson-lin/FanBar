@@ -22,16 +22,35 @@ struct OnboardingCard: View {
     private var languageRawValue = FanBarLanguage.defaultValue
 
     static let width: CGFloat = 580
+    /// Divider, 14pt padding above and below, and the 30pt buttons.
+    static let footerHeight: CGFloat = 59
 
-    /// The permission notice only appears before the helper is approved; without it the
-    /// window is shorter rather than ending in an empty band.
-    static func height(for helperState: FanController.HelperState) -> CGFloat {
-        helperState == .enabled ? 640 : 718
+    private static var measuredHeights: [String: CGFloat] = [:]
+
+    /// Tall enough to show everything without scrolling in the current language, so the
+    /// permission notice never hides below the fold and short translations leave no empty
+    /// band. Measured once per language and control-service state; capped to the screen,
+    /// where the content scrolls instead.
+    @MainActor
+    static func height(for controller: FanController) -> CGFloat {
+        let key = "\(FanBarLanguage.current.rawValue)|\(controller.helperState)"
+        let content = measuredHeights[key] ?? {
+            let host = NSHostingView(rootView: OnboardingCard(
+                controller: controller, onOpenMenu: {}, onDismiss: {}, showsContentOnly: true
+            ))
+            let height = ceil(host.fittingSize.height)
+            measuredHeights[key] = height
+            return height
+        }()
+        let screen = NSScreen.main?.visibleFrame.height ?? .greatestFiniteMagnitude
+        return min(content + footerHeight, screen - 40)
     }
 
     @ObservedObject var controller: FanController
     let onOpenMenu: () -> Void
     let onDismiss: () -> Void
+    /// Renders only the scrolling part, for measuring.
+    var showsContentOnly = false
 
     @AppStorage(MenuBarDisplayMode.preferenceKey)
     private var displayModeRawValue = MenuBarDisplayMode.defaultMode.rawValue
@@ -46,38 +65,19 @@ struct OnboardingCard: View {
     }
 
     var body: some View {
+        if showsContentOnly {
+            scrollContent
+                .frame(width: Self.width)
+                .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+        } else {
+            window
+        }
+    }
+
+    private var window: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    previewStage
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(fanBarText("FanBar 已经在运行", "FanBar is running"))
-                            .font(.system(size: 22, weight: .semibold))
-                        Text(fanBarText(
-                            "它常驻在屏幕顶部的菜单栏，不会出现在程序坞中。",
-                            "It lives in the menu bar at the top of your screen and does not appear in the Dock."
-                        ))
-                        .font(.system(size: 13))
-                        .foregroundColor(palette.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    featuresCard
-
-                    SettingsChrome.settingsCard {
-                        UsageStatisticsRow()
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                    }
-
-                    if controller.helperState != .enabled {
-                        controlServiceNotice
-                    }
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
+                scrollContent
             }
 
             Divider()
@@ -111,7 +111,7 @@ struct OnboardingCard: View {
             .padding(.vertical, 14)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: Self.width, height: Self.height(for: controller.helperState))
+        .frame(width: Self.width, height: Self.height(for: controller))
         .background(Color(NSColor.windowBackgroundColor))
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : 8)
@@ -125,6 +125,40 @@ struct OnboardingCard: View {
             }
         }
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+
+    /// Everything above the footer.
+    private var scrollContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            previewStage
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(fanBarText("FanBar 已经在运行", "FanBar is running"))
+                    .font(.system(size: 22, weight: .semibold))
+                Text(fanBarText(
+                    "它常驻在屏幕顶部的菜单栏，不会出现在程序坞中。",
+                    "It lives in the menu bar at the top of your screen and does not appear in the Dock."
+                ))
+                .font(.system(size: 13))
+                .foregroundColor(palette.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            featuresCard
+
+            SettingsChrome.settingsCard {
+                UsageStatisticsRow(showsAutomaticChecksNote: false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+            }
+
+            if controller.helperState != .enabled {
+                controlServiceNotice
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 24)
+        .padding(.bottom, 20)
     }
 
     // MARK: Preview

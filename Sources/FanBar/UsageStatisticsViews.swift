@@ -4,6 +4,9 @@ import SwiftUI
 /// The opt-in switch with its plain-language explanation. Shared by Settings
 /// and onboarding so both say the same thing. Off unless the user turns it on.
 struct UsageStatisticsRow: View {
+    /// Settings shows the note beside the automatic-update switch it explains;
+    /// onboarding has no such switch, so it leaves the note out.
+    var showsAutomaticChecksNote = true
     /// Read so the row repaints when the interface language changes.
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
@@ -17,10 +20,12 @@ struct UsageStatisticsRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(UsageStatisticsCopy.automaticChecksNote)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if showsAutomaticChecksNote {
+                    Text(UsageStatisticsCopy.automaticChecksNote)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Link(destination: FanBarLinks.usageStatisticsPrivacy) {
                     HStack(spacing: 4) {
                         Text(UsageStatisticsCopy.learnMore)
