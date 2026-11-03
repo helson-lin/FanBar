@@ -42,8 +42,13 @@ struct OnboardingCard: View {
             measuredHeights[key] = height
             return height
         }()
-        let screen = NSScreen.main?.visibleFrame.height ?? .greatestFiniteMagnitude
-        return min(content + footerHeight, screen - 40)
+        return min(content + footerHeight, maximumHeight)
+    }
+
+    /// Leaves a margin on short screens, where the content scrolls instead.
+    @MainActor
+    static var maximumHeight: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? .greatestFiniteMagnitude) - 40
     }
 
     @ObservedObject var controller: FanController

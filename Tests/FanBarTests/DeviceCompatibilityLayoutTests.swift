@@ -115,7 +115,8 @@ final class DeviceCompatibilityLayoutTests: XCTestCase {
             let content = NSHostingView(rootView: OnboardingCard(
                 controller: controller, onOpenMenu: {}, onDismiss: {}, showsContentOnly: true
             ))
-            let needed = content.fittingSize.height + OnboardingCard.footerHeight
+            // On a screen too short for it (CI's virtual display), the window stops at the cap and scrolls.
+            let needed = min(content.fittingSize.height + OnboardingCard.footerHeight, OnboardingCard.maximumHeight)
             let window = NSHostingView(rootView: OnboardingCard(controller: controller, onOpenMenu: {}, onDismiss: {}))
             let height = window.fittingSize.height
             XCTAssertGreaterThanOrEqual(height + 0.5, needed, "\(language.rawValue) needs \(needed)")
