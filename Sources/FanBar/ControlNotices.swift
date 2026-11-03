@@ -145,8 +145,8 @@ enum ControlNoticeText {
                 modeName(mode, controller: controller)
             )
             content.body = fanBarText(
-                "这常在睡眠唤醒后出现，通常几分钟内会自行恢复。期间风扇由 macOS 调节，FanBar 会自动重试。一直不恢复的话，重启 Mac 即可。",
-                "Common after sleep; usually clears in minutes. macOS runs the fans while FanBar retries. Still stuck? Restart your Mac."
+                "这常在睡眠唤醒后出现，通常几分钟内会自行恢复。期间风扇由 macOS 调节，FanBar 会自动重试。",
+                "Common after sleep; usually clears in minutes. macOS runs the fans while FanBar retries."
             )
             content.categoryIdentifier = HandBackNotification.smcRejectingWritesCategory
         }

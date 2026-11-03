@@ -295,6 +295,8 @@ final class FanController: ObservableObject {
     /// Asked once per launch, when a timed manual mode first starts.
     private var requestedHandBackNotificationPermission = false
     private var curveUpdateTask: Task<Void, Never>?
+    /// A hand-back sent outside a mode switch; writes wait for it as they wait for a curve step.
+    private var handBackTask: Task<Void, Never>?
     /// When a profile edit arrives while a hardware write is in flight, re-apply once it finishes.
     private var pendingCurveHardwareApply = false
     private var curveMissingTemperatureSamples = 0
@@ -756,6 +758,8 @@ final class FanController: ObservableObject {
     /// Tests start only from system control, so restoration has one unambiguous target.
     func testCompatibilityControl() {
         guard !isBusy, helperState == .enabled, mode == .automatic else { return }
+        // The test drives the fans itself; a pending lockout retry must not resume afterwards.
+        smcLockoutRetrier.cancel()
         isBusy = true
         isTestingCompatibilityControl = true
         compatibilityControlText = LocalizedControlText { fanBarText("正在测试控制能力并恢复系统控制…", "Testing control and restoring system control…") }
@@ -1680,11 +1684,15 @@ final class FanController: ObservableObject {
         }
     }
 
+    /// Every write that changes the mode waits here first, so it never overlaps
+    /// a curve step, a lockout retry or a hand-back that is still with the helper.
     private func finishPendingCurveUpdate() async {
         let pending = curveUpdateTask
         pending?.cancel()
         await pending?.value
         curveUpdateTask = nil
+        await smcLockoutRetrier.finishInFlightWrite()
+        await handBackTask?.value
     }
 
     private func clearTemperatureCurveState() {
@@ -1708,7 +1716,7 @@ final class FanController: ObservableObject {
             fanBarText("SMC 暂时拒绝风扇写入，FanBar 会自动重试", "The SMC is refusing fan writes for now; FanBar will keep retrying")
         }
         announceHandBack(of: resumable, trigger: .smcRejectingWrites, duration: sessionDuration)
-        Task { [helperClient] in try? await helperClient.restoreAutomatic() }
+        handBackInBackground()
         guard let resumable else { return }
         smcLockoutRetrier.start(resumable, duration: sessionDuration)
     }
@@ -1720,17 +1728,17 @@ final class FanController: ObservableObject {
             return self.mode == .automatic && self.helperState == .enabled && !self.isBusy && self.curveUpdateTask == nil
         }
         retrier.resolveWrite = { [weak self] in self?.smcLockoutRecoveryWrite(for: $0) }
-        retrier.perform = { [helperClient] write in
+        retrier.perform = { [weak self, helperClient] write in
+            // Never let the retry overtake the hand-back it follows.
+            await self?.handBackTask?.value
             switch write {
             case .fixedRPM(let rpm): try await helperClient.setAllFans(rpm: rpm)
             case .coolingFraction(let fraction): try await helperClient.setCoolingFraction(fraction)
             }
         }
         retrier.onRecovered = { [weak self] in self?.resumeAfterSMCLockout($0) }
-        retrier.onGaveUp = { [weak self] in
-            self?.messageText = LocalizedControlText {
-                fanBarText("SMC 仍然拒绝风扇写入，重启 Mac 可恢复", "The SMC still refuses fan writes; restarting your Mac clears it")
-            }
+        retrier.onGaveUp = { [weak self] reason in
+            self?.messageText = reason.message
         }
         return retrier
     }
@@ -1740,7 +1748,15 @@ final class FanController: ObservableObject {
         turnOnAgain(recovery.mode, for: recovery.duration)
         guard !isBusy else { return }
         // The switch did not start, so nothing else will move the fans off the retry's write.
-        Task { [helperClient] in try? await helperClient.restoreAutomatic() }
+        handBackInBackground()
+    }
+
+    private func handBackInBackground() {
+        let previous = handBackTask
+        handBackTask = Task { [helperClient] in
+            await previous?.value
+            try? await helperClient.restoreAutomatic()
+        }
     }
 
     private func smcLockoutRecoveryWrite(for resumable: ResumableMode) -> SMCLockoutRecovery.Write? {

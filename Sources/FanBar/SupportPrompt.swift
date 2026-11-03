@@ -25,16 +25,14 @@ struct SupportPromptRow: View {
     var body: some View {
         let palette = PanelPalette(colorScheme: colorScheme)
         VStack(alignment: .leading, spacing: 8) {
-            // swiftlint:disable line_length
             Text(fanBarText(
                 "FanBar 免费开源，由我业余开发，签名证书也是自费。如果它帮到了你，可以随意支持一下。",
-                "FanBar is free and open source. I build it in my spare time and pay for its signing certificate myself. If it helps you, chip in any amount."
+                "Free, open source, built in my spare time. I pay for the signing certificate myself. If FanBar helps, chip in any amount."
             ))
             .font(.system(size: 11))
             .foregroundColor(palette.secondaryText)
             .lineSpacing(2)
             .fixedSize(horizontal: false, vertical: true)
-            // swiftlint:enable line_length
 
             HStack(spacing: 8) {
                 Button(action: onSupport) {
