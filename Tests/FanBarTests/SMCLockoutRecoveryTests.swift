@@ -1,3 +1,4 @@
+import FanBarShared
 import XCTest
 @testable import FanBar
 
@@ -160,14 +161,14 @@ final class SMCLockoutRecoveryTests: XCTestCase {
         var now = start
         let retrier = retrier { now }
         retrier.perform = { _ in throw Refused() }
-        var gaveUp = 0
-        retrier.onGaveUp = { gaveUp += 1 }
+        var gaveUp: [SMCLockoutRecovery.GiveUp] = []
+        retrier.onGaveUp = { gaveUp.append($0) }
 
         retrier.start(.fixed(3_000), duration: .never)
         now = start.addingTimeInterval(SMCLockoutRecovery.window)
         await retrier.attempt()
 
-        XCTAssertEqual(gaveUp, 1)
+        XCTAssertEqual(gaveUp, [.stillRefused])
         XCTAssertNil(retrier.recovery)
         XCTAssertNil(retrier.pendingDelay)
     }
@@ -185,5 +186,217 @@ final class SMCLockoutRecoveryTests: XCTestCase {
         await retrier.attempt()
         retrier.restartAfterWake()
         XCTAssertEqual(retrier.pendingDelay, 30)
+    }
+
+    @MainActor
+    func testSkippedAttemptsNeverClaimTheSMCRefused() async {
+        var now = start
+        let retrier = retrier { now }
+        var wrote = false
+        retrier.perform = { _ in wrote = true }
+        retrier.isReady = { false }
+        var gaveUp: [SMCLockoutRecovery.GiveUp] = []
+        retrier.onGaveUp = { gaveUp.append($0) }
+
+        retrier.start(.fixed(3_000), duration: .never)
+        await retrier.attempt()
+        now = start.addingTimeInterval(SMCLockoutRecovery.window)
+        await retrier.attempt()
+
+        XCTAssertFalse(wrote)
+        XCTAssertEqual(gaveUp, [.neverRetried])
+    }
+
+    @MainActor
+    func testALostConnectionIsNotARefusal() async {
+        var now = start
+        let retrier = retrier { now }
+        retrier.perform = { _ in
+            throw HelperClientError(message: "did not respond", isConnectionFailure: true, isTimeout: true)
+        }
+        var gaveUp: [SMCLockoutRecovery.GiveUp] = []
+        retrier.onGaveUp = { gaveUp.append($0) }
+
+        retrier.start(.fixed(3_000), duration: .never)
+        await retrier.attempt()
+        XCTAssertEqual(retrier.recovery?.refusedWrites, 0)
+        XCTAssertEqual(retrier.recovery?.unansweredWrites, 1)
+        retrier.perform = { _ in throw HelperClientError(message: "SMC operation F0Md failed (-9)") }
+        await retrier.attempt()
+        XCTAssertEqual(retrier.recovery?.refusedWrites, 1)
+        now = start.addingTimeInterval(SMCLockoutRecovery.window)
+        await retrier.attempt()
+
+        XCTAssertEqual(gaveUp, [.stillRefused])
+    }
+
+    func testOnlyARefusalAdvisesARestart() {
+        let saved = UserDefaults.standard.object(forKey: FanBarLanguage.preferenceKey)
+        defer {
+            if let saved {
+                UserDefaults.standard.set(saved, forKey: FanBarLanguage.preferenceKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: FanBarLanguage.preferenceKey)
+            }
+        }
+        UserDefaults.standard.set(FanBarLanguage.english.rawValue, forKey: FanBarLanguage.preferenceKey)
+
+        XCTAssertTrue(SMCLockoutRecovery.GiveUp.stillRefused.message.text.contains("restarting your Mac"))
+        for reason in [SMCLockoutRecovery.GiveUp.unanswered, .neverRetried] {
+            XCTAssertFalse(reason.message.text.localizedCaseInsensitiveContains("restart"), "\(reason)")
+        }
+        XCTAssertNotEqual(SMCLockoutRecovery.GiveUp.unanswered.message, SMCLockoutRecovery.GiveUp.neverRetried.message)
+    }
+
+    /// The helper has the write and no reply has come back yet.
+    @MainActor
+    private final class HangingWrite {
+        private var replies: [CheckedContinuation<Void, Never>] = []
+        private(set) var sent = 0
+        var refuses = false
+        var isWaiting: Bool { !replies.isEmpty }
+
+        func hold() async throws {
+            sent += 1
+            await withCheckedContinuation { replies.append($0) }
+            if refuses { throw Refused() }
+        }
+
+        /// Answers every write still waiting, so a regression fails instead of hanging.
+        func answer() {
+            let waiting = replies
+            replies.removeAll()
+            waiting.forEach { $0.resume() }
+        }
+    }
+
+    @MainActor
+    private func startHangingAttempt(_ retrier: SMCLockoutRetrier, _ write: HangingWrite) async -> Task<Void, Never> {
+        retrier.perform = { _ in try await write.hold() }
+        retrier.start(.fixed(3_000), duration: .never)
+        let attempt = Task { await retrier.attempt() }
+        while !write.isWaiting {
+            await Task.yield()
+        }
+        return attempt
+    }
+
+    @MainActor
+    private final class Flag {
+        var isSet = false
+    }
+
+    /// Cancelling the retry cannot recall a write already with the helper, so a
+    /// mode switch waits for it instead of sharing the connection with it.
+    @MainActor
+    func testAModeSwitchWaitsForAWriteStillWithTheHelper() async {
+        let retrier = retrier { self.start }
+        let write = HangingWrite()
+        retrier.perform = { _ in try await write.hold() }
+        var recovered = false
+        retrier.onRecovered = { _ in recovered = true }
+
+        retrier.start(.fixed(3_000), duration: .never)
+        let attempt = Task { await retrier.attempt() }
+        while !write.isWaiting {
+            await Task.yield()
+        }
+        retrier.cancel()
+        let switched = Flag()
+        let modeSwitch = Task {
+            await retrier.finishInFlightWrite()
+            switched.isSet = true
+        }
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertFalse(switched.isSet, "The switch went out while the retry was still with the helper")
+
+        write.answer()
+        await modeSwitch.value
+        await attempt.value
+
+        XCTAssertTrue(switched.isSet)
+        XCTAssertFalse(recovered, "The cancelled retry turned its mode back on")
+        XCTAssertNil(retrier.recovery)
+        XCTAssertNil(retrier.pendingDelay)
+    }
+
+    @MainActor
+    func testNothingToWaitForWhenNoWriteIsOut() async {
+        let retrier = retrier { self.start }
+        await retrier.finishInFlightWrite()
+        retrier.start(.fixed(3_000), duration: .never)
+        await retrier.attempt()
+        await retrier.finishInFlightWrite()
+        XCTAssertNil(retrier.recovery)
+    }
+
+    /// A wake resets the backoff while a write is out; the write's answer still counts.
+    @MainActor
+    func testAWriteAcceptedAcrossAWakeTurnsTheModeBackOn() async {
+        let retrier = retrier { self.start }
+        let write = HangingWrite()
+        var recovered: [ResumableMode] = []
+        retrier.onRecovered = { recovered.append($0.mode) }
+
+        let attempt = await startHangingAttempt(retrier, write)
+        retrier.restartAfterWake()
+        write.answer()
+        await attempt.value
+
+        XCTAssertEqual(recovered, [.fixed(3_000)], "The SMC took the write but the mode stayed in Automatic")
+        XCTAssertNil(retrier.recovery)
+    }
+
+    @MainActor
+    func testARefusalAcrossAWakeIsStillCounted() async {
+        let retrier = retrier { self.start }
+        let write = HangingWrite()
+        write.refuses = true
+
+        let attempt = await startHangingAttempt(retrier, write)
+        retrier.restartAfterWake()
+        write.answer()
+        await attempt.value
+
+        XCTAssertEqual(retrier.recovery?.refusedWrites, 1)
+        XCTAssertNotNil(retrier.pendingDelay)
+    }
+
+    @MainActor
+    func testNoSecondWriteGoesOutWhileOneIsWithTheHelper() async {
+        let retrier = retrier { self.start }
+        let write = HangingWrite()
+
+        let attempt = await startHangingAttempt(retrier, write)
+        retrier.restartAfterWake()
+        let early = Task { await retrier.attempt() }
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        XCTAssertEqual(write.sent, 1, "A wake sent a second write over the first")
+
+        write.answer()
+        await early.value
+        await attempt.value
+    }
+
+    @MainActor
+    func testWritesThatNeverGotAnAnswerGiveUpWithoutRestartAdvice() async {
+        var now = start
+        let retrier = retrier { now }
+        retrier.perform = { _ in
+            throw HelperClientError(message: "did not respond", isConnectionFailure: true, isTimeout: true)
+        }
+        var gaveUp: [SMCLockoutRecovery.GiveUp] = []
+        retrier.onGaveUp = { gaveUp.append($0) }
+
+        retrier.start(.fixed(3_000), duration: .never)
+        await retrier.attempt()
+        now = start.addingTimeInterval(SMCLockoutRecovery.window)
+        await retrier.attempt()
+
+        XCTAssertEqual(gaveUp, [.unanswered])
     }
 }
