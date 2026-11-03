@@ -13,4 +13,11 @@ final class FanBarLinksTests: XCTestCase {
         XCTAssertEqual(url.host, "checkout.dodopayments.com")
         XCTAssertTrue(url.path.hasPrefix("/buy/pdt_"))
     }
+
+    func testUsageStatisticsPrivacyLinkOpensTheDocumentedFields() {
+        XCTAssertEqual(
+            FanBarLinks.usageStatisticsPrivacy.absoluteString,
+            "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md"
+        )
+    }
 }

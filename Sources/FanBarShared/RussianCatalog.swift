@@ -618,6 +618,15 @@ enum RussianCatalog {
         "Measuring…": "Измерение…",
         "Opens Activity Monitor": "Открывает Мониторинг системы",
         "Show the apps using the most CPU": "Показать приложения, нагружающие ЦП",
+        "Share anonymous usage statistics": "Делиться анонимной статистикой использования",
+        "Adds the install week, Mac model, macOS version and chip type to one update check per week.": "Раз в неделю добавляет к проверке обновлений неделю установки, модель Mac, версию macOS и тип чипа.",
+        "With automatic checks off, only a manual update check is counted, by version only.": "Если автоматическая проверка выключена, учитывается только ручная проверка обновлений, и только по номеру версии.",
+        "What is collected": "Что собирается",
+        "Open the description of what is collected in a browser": "Открыть в браузере описание собираемых данных",
+        "Share anonymous usage statistics?": "Делиться анонимной статистикой использования?",
+        "You can change this later in Settings, under General.": "Позже это можно изменить в настройках, на вкладке «Основные».",
+        "Share": "Поделиться",
+        "No thanks": "Нет, спасибо",
     ]
 }
 

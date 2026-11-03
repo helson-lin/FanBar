@@ -26,7 +26,7 @@ struct OnboardingCard: View {
     /// The permission notice only appears before the helper is approved; without it the
     /// window is shorter rather than ending in an empty band.
     static func height(for helperState: FanController.HelperState) -> CGFloat {
-        helperState == .enabled ? 548 : 626
+        helperState == .enabled ? 640 : 718
     }
 
     @ObservedObject var controller: FanController
@@ -64,6 +64,12 @@ struct OnboardingCard: View {
                     }
 
                     featuresCard
+
+                    SettingsChrome.settingsCard {
+                        UsageStatisticsRow()
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                    }
 
                     if controller.helperState != .enabled {
                         controlServiceNotice

@@ -610,6 +610,15 @@ enum FrenchCatalog {
         "Measuring…": "Mesure…",
         "Opens Activity Monitor": "Ouvre le Moniteur d’activité",
         "Show the apps using the most CPU": "Afficher les apps utilisant le plus le CPU",
+        "Share anonymous usage statistics": "Partager des statistiques d’utilisation anonymes",
+        "Adds the install week, Mac model, macOS version and chip type to one update check per week.": "Ajoute la semaine d’installation, le modèle de Mac, la version de macOS et le type de puce à une vérification de mise à jour par semaine.",
+        "With automatic checks off, only a manual update check is counted, by version only.": "Si les vérifications automatiques sont désactivées, seule une vérification manuelle est comptée, uniquement par version.",
+        "What is collected": "Ce qui est collecté",
+        "Open the description of what is collected in a browser": "Ouvrir dans le navigateur la description des données collectées",
+        "Share anonymous usage statistics?": "Partager des statistiques d’utilisation anonymes ?",
+        "You can change this later in Settings, under General.": "Vous pourrez le modifier plus tard dans Réglages, sous Général.",
+        "Share": "Partager",
+        "No thanks": "Non merci",
     ]
 }
 
