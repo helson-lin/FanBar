@@ -73,6 +73,18 @@ ${locales.map((locale) => `  <url>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="${siteUrl}/zh/compatibility" />
     <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/compatibility" />
   </url>
+  <url>
+    <loc>${siteUrl}/stats</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="${siteUrl}/stats" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="${siteUrl}/zh/stats" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/stats" />
+  </url>
+  <url>
+    <loc>${siteUrl}/zh/stats</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="${siteUrl}/stats" />
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="${siteUrl}/zh/stats" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="${siteUrl}/stats" />
+  </url>
 ${releaseUrls}  <url>
     <loc>${siteUrl}/alternatives</loc>
     <lastmod>${alternativesUpdated}</lastmod>

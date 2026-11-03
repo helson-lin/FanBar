@@ -32,6 +32,7 @@ const translatedPages: Partial<Record<Locale, string>>[] = [
   { en: "/compare/macs-fan-control", zh: "/zh/compare/macs-fan-control" },
   { en: "/compatibility", zh: "/zh/compatibility" },
   { en: "/is-fanbar-safe", zh: "/zh/is-fanbar-safe" },
+  { en: "/stats", zh: "/zh/stats" },
 ];
 
 /** The same page in `target`, or `target`'s home page when it isn't translated. */

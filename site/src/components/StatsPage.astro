@@ -1,0 +1,293 @@
+---
+import { ExternalLink } from "lucide-astro";
+import Footer from "@/components/Footer.astro";
+import Nav from "@/components/Nav.astro";
+import SectionLabel from "@/components/SectionLabel.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getDictionary, type Locale } from "@/lib/i18n";
+import { privacyUrl, statsCopy, statsUrl, statsZhUrl } from "@/lib/statsCopy";
+
+interface Props { locale: "en" | "zh" }
+const { locale } = Astro.props;
+const l: Locale = locale;
+const dict = getDictionary(l);
+const c = statsCopy[locale];
+const canonical = locale === "zh" ? statsZhUrl : statsUrl;
+const sections = ["checks", "retention", "dist"] as const;
+---
+
+<BaseLayout
+  locale={l}
+  dict={dict}
+  seo={{
+    title: c.title,
+    description: c.description,
+    canonical,
+    alternates: [
+      { lang: "en", href: statsUrl },
+      { lang: "zh-Hans", href: statsZhUrl },
+      { lang: "x-default", href: statsUrl },
+    ],
+    preloadHero: false,
+  }}
+>
+  <Nav locale={l} dict={dict} />
+
+  <main id="stats-root" data-locale={locale}>
+    <header class="mx-auto max-w-5xl px-6 pt-14 pb-12 sm:px-8 md:pt-20">
+      <nav aria-label="Breadcrumb" class="text-sm text-muted-foreground">
+        <ol class="flex flex-wrap items-center gap-2">
+          <li><a href={locale === "zh" ? "/zh" : "/"} class="transition-colors hover:text-foreground">FanBar</a></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" class="text-foreground">{c.crumb}</li>
+        </ol>
+      </nav>
+      <div class="mt-10 max-w-4xl">
+        <SectionLabel>{c.label}</SectionLabel>
+        <h1 class="mt-6 font-display text-[2.65rem] leading-[1.08] tracking-[-0.02em] sm:text-5xl md:text-[3.5rem]">
+          {c.h1} <span class="gradient-text">{c.h1Accent}</span>
+        </h1>
+        <p class="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground">{c.intro}</p>
+      </div>
+
+      <div id="stats-status" role="status" aria-live="polite" class="mt-10 max-w-4xl rounded-xl border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
+        <p id="stats-loading">{c.loading}</p>
+        <div id="stats-unavailable" hidden>
+          <h2 class="font-semibold text-foreground">{c.unavailableTitle}</h2>
+          <p class="mt-2">{c.unavailable}</p>
+        </div>
+      </div>
+    </header>
+
+    <div id="stats-data" hidden>
+      {sections.map((key) => (
+        <section class="border-t border-border bg-card first:border-t-0" aria-labelledby={`${key}-title`}>
+          <div class="mx-auto max-w-5xl px-6 py-14 sm:px-8 md:py-16">
+            <SectionLabel>{c[key].label}</SectionLabel>
+            <h2 id={`${key}-title`} class="mt-4 font-display text-3xl tracking-[-0.01em]">{c[key].title}</h2>
+            <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+              {key === "dist" ? <span id="dist-lede"></span> : c[key].lede}
+            </p>
+            <div id={`slot-${key}`} class="mt-8"></div>
+          </div>
+        </section>
+      ))}
+    </div>
+
+    <section class="border-t border-border" aria-labelledby="method-title">
+      <div class="mx-auto max-w-5xl px-6 py-14 sm:px-8 md:py-16">
+        <SectionLabel>{c.method.label}</SectionLabel>
+        <h2 id="method-title" class="mt-4 font-display text-3xl tracking-[-0.01em]">{c.method.title}</h2>
+        <ul class="mt-6 max-w-3xl list-disc space-y-3 pl-5 text-[15px] leading-relaxed text-muted-foreground marker:text-accent">
+          {c.method.items.map((item) => <li>{item}</li>)}
+          <li>{c.method.turnOff}</li>
+        </ul>
+        <a
+          href={privacyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:text-accent"
+        >
+          {c.method.privacy}
+          <ExternalLink class="h-4 w-4" aria-hidden="true" />
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer locale={l} dict={dict} />
+</BaseLayout>
+
+<style is:global>
+  .stats-v0 { --sc: #2a78d6; }
+  .stats-v1 { --sc: #eb6834; }
+  .stats-v2 { --sc: #1baf7a; }
+  .stats-v3 { --sc: #eda100; }
+  .stats-v4 { --sc: #e87ba4; }
+  .stats-vo { --sc: #94a3b8; }
+  .stats-swatch { background: var(--sc); }
+  .stats-seg { fill: var(--sc); stroke: var(--card); stroke-width: 0.5; }
+  .stats-bar-fill { background: var(--accent); }
+  .stats-heat td.cell { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stats-bar-fill { transition: width 0.5s var(--ease-out); }
+  }
+</style>
+
+<script>
+  import {
+    computeRetention, groupDaily, isEmptyStats, latestCompleteWeek, parseStats, rankWeek,
+    type RankedRow, type StatsResponse, type WeeklyRow,
+  } from "@/lib/usageStats";
+  import { statsApiUrl, statsCopy } from "@/lib/statsCopy";
+
+  const root = document.getElementById("stats-root")!;
+  const locale = root.dataset.locale === "zh" ? "zh" : "en";
+  const c = statsCopy[locale];
+  const nf = new Intl.NumberFormat(locale === "zh" ? "zh-CN" : "en-US");
+  const pf = (r: number) => `${Math.round(r * 100)}%`;
+  const $ = (id: string) => document.getElementById(id)!;
+
+  const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+
+  function unavailable() {
+    $("stats-loading").hidden = true;
+    $("stats-unavailable").hidden = false;
+    $("stats-data").hidden = true;
+  }
+
+  async function load(): Promise<StatsResponse | null> {
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has("mock")) {
+      const mode = new URLSearchParams(location.search).get("mock");
+      if (mode === "empty") return parseStats({ minimumGroupSize: 5 });
+      const { mockStats } = await import("@/lib/statsMock");
+      return parseStats(mockStats());
+    }
+    const res = await fetch(statsApiUrl, { headers: { Accept: "application/json" } });
+    if (!res.ok) return null;
+    return parseStats(await res.json());
+  }
+
+  // ---- 1. update checks per day ------------------------------------------
+  function renderChecks(stats: StatsResponse) {
+    const t = c.checks;
+    const series = groupDaily(stats.checksDaily, 5, 180);
+    const slot = $("slot-checks");
+    if (!series.totalChecks) { slot.innerHTML = `<p class="text-sm text-muted-foreground">${esc(c.noData)}</p>`; return; }
+    const names = [...series.versions, "other"];
+    const cls = (i: number) => (i < series.versions.length ? `stats-v${i}` : "stats-vo");
+    const label = (i: number) => (i < series.versions.length ? series.versions[i] : t.other);
+
+    const W = 720, H = 240, L = 44, B = 26, T = 8, plotH = H - B - T, plotW = W - L - 4;
+    const max = Math.max(...series.days.map((d) => d.total), 1);
+    const step = 10 ** Math.floor(Math.log10(max));
+    const niceMax = Math.ceil(max / step / (max / step > 5 ? 2 : 1)) * step * (max / step > 5 ? 2 : 1);
+    const colW = plotW / series.days.length;
+    const y = (v: number) => T + plotH - (v / niceMax) * plotH;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="h-auto w-full" role="img" aria-label="${esc(t.title)}: ${nf.format(series.totalChecks)} ${esc(t.total)}">`;
+    for (let g = 0; g <= 4; g++) {
+      const v = (niceMax / 4) * g;
+      svg += `<line x1="${L}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-width="1"/>`
+        + `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted-foreground)">${nf.format(Math.round(v))}</text>`;
+    }
+    let lastMonth = "";
+    series.days.forEach((d, i) => {
+      const x = L + i * colW;
+      let acc = 0;
+      const parts = [...d.counts, d.other];
+      let bars = "";
+      parts.forEach((n, k) => {
+        if (!n) return;
+        const top = y(acc + n), h = y(acc) - top;
+        acc += n;
+        bars += `<rect class="stats-seg ${cls(k)}" x="${x + 0.3}" y="${top}" width="${Math.max(colW - 0.6, 0.5)}" height="${h}"/>`;
+      });
+      svg += `<g><title>${esc(d.day)}: ${nf.format(d.total)}</title>${bars}</g>`;
+      const month = d.day.slice(0, 7);
+      if (month !== lastMonth && d.day.slice(8) <= "07" && x < W - 56) {
+        lastMonth = month;
+        svg += `<text x="${x}" y="${H - 8}" font-size="11" fill="var(--muted-foreground)">${esc(month)}</text>`;
+      }
+    });
+    svg += `</svg>`;
+
+    const legend = names.map((_, i) => `<li class="inline-flex items-center gap-2 ${cls(i)}"><span class="stats-swatch h-2.5 w-2.5 rounded-sm"></span>${esc(label(i))}</li>`).join("");
+    // Table view: weekly sums keep it short; every day is in the chart tooltips.
+    const rows = series.days.filter((d) => d.total > 0).reverse().map((d) =>
+      `<tr class="border-b border-border last:border-0"><th scope="row" class="px-3 py-2 font-normal">${esc(d.day)}</th>`
+      + [...d.counts, d.other].map((n) => `<td class="px-3 py-2 text-right tabular-nums">${n ? nf.format(n) : "–"}</td>`).join("")
+      + `<td class="px-3 py-2 text-right font-medium tabular-nums">${nf.format(d.total)}</td></tr>`).join("");
+    slot.innerHTML = `
+      <p class="mb-4 text-sm text-muted-foreground"><strong class="text-lg font-semibold tabular-nums text-foreground">${nf.format(series.totalChecks)}</strong> ${esc(t.total)}</p>
+      <div class="rounded-xl border border-border bg-background p-4"><div class="overflow-x-auto" tabindex="0" role="group" aria-label="${esc(t.title)}"><div class="min-w-[560px]">${svg}</div></div></div></div>
+        <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground" aria-label="${esc(t.legend)}">${legend}</ul>
+      </div>
+      <details class="mt-4">
+        <summary class="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline decoration-border underline-offset-4">${esc(t.table)}</summary>
+        <div class="mt-2 max-h-96 overflow-auto rounded-xl border border-border bg-background">
+          <table class="w-full border-collapse text-left text-sm"><caption class="sr-only">${esc(t.title)}</caption>
+            <thead class="sticky top-0 bg-muted"><tr><th scope="col" class="px-3 py-2 font-semibold">${esc(t.date)}</th>${names.map((_, i) => `<th scope="col" class="px-3 py-2 text-right font-semibold">${esc(label(i))}</th>`).join("")}<th scope="col" class="px-3 py-2 text-right font-semibold">${esc(t.checks)}</th></tr></thead>
+            <tbody>${rows}</tbody></table></div>
+      </details>`;
+  }
+
+  // ---- 2. retention heatmap -----------------------------------------------
+  function renderRetention(stats: StatsResponse) {
+    const t = c.retention;
+    const r = computeRetention(stats.cohorts);
+    const slot = $("slot-retention");
+    let html = "";
+    if (!r.cohorts.length) {
+      html += `<p class="text-sm text-muted-foreground">${esc(t.empty)}</p>`;
+    } else {
+      const cols = Array.from({ length: r.maxOffset + 1 }, (_, k) => k);
+      html += `<div class="overflow-x-auto rounded-xl border border-border bg-background"><table class="stats-heat w-full border-collapse text-sm">
+        <caption class="sr-only">${esc(t.caption)}</caption>
+        <thead><tr class="border-b border-border bg-muted/60"><th scope="col" class="sticky left-0 bg-muted px-3 py-2 text-left font-semibold">${esc(t.cohort)}</th><th scope="col" class="px-3 py-2 text-right font-semibold">${esc(t.users)}</th>${cols.map((k) => `<th scope="col" class="px-2 py-2 text-center font-mono text-xs font-medium" title="${esc(t.weeksAfter)}">${k}</th>`).join("")}</tr></thead><tbody>`;
+      for (const row of r.cohorts) {
+        html += `<tr class="border-b border-border last:border-0"><th scope="row" class="sticky left-0 whitespace-nowrap bg-background px-3 py-2 text-left font-normal">${esc(row.cohort)}</th><td class="px-3 py-2 text-right tabular-nums">${nf.format(row.base)}</td>`;
+        for (const k of cols) {
+          const v = row.ratios[k];
+          if (v == null) { html += `<td class="cell px-2 py-2 text-center text-muted-foreground" aria-label="${esc(t.cell(row.cohort, k, "–"))}">–</td>`; continue; }
+          const alpha = (Math.min(v, 1) * 0.5).toFixed(2);
+          html += `<td class="cell px-2 py-2 text-center" style="background:color-mix(in srgb, var(--accent) ${Math.round(Number(alpha) * 100)}%, transparent)" aria-label="${esc(t.cell(row.cohort, k, pf(v)))}">${pf(v)}</td>`;
+        }
+        html += `</tr>`;
+      }
+      html += `</tbody></table></div><p class="mt-2 text-xs text-muted-foreground">${esc(t.weeksAfter)} →</p>`;
+    }
+    if (r.legacy) {
+      html += `<div class="mt-8 rounded-xl border border-border bg-background p-5"><h3 class="text-base font-semibold">${esc(t.legacyTitle)}</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted-foreground">${esc(t.legacy(nf.format(r.legacy.n), r.legacy.week))}</p></div>`;
+    }
+    slot.innerHTML = html;
+  }
+
+  // ---- 3. distribution -----------------------------------------------------
+  function bars(title: string, rows: RankedRow[], total: number, fmt: (v: string) => string) {
+    const d = c.dist;
+    const items = rows.map((row) => {
+      const name = row.isOther ? d.other : fmt(row.value);
+      return `<li class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 py-1.5">
+        <span class="truncate text-sm" title="${esc(name)}">${esc(name)}</span>
+        <span class="text-right text-sm tabular-nums text-muted-foreground">${pf(row.share)} <span class="sr-only">(${nf.format(row.n)})</span></span>
+        <span class="col-span-2 block h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span class="stats-bar-fill block h-full rounded-full" style="width:${Math.max(row.share * 100, 1.5).toFixed(1)}%"></span></span>
+      </li>`;
+    }).join("");
+    return `<div class="rounded-xl border border-border bg-background p-5"><h3 class="text-base font-semibold">${esc(title)}</h3>
+      <p class="text-xs text-muted-foreground">${esc(d.total(nf.format(total)))}</p><ol class="mt-3" aria-label="${esc(title)}">${items}</ol></div>`;
+  }
+
+  function renderDist(stats: StatsResponse) {
+    const d = c.dist;
+    const slot = $("slot-dist");
+    const all = [...stats.models, ...stats.os, ...stats.arch, ...stats.countries];
+    const week = latestCompleteWeek(all, new Date());
+    if (!week) { slot.innerHTML = `<p class="text-sm text-muted-foreground">${esc(d.empty)}</p>`; return; }
+    $("dist-lede").textContent = d.lede(week);
+    const region = (code: string) => {
+      try { return new Intl.DisplayNames([locale === "zh" ? "zh-CN" : "en"], { type: "region" }).of(code) ?? code; } catch { return code; }
+    };
+    const block = (title: string, rows: WeeklyRow[], fmt: (v: string) => string) => {
+      const ranked = rankWeek(rows, week, 8);
+      return ranked.rows.length ? bars(title, ranked.rows, ranked.total, fmt) : "";
+    };
+    const id = (v: string) => v;
+    const html = [
+      block(d.model, stats.models, id),
+      block(d.os, stats.os, (v) => (/^\d+$/.test(v) ? `macOS ${v}` : v)),
+      block(d.arch, stats.arch, id),
+      block(d.country, stats.countries, (v) => (/^[A-Za-z]{2}$/.test(v) ? region(v.toUpperCase()) : v)),
+    ].filter(Boolean).join("");
+    slot.innerHTML = html ? `<div class="grid gap-5 md:grid-cols-2">${html}</div>` : `<p class="text-sm text-muted-foreground">${esc(d.empty)}</p>`;
+  }
+
+  load().then((stats) => {
+    if (!stats || isEmptyStats(stats)) return unavailable();
+    $("stats-status").hidden = true;
+    $("stats-data").hidden = false;
+    renderChecks(stats);
+    renderRetention(stats);
+    renderDist(stats);
+  }).catch(unavailable);
+</script>
