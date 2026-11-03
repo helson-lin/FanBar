@@ -59,7 +59,7 @@
 ```sql
 releases(version TEXT PRIMARY KEY)
 checks_daily(day TEXT, version TEXT, n INTEGER, PRIMARY KEY(day, version))
-cohort_weekly(week TEXT, cohort TEXT, n INTEGER, PRIMARY KEY(week, cohort))
+cohort_weekly(week TEXT, value TEXT, n INTEGER, PRIMARY KEY(week, value))
 model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n INTEGER, PRIMARY KEY(week, value))
 ```
 
