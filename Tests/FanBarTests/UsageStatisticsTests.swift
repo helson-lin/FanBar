@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class UsageStatisticsTests: XCTestCase {
     private func date(_ iso: String) -> Date {
-        ISO8601DateFormatter().date(from: iso)!
+        ISO8601DateFormatter().date(from: iso) ?? .distantPast
     }
 
     func testUTCISOWeekMatchesServerAtBoundaries() {
@@ -22,22 +22,25 @@ final class UsageStatisticsTests: XCTestCase {
 
     // MARK: Fixtures
 
-    private var defaults: UserDefaults!
+    private var defaults = UserDefaults.standard
     private var now = Date()
     private var facts = UsageDeviceFacts(model: "Mac14,2", osMajor: 27, arch: "arm64")
 
     override func setUp() {
         super.setUp()
-        defaults = UserDefaults(suiteName: "UsageStatisticsTests.\(UUID().uuidString)")
+        defaults = UserDefaults(suiteName: "UsageStatisticsTests.\(UUID().uuidString)") ?? .standard
         now = date("2026-11-18T10:00:00Z")
     }
 
     private func makeStatistics() -> UsageStatistics {
-        UsageStatistics(defaults: defaults, now: { [unowned self] in self.now }, deviceFacts: { [unowned self] in self.facts })
+        UsageStatistics(defaults: defaults, now: { [weak self] in self?.now ?? Date() },
+                        deviceFacts: { [weak self] in self?.facts ?? UsageDeviceFacts(model: "", osMajor: 0, arch: "") })
     }
 
     private func parameters(_ statistics: UsageStatistics) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: statistics.feedParameters().map { ($0["key"]!, $0["value"]!) })
+        Dictionary(uniqueKeysWithValues: statistics.feedParameters().compactMap { pair in
+            pair["key"].flatMap { key in pair["value"].map { (key, $0) } }
+        })
     }
 
     // MARK: Preference and cohort

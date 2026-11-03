@@ -8,7 +8,8 @@ final class SoftwareUpdateController {
     static let shared = SoftwareUpdateController()
 
     private let updaterController: SPUStandardUpdaterController
-    /// Sparkle holds its delegate weakly, so the controller keeps it alive.
+    // Sparkle holds its delegate weakly, so the controller keeps it alive.
+    // swiftlint:disable:next weak_delegate
     private let feedDelegate = UsageFeedDelegate(statistics: .shared)
 
     private init() {

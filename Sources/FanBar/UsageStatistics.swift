@@ -25,9 +25,9 @@ struct UsageDeviceFacts: Equatable {
     private static func sysctlString(_ name: String) -> String? {
         var size = 0
         guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
-        var buffer = [CChar](repeating: 0, count: size)
+        var buffer = [UInt8](repeating: 0, count: size)
         guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
-        return String(cString: buffer)
+        return String(bytes: buffer.prefix { $0 != 0 }, encoding: .utf8)
     }
 
     private static func sysctlInt(_ name: String) -> Int? {
@@ -68,7 +68,7 @@ final class UsageStatistics {
     /// Same rule as the server (`services/update/src/fields.ts`): UTC, ISO-8601.
     static func isoWeek(for date: Date) -> String {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         calendar.firstWeekday = 2
         calendar.minimumDaysInFirstWeek = 4
         let parts = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
