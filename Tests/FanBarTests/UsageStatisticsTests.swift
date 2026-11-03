@@ -26,8 +26,7 @@ final class UsageStatisticsTests: XCTestCase {
     private var now = Date()
     private var facts = UsageDeviceFacts(model: "Mac14,2", osMajor: 27, arch: "arm64")
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
         defaults = UserDefaults(suiteName: "UsageStatisticsTests.\(UUID().uuidString)") ?? .standard
         now = date("2026-11-18T10:00:00Z")
     }
