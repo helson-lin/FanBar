@@ -264,7 +264,6 @@ final class SMCFanDriver {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
     func restoreAutomatic() throws {
         let countValue = try store.read("FNum")
         let count = Int(Self.bytes(of: countValue).first ?? 0)
@@ -272,48 +271,94 @@ final class SMCFanDriver {
             throw FanHardwareError.invalidValue("FNum")
         }
 
-        var firstError: Error?
-        // When the probe fails, clear every key the mode could live in; the ones
-        // this Mac lacks fail harmlessly and are not reported.
-        let modes: [ModeControl]
-        let modesAreGuessed: Bool
-        do {
-            modes = try modeControl().map { [$0] } ?? []
-            modesAreGuessed = false
-        } catch {
-            firstError = error
-            modes = Self.perFanFormats.map(ModeControl.perFan) + [.forceMask]
-            modesAreGuessed = true
-        }
+        var errors = FirstError()
+        let (modes, modesAreGuessed) = restorableModes(&errors)
+        // Fans whose known mode key refused 0 keep their target until Ftst is cleared.
+        var refused: [Int: Error] = [:]
         for index in 0..<count {
-            for case .perFan(let format) in modes {
-                do {
-                    try writeBytes(String(format: format, index), bytes: [0])
-                } catch {
-                    if firstError == nil, !modesAreGuessed { firstError = error }
-                }
+            if let error = clearPerFanModes(of: index, in: modes), !modesAreGuessed {
+                refused[index] = error
+                continue
             }
-            do {
-                try writeFloat("F\(index)Tg", value: 0)
-            } catch {
-                if firstError == nil { firstError = error }
-            }
+            errors.record { try writeFloat("F\(index)Tg", value: 0) }
         }
         if modes.contains(.forceMask) {
-            do {
-                try writeBytes(Self.forceMaskKey, bytes: [0, 0])
-            } catch {
-                if firstError == nil, !modesAreGuessed { firstError = error }
-            }
+            errors.record(reported: !modesAreGuessed) { try writeBytes(Self.forceMaskKey, bytes: [0, 0]) }
         }
         if probeForceTest() {
+            errors.record { try writeBytes("Ftst", bytes: [0]) }
+        }
+        if let error = handBackRefusedFans(refused, modes: modes) {
+            errors.note(error)
+        }
+        if let error = errors.first { throw error }
+    }
+
+    /// Keeps the first failure while the rest of a restore still runs.
+    private struct FirstError {
+        private(set) var first: Error?
+
+        mutating func record(reported: Bool = true, _ step: () throws -> Void) {
             do {
-                try writeBytes("Ftst", bytes: [0])
+                try step()
             } catch {
-                if firstError == nil { firstError = error }
+                if reported { note(error) }
             }
         }
-        if let firstError { throw firstError }
+
+        mutating func note(_ error: Error) {
+            if first == nil { first = error }
+        }
+    }
+
+    /// The probed mode control, or, when the probe fails, every key the mode
+    /// could live in; the ones this Mac lacks fail harmlessly and are not reported.
+    private func restorableModes(_ errors: inout FirstError) -> (modes: [ModeControl], guessed: Bool) {
+        do {
+            return (try modeControl().map { [$0] } ?? [], false)
+        } catch {
+            errors.note(error)
+            return (Self.perFanFormats.map(ModeControl.perFan) + [.forceMask], true)
+        }
+    }
+
+    /// Writes 0 to each per-fan mode key and returns the last refusal, if any.
+    private func clearPerFanModes(of index: Int, in modes: [ModeControl]) -> Error? {
+        var refusal: Error?
+        for case .perFan(let format) in modes {
+            do {
+                try writeBytes(String(format: format, index), bytes: [0])
+            } catch {
+                refusal = error
+            }
+        }
+        return refusal
+    }
+
+    /// Some SMCs refuse a mode of 0 while `Ftst` is still set. Once `Ftst` is
+    /// cleared, macOS may already have taken the fan back, or the write goes
+    /// through. A fan still in manual mode is held at its minimum, never at a
+    /// target of 0, which would keep it stopped however hot the Mac gets.
+    private func handBackRefusedFans(_ refused: [Int: Error], modes: [ModeControl]) -> Error? {
+        guard !refused.isEmpty, case .perFan(let format)? = modes.first else { return nil }
+        Thread.sleep(forTimeInterval: unlockTiming.settle)
+        var firstError: Error?
+        for (index, error) in refused.sorted(by: { $0.key < $1.key }) {
+            let key = String(format: format, index)
+            let released = (try? store.read(key)).map { Self.bytes(of: $0).first == 0 } == true
+                || (try? writeBytes(key, bytes: [0])) != nil
+            if released {
+                try? writeFloat("F\(index)Tg", value: 0)
+                Self.log.notice("Fan \(index) went back to macOS once Ftst was cleared")
+                continue
+            }
+            if firstError == nil { firstError = error }
+            if let minimum = try? readFloat("F\(index)Mn") {
+                try? writeFloat("F\(index)Tg", value: minimum)
+            }
+            Self.log.error("Fan \(index) stayed in manual mode; holding it at its minimum")
+        }
+        return firstError
     }
 
     private func enableManualMode(fan index: Int) throws {
