@@ -246,4 +246,145 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.bytes("F1md"), [0])
         XCTAssertEqual(smc.rpm("F0Tg"), 0)
     }
+
+    // MARK: Probing again after a slow SMC
+
+    /// An SMC that answers slowly right after wake, not a missing key.
+    private let timedOut = Int32(bitPattern: 0xE000_02D6)
+
+    func testFailedModeKeyProbeIsRetriedInsteadOfReportedMissing() throws {
+        let smc = FakeSMC.appleSilicon()
+        smc.failReads(of: "F0md", code: timedOut)
+        smc.failReads(of: "F0Md", code: timedOut)
+        smc.failReads(of: SMCFanDriver.forceMaskKey, code: timedOut)
+        let driver = driver(smc)
+
+        XCTAssertThrowsError(try driver.setAllFans(rpm: 3_000)) { error in
+            guard case FanHardwareError.operation(_, timedOut) = error else {
+                return XCTFail("A slow answer was reported as \(error)")
+            }
+        }
+
+        smc.failReads(of: "F0md", code: nil)
+        smc.failReads(of: "F0Md", code: nil)
+        smc.failReads(of: SMCFanDriver.forceMaskKey, code: nil)
+        try driver.setAllFans(rpm: 3_000)
+        XCTAssertEqual(smc.bytes("F0md"), [1])
+        XCTAssertEqual(smc.rpm("F0Tg"), 3_000)
+    }
+
+    func testFailedForceTestProbeIsRetriedOnTheNextWrite() throws {
+        let smc = FakeSMC.appleSilicon()
+        smc.manualModeRequiresForceTest = true
+        smc.failReads(of: "Ftst", code: timedOut)
+        let driver = driver(smc)
+
+        XCTAssertThrowsError(try driver.setAllFans(rpm: 3_000))
+
+        smc.failReads(of: "Ftst", code: nil)
+        try driver.setAllFans(rpm: 3_000)
+        XCTAssertEqual(smc.bytes("Ftst"), [1])
+        XCTAssertEqual(smc.bytes("F0md"), [1])
+    }
+
+    func testRestoreStillClearsTargetsWhenTheModeProbeFails() throws {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0Tg", rpm: 4_000)
+        smc.set("Ftst", bytes: [1])
+        smc.failReads(of: "F0md", code: timedOut)
+        smc.failReads(of: "F0Md", code: timedOut)
+        smc.failReads(of: SMCFanDriver.forceMaskKey, code: timedOut)
+        let driver = driver(smc)
+
+        XCTAssertThrowsError(try driver.restoreAutomatic())
+        XCTAssertEqual(smc.rpm("F0Tg"), 0)
+        XCTAssertEqual(smc.bytes("Ftst"), [0])
+    }
+
+    func testRestoreClearsEveryCandidateModeKeyWhenTheProbeFails() {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0md", bytes: [1])
+        smc.set("F1md", bytes: [1])
+        smc.set("F0Tg", rpm: 4_000)
+        smc.set("Ftst", bytes: [1])
+        // One failure for the probe when the driver opens, one for the probe in restore.
+        smc.failNextReads(of: "F0md", count: 2, code: timedOut)
+        let driver = driver(smc)
+
+        XCTAssertThrowsError(try driver.restoreAutomatic()) { error in
+            guard case FanHardwareError.operation("F0md", timedOut) = error else {
+                return XCTFail("Reported \(error) instead of the failed probe")
+            }
+        }
+        XCTAssertEqual(smc.bytes("F0md"), [0], "Fan 0 was left in manual mode")
+        XCTAssertEqual(smc.bytes("F1md"), [0], "Fan 1 was left in manual mode")
+        XCTAssertEqual(smc.rpm("F0Tg"), 0)
+        XCTAssertEqual(smc.bytes("Ftst"), [0])
+    }
+
+    func testReadingFansReportsAFailedModeProbeInsteadOfAutomatic() {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0md", bytes: [1])
+        smc.failReads(of: "F0md", code: timedOut)
+        smc.failReads(of: "F0Md", code: timedOut)
+        smc.failReads(of: SMCFanDriver.forceMaskKey, code: timedOut)
+
+        XCTAssertThrowsError(try driver(smc).fans())
+    }
+
+    // MARK: Reopening a dropped connection
+
+    func testDroppedConnectionIsReopenedAndTheCallRepeatedOnce() {
+        var results: [Int32] = [Int32(bitPattern: 0xE000_02CD), 0]
+        var reopened = 0
+        let result = AppleSMCKeyStore.reconnecting {
+            results.removeFirst()
+        } reopen: {
+            reopened += 1
+            return 0
+        }
+
+        XCTAssertEqual(result, 0)
+        XCTAssertEqual(reopened, 1)
+        XCTAssertTrue(results.isEmpty)
+    }
+
+    func testSMCRefusalIsNotMistakenForADroppedConnection() {
+        var calls = 0
+        var reopened = 0
+        let refused = FanHardwareError.keyNotFoundCode
+        let result = AppleSMCKeyStore.reconnecting {
+            calls += 1
+            return refused
+        } reopen: {
+            reopened += 1
+            return 0
+        }
+
+        XCTAssertEqual(result, refused)
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(reopened, 0)
+    }
+
+    func testFailedReopenReportsTheOriginalFailure() {
+        let lost = Int32(bitPattern: 0x1000_0003)
+        var calls = 0
+        let result = AppleSMCKeyStore.reconnecting {
+            calls += 1
+            return lost
+        } reopen: {
+            Int32(bitPattern: 0xE000_02C0)
+        }
+
+        XCTAssertEqual(result, lost)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testConnectionLostCodes() {
+        XCTAssertTrue(AppleSMCKeyStore.isConnectionLost(Int32(bitPattern: 0x1000_0003)))
+        XCTAssertTrue(AppleSMCKeyStore.isConnectionLost(-308))
+        XCTAssertFalse(AppleSMCKeyStore.isConnectionLost(0))
+        XCTAssertFalse(AppleSMCKeyStore.isConnectionLost(FanHardwareError.keyNotFoundCode))
+        XCTAssertFalse(AppleSMCKeyStore.isConnectionLost(timedOut))
+    }
 }

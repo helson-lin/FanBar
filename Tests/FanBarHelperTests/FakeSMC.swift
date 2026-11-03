@@ -21,6 +21,8 @@ final class FakeSMC: SMCKeyStore, @unchecked Sendable {
     private var keys: [String: FanBarSMCValue] = [:]
     private var log: [(key: String, bytes: [UInt8])] = []
     private var failures: [String: Int32] = [:]
+    private var readFailures: [String: Int32] = [:]
+    private var passingReadFailures: [String: (code: Int32, remaining: Int)] = [:]
     private let encoding: Encoding
 
     /// Apple Silicon refuses `F%dmd = 1` until `Ftst` is set.
@@ -73,7 +75,12 @@ final class FakeSMC: SMCKeyStore, @unchecked Sendable {
 
     func read(_ name: String) throws -> FanBarSMCValue {
         try lock.withLock {
-            guard let value = keys[name] else { throw FanHardwareError.operation(name, 132) }
+            if let code = readFailures[name] { throw FanHardwareError.operation(name, code) }
+            if let failure = passingReadFailures[name], failure.remaining > 0 {
+                passingReadFailures[name] = (failure.code, failure.remaining - 1)
+                throw FanHardwareError.operation(name, failure.code)
+            }
+            guard let value = keys[name] else { throw FanHardwareError.operation(name, FanHardwareError.keyNotFoundCode) }
             return value
         }
     }
@@ -99,6 +106,16 @@ final class FakeSMC: SMCKeyStore, @unchecked Sendable {
 
     func failWrites(to name: String, code: Int32) {
         lock.withLock { failures[name] = code }
+    }
+
+    /// Reads of `name` fail with `code`; a nil code lets them through again.
+    func failReads(of name: String, code: Int32?) {
+        lock.withLock { readFailures[name] = code }
+    }
+
+    /// Only the next `count` reads of `name` fail, as an SMC that is slow for a moment.
+    func failNextReads(of name: String, count: Int, code: Int32) {
+        lock.withLock { passingReadFailures[name] = (code, count) }
     }
 
     func set(_ name: String, bytes: [UInt8]) {
