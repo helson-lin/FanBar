@@ -29,6 +29,10 @@ final class FakeSMC: SMCKeyStore, @unchecked Sendable {
     var manualModeRequiresForceTest = false
     /// The mode key never accepts manual mode (unlock never succeeds).
     var rejectsManualMode = false
+    /// Refuses `F%dmd = 0` with kSMCBadCommand while `Ftst` is still set.
+    var automaticModeRequiresForceTestCleared = false
+    /// Clearing `Ftst` hands every fan back to macOS, as thermalmonitord does.
+    var clearingForceTestRestoresModes = false
 
     private init(fans: [Fan], encoding: Encoding) {
         self.encoding = encoding
@@ -92,13 +96,19 @@ final class FakeSMC: SMCKeyStore, @unchecked Sendable {
             if let code = failures[name] {
                 throw FanHardwareError.operation(name, code)
             }
-            if isModeKey(name), bytes.first == 1 {
-                let unlocked = Self.bytes(of: keys["Ftst"] ?? Self.value([0])).first == 1
-                if rejectsManualMode || (manualModeRequiresForceTest && !unlocked) {
-                    throw FanHardwareError.operation(name, 130)
-                }
+            let unlocked = Self.bytes(of: keys["Ftst"] ?? Self.value([0])).first == 1
+            if isModeKey(name), bytes.first == 1, rejectsManualMode || (manualModeRequiresForceTest && !unlocked) {
+                throw FanHardwareError.operation(name, 130)
+            }
+            if isModeKey(name), bytes.first == 0, automaticModeRequiresForceTestCleared, unlocked {
+                throw FanHardwareError.operation(name, 130)
             }
             keys[name] = value
+            if name == "Ftst", bytes.first == 0, clearingForceTestRestoresModes {
+                for key in keys.keys where isModeKey(key) {
+                    keys[key] = Self.value([0])
+                }
+            }
         }
     }
 

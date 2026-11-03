@@ -235,6 +235,61 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.bytes("Ftst"), [0])
     }
 
+    /// kSMCBadCommand, as `F0Md failed (65666)` reports it.
+    private let badCommand = Int32(0x10082)
+
+    private func manualSMC() -> FakeSMC {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0md", bytes: [1])
+        smc.set("F1md", bytes: [1])
+        smc.set("F0Tg", rpm: 4_000)
+        smc.set("F1Tg", rpm: 4_000)
+        smc.set("Ftst", bytes: [1])
+        return smc
+    }
+
+    func testRestoreRetriesTheModeOnceFtstIsCleared() throws {
+        let smc = manualSMC()
+        smc.automaticModeRequiresForceTestCleared = true
+
+        try driver(smc).restoreAutomatic()
+
+        XCTAssertEqual(smc.bytes("F0md"), [0])
+        XCTAssertEqual(smc.bytes("F1md"), [0])
+        XCTAssertEqual(smc.rpm("F0Tg"), 0)
+        XCTAssertEqual(smc.bytes("Ftst"), [0])
+    }
+
+    func testRestoreSucceedsWhenClearingFtstHandsTheFansBack() throws {
+        let smc = manualSMC()
+        smc.failWrites(to: "F0md", code: badCommand)
+        smc.failWrites(to: "F1md", code: badCommand)
+        smc.clearingForceTestRestoresModes = true
+
+        try driver(smc).restoreAutomatic()
+
+        XCTAssertEqual(smc.bytes("F0md"), [0])
+        XCTAssertEqual(smc.bytes("F1md"), [0])
+        XCTAssertEqual(smc.rpm("F0Tg"), 0)
+        XCTAssertEqual(smc.rpm("F1Tg"), 0)
+    }
+
+    func testAFanLeftInManualModeIsHeldAtItsMinimumInsteadOfStopped() {
+        let smc = manualSMC()
+        smc.failWrites(to: "F0md", code: badCommand)
+
+        XCTAssertThrowsError(try driver(smc).restoreAutomatic()) { error in
+            guard case FanHardwareError.operation("F0md", badCommand) = error else {
+                return XCTFail("Unexpected error \(error)")
+            }
+        }
+        XCTAssertEqual(smc.bytes("F0md"), [1])
+        XCTAssertEqual(smc.rpm("F0Tg"), 1_200, "A fan still in manual mode was left at 0 RPM")
+        XCTAssertEqual(smc.bytes("F1md"), [0])
+        XCTAssertEqual(smc.rpm("F1Tg"), 0)
+        XCTAssertEqual(smc.bytes("Ftst"), [0])
+    }
+
     func testReleasingTheDriverRestoresAutomatic() throws {
         let smc = FakeSMC.appleSilicon()
         do {
