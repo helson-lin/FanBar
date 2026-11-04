@@ -192,14 +192,14 @@ const sections = ["checks", "retention", "dist"] as const;
     svg += `</svg>`;
 
     const legend = names.map((_, i) => `<li class="inline-flex items-center gap-2 ${cls(i)}"><span class="stats-swatch h-2.5 w-2.5 rounded-sm"></span>${esc(label(i))}</li>`).join("");
-    // Table view: weekly sums keep it short; every day is in the chart tooltips.
+    // Table view: one row per day with any checks, newest first.
     const rows = series.days.filter((d) => d.total > 0).reverse().map((d) =>
       `<tr class="border-b border-border last:border-0"><th scope="row" class="px-3 py-2 font-normal">${esc(d.day)}</th>`
       + [...d.counts, d.other].map((n) => `<td class="px-3 py-2 text-right tabular-nums">${n ? nf.format(n) : "–"}</td>`).join("")
       + `<td class="px-3 py-2 text-right font-medium tabular-nums">${nf.format(d.total)}</td></tr>`).join("");
     slot.innerHTML = `
       <p class="mb-4 text-sm text-muted-foreground"><strong class="text-lg font-semibold tabular-nums text-foreground">${nf.format(series.totalChecks)}</strong> ${esc(t.total)}</p>
-      <div class="rounded-xl border border-border bg-background p-4"><div class="overflow-x-auto" tabindex="0" role="group" aria-label="${esc(t.title)}"><div class="min-w-[560px]">${svg}</div></div></div></div>
+      <div class="rounded-xl border border-border bg-background p-4"><div class="overflow-x-auto" tabindex="0" role="group" aria-label="${esc(t.title)}"><div class="min-w-[560px]">${svg}</div></div>
         <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground" aria-label="${esc(t.legend)}">${legend}</ul>
       </div>
       <details class="mt-4">
@@ -229,8 +229,10 @@ const sections = ["checks", "retention", "dist"] as const;
         for (const k of cols) {
           const v = row.ratios[k];
           if (v == null) { html += `<td class="cell px-2 py-2 text-center text-muted-foreground" aria-label="${esc(t.cell(row.cohort, k, "–"))}">–</td>`; continue; }
+          // Above 100% when people who opted in after their install week join later; capped, with the count in the tooltip.
+          const shown = pf(Math.min(v, 1));
           const alpha = (Math.min(v, 1) * 0.5).toFixed(2);
-          html += `<td class="cell px-2 py-2 text-center" style="background:color-mix(in srgb, var(--accent) ${Math.round(Number(alpha) * 100)}%, transparent)" aria-label="${esc(t.cell(row.cohort, k, pf(v)))}">${pf(v)}</td>`;
+          html += `<td class="cell px-2 py-2 text-center" style="background:color-mix(in srgb, var(--accent) ${Math.round(Number(alpha) * 100)}%, transparent)" title="${nf.format(Math.round(v * row.base))} / ${nf.format(row.base)}" aria-label="${esc(t.cell(row.cohort, k, shown))}">${shown}</td>`;
         }
         html += `</tr>`;
       }

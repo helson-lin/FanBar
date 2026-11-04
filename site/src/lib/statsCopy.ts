@@ -51,7 +51,7 @@ export const statsCopy: Record<"en" | "zh", StatsCopy> = {
     },
     retention: {
       label: "Retention", title: "Weekly retention by install week",
-      lede: "Of the opted-in users who reported in their install week, the share who reported again N weeks later. Only users who turned on usage statistics are included, and they tend to be more active than average, so this is not retention for all users.",
+      lede: "Of the opted-in users who reported in their install week, the share who reported again N weeks later. Only users who turned on usage statistics are included, and they tend to be more active than average, so this is not retention for all users. People who turn statistics on after their install week join their group later, so a later week can exceed the first; those cells show 100%.",
       cohort: "Install week", users: "Users", weeksAfter: "Weeks after install",
       legacyTitle: "Opted-in users who installed before statistics existed",
       legacy: (n, week) => `${n} reports in ${week}. They have no install week, so they are not part of the table.`,
@@ -98,7 +98,7 @@ export const statsCopy: Record<"en" | "zh", StatsCopy> = {
     },
     retention: {
       label: "留存", title: "按安装周统计的每周留存",
-      lede: "在安装当周上报过的、开启统计的用户中，N 周后再次上报的比例。只包含开启了使用统计的用户，他们通常比普通用户更活跃，所以这不是全部用户的留存。",
+      lede: "在安装当周上报过的、开启统计的用户中，N 周后再次上报的比例。只包含开启了使用统计的用户，他们通常比普通用户更活跃，所以这不是全部用户的留存。安装当周之后才开启统计的用户会晚些加入所在分组，因此之后某周的人数可能超过首周，这类格子显示为 100%。",
       cohort: "安装周", users: "用户数", weeksAfter: "安装后第几周",
       legacyTitle: "统计功能上线前就已安装的开启统计用户",
       legacy: (n, week) => `${week} 有 ${n} 条上报。他们没有安装周，因此不在表中。`,
