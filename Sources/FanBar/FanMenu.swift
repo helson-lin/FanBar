@@ -89,6 +89,7 @@ struct FanMenu: View {
         UsageStatistics.shared.isEnabled = share
         UsageStatistics.shared.markAsked()
         isUsagePromptAnswered = true
+        if share { SoftwareUpdateController.shared.reportUsageIfPending() }
     }
 
     private var isShowingUsagePrompt: Bool {

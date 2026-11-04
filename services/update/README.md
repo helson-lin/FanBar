@@ -5,7 +5,7 @@ Cloudflare Workers + D1，服务地址 `https://update.getfanbar.com`。它是 S
 默认只按天、按版本统计更新检查次数；用户在 App 中主动开启「共享匿名使用统计」后，每周另外统计安装批次、机型、macOS 主版本、架构和国家。数据库只存「按天或按周 × 单一维度」的计数，不保存 IP、User-Agent 原文或任何设备标识。
 
 - 规格与边界：[SPEC.md](SPEC.md)
-- 对用户公开的说明（App 链接到此处）：[PRIVACY.md](PRIVACY.md)
+- 对用户公开的说明（App 链接到此处；中文界面打开中文版，其他语言打开英文版）：[PRIVACY.md](PRIVACY.md) · [PRIVACY.en.md](PRIVACY.en.md)
 - 公开统计页：`https://getfanbar.com/stats`（页面不在本目录）
 
 ## API

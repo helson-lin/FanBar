@@ -107,6 +107,11 @@ final class UsageStatistics {
         ].map { ["key": $0.0, "value": $0.1] }
     }
 
+    /// Opted in, but this UTC week's report has not reached the server yet.
+    var hasPendingReport: Bool {
+        isEnabled && cohort != nil && Self.isoWeek(for: now()) != lastReportedWeek
+    }
+
     /// The appcast loaded, so the server saw this week's report.
     func appcastDidLoad() {
         guard let pendingWeek else { return }

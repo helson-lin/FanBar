@@ -92,10 +92,13 @@ final class DeviceCompatibilityLayoutTests: XCTestCase {
         )
         for language in [FanBarLanguage.chinese, .english] {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
+            // Measured before the window exists, as OnboardingWindowPresenter does.
+            OnboardingCard.forgetMeasuredHeights()
+            let expectedHeight = OnboardingCard.height(for: controller)
             let host = NSHostingView(rootView: OnboardingCard(controller: controller, onOpenMenu: {}, onDismiss: {}))
             host.layoutSubtreeIfNeeded()
             XCTAssertEqual(host.fittingSize.width, OnboardingCard.width, accuracy: 0.5)
-            XCTAssertEqual(host.fittingSize.height, OnboardingCard.height(for: controller), accuracy: 0.5)
+            XCTAssertEqual(host.fittingSize.height, expectedHeight, accuracy: 0.5)
             XCTAssertEqual(controller.mode, .automatic)
             XCTAssertFalse(controller.isTestingCompatibilityControl)
         }
@@ -117,6 +120,8 @@ final class DeviceCompatibilityLayoutTests: XCTestCase {
             ))
             // On a screen too short for it (CI's virtual display), the window stops at the cap and scrolls.
             let needed = min(content.fittingSize.height + OnboardingCard.footerHeight, OnboardingCard.maximumHeight)
+            OnboardingCard.forgetMeasuredHeights() // a height cached by an earlier test may be stale
+            _ = OnboardingCard.height(for: controller) // as the presenter does before showing the window
             let window = NSHostingView(rootView: OnboardingCard(controller: controller, onOpenMenu: {}, onDismiss: {}))
             let height = window.fittingSize.height
             XCTAssertGreaterThanOrEqual(height + 0.5, needed, "\(language.rawValue) needs \(needed)")

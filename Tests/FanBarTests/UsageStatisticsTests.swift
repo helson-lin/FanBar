@@ -147,6 +147,19 @@ final class UsageStatisticsTests: XCTestCase {
         XCTAssertEqual(makeStatistics().feedParameters().count, 0)
     }
 
+    func testPendingReportOnlyWhileOptedInAndUnreported() {
+        let statistics = makeStatistics()
+        statistics.recordCohortIfNeeded(onboardingCompleted: false)
+        XCTAssertFalse(statistics.hasPendingReport)
+        statistics.isEnabled = true
+        XCTAssertTrue(statistics.hasPendingReport)
+        _ = statistics.feedParameters()
+        statistics.appcastDidLoad()
+        XCTAssertFalse(statistics.hasPendingReport)
+        now = date("2026-11-23T00:00:00Z")
+        XCTAssertTrue(statistics.hasPendingReport)
+    }
+
     // MARK: Device facts
 
     func testRosettaStillReportsArm64() {

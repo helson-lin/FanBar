@@ -1,3 +1,4 @@
+import FanBarShared
 import XCTest
 @testable import FanBar
 
@@ -14,10 +15,13 @@ final class FanBarLinksTests: XCTestCase {
         XCTAssertTrue(url.path.hasPrefix("/buy/pdt_"))
     }
 
-    func testUsageStatisticsPrivacyLinkOpensTheDocumentedFields() {
-        XCTAssertEqual(
-            FanBarLinks.usageStatisticsPrivacy.absoluteString,
-            "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md"
-        )
+    func testUsageStatisticsPrivacyLinkOpensTheDocumentedFieldsInTheReadersLanguage() {
+        let base = "https://github.com/helson-lin/FanBar/blob/main/services/update/"
+        for language in [FanBarLanguage.chinese, .traditionalChinese] {
+            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.md")
+        }
+        for language in [FanBarLanguage.english, .japanese, .russian, .french] {
+            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.en.md")
+        }
     }
 }

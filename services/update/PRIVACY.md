@@ -1,5 +1,7 @@
 # FanBar 更新检查：匿名使用统计
 
+English: [PRIVACY.en.md](PRIVACY.en.md)
+
 运营者：FanBar 项目维护者。服务地址：https://update.getfanbar.com。公开统计页：https://getfanbar.com/stats。
 
 FanBar 的更新源经过 `https://update.getfanbar.com/appcast.xml`。该地址只做一件事：把请求跳转（302）到 GitHub 上的 appcast，同时记录匿名计数。计数失败不会影响更新检查。本文说明记录什么、不记录什么，以及如何关闭。规格见 [SPEC.md](SPEC.md)，源码在本目录 `src/`。
@@ -18,7 +20,7 @@ FanBar 的更新源经过 `https://update.getfanbar.com/appcast.xml`。该地址
 
 该选项默认关闭。新安装时会在引导流程中询问一次；从旧版升级的用户也会被询问一次。之后可在设置里「自动更新」下方的「共享匿名使用统计 / Share anonymous usage statistics」开关随时更改。
 
-开启后，应用在每个 UTC ISO 周第一次成功加载 appcast 时，会在更新检查请求上附带下列字段，一周最多一次。服务按服务器的 UTC 时间决定「本周」，不信任客户端传来的时间。
+开启后，应用在每个 UTC ISO 周第一次成功加载 appcast 时，会在更新检查请求上附带下列字段，一周最多一次。开启时，FanBar 会立即进行本周的这次检查，而不是等到下一次定时检查。服务按服务器的 UTC 时间决定「本周」，不信任客户端传来的时间。
 
 | 字段 | 允许的值 | 说明 |
 | --- | --- | --- |

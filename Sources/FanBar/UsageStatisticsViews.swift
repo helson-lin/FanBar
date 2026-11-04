@@ -10,7 +10,9 @@ struct UsageStatisticsRow: View {
     /// Read so the row repaints when the interface language changes.
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
-    @State private var isEnabled = UsageStatistics.shared.isEnabled
+    /// Follows the stored value, so an answer given in the menu panel shows here at once.
+    @AppStorage(UsageStatistics.enabledKey)
+    private var isEnabled = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -26,7 +28,7 @@ struct UsageStatisticsRow: View {
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Link(destination: FanBarLinks.usageStatisticsPrivacy) {
+                Link(destination: FanBarLinks.usageStatisticsPrivacy(for: .current)) {
                     HStack(spacing: 4) {
                         Text(UsageStatisticsCopy.learnMore)
                         Image(systemName: "arrow.up.right")
@@ -41,8 +43,8 @@ struct UsageStatisticsRow: View {
             Toggle(fanBarText("共享匿名使用统计", "Share anonymous usage statistics"), isOn: Binding(
                 get: { isEnabled },
                 set: {
-                    isEnabled = $0
                     UsageStatistics.shared.isEnabled = $0
+                    if $0 { SoftwareUpdateController.shared.reportUsageIfPending() }
                 }
             ))
                 .labelsHidden()
@@ -127,7 +129,7 @@ struct UsageStatisticsPromptRow: View {
 
                 Spacer(minLength: 0)
 
-                Link(destination: FanBarLinks.usageStatisticsPrivacy) {
+                Link(destination: FanBarLinks.usageStatisticsPrivacy(for: .current)) {
                     Text(UsageStatisticsCopy.learnMore)
                         .font(.system(size: 11))
                         .foregroundColor(palette.secondaryText)

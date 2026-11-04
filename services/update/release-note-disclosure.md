@@ -3,7 +3,7 @@
 
 **English**
 
-FanBar now checks for updates through `update.getfanbar.com`, which forwards to the same GitHub appcast as before and counts update checks anonymously. By default it counts only how many checks each app version makes per day. FanBar asks once whether you want to share anonymous usage statistics (off by default); if you agree, once a week it also sends your install week, Mac model, macOS major version, chip architecture, and your country as seen by Cloudflare. No IP address, device ID, serial number, or app names are stored, and groups smaller than 5 are never published. You can change this any time in Settings under automatic updates, and turning off automatic update checks stops the automatic counting. Details: [PRIVACY.md](https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md).
+FanBar now checks for updates through `update.getfanbar.com`, which forwards to the same GitHub appcast as before and counts update checks anonymously. By default it counts only how many checks each app version makes per day. FanBar asks once whether you want to share anonymous usage statistics (off by default); if you agree, once a week it also sends your install week, Mac model, macOS major version, chip architecture, and your country as seen by Cloudflare. No IP address, device ID, serial number, or app names are stored, and groups smaller than 5 are never published. You can change this any time in Settings under automatic updates, and turning off automatic update checks stops the automatic counting. Details: [PRIVACY.md](https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.en.md).
 
 **简体中文**
 

@@ -27,13 +27,22 @@ struct OnboardingCard: View {
 
     private static var measuredHeights: [String: CGFloat] = [:]
 
+    @MainActor
+    private static func measurementKey(for controller: FanController) -> String {
+        "\(FanBarLanguage.current.rawValue)|\(controller.helperState)"
+    }
+
     /// Tall enough to show everything without scrolling in the current language, so the
     /// permission notice never hides below the fold and short translations leave no empty
     /// band. Measured once per language and control-service state; capped to the screen,
     /// where the content scrolls instead.
+    ///
+    /// Measuring lays out a second card, so call this outside `body` (the presenter does,
+    /// before it creates the window). `body` only reads the cache and measures a missing
+    /// entry afterwards, in a task.
     @MainActor
     static func height(for controller: FanController) -> CGFloat {
-        let key = "\(FanBarLanguage.current.rawValue)|\(controller.helperState)"
+        let key = measurementKey(for: controller)
         let content = measuredHeights[key] ?? {
             let host = NSHostingView(rootView: OnboardingCard(
                 controller: controller, onOpenMenu: {}, onDismiss: {}, showsContentOnly: true
@@ -43,6 +52,18 @@ struct OnboardingCard: View {
             return height
         }()
         return min(content + footerHeight, maximumHeight)
+    }
+
+    /// Tests compare a fresh measurement with the window, so they drop earlier ones.
+    @MainActor
+    static func forgetMeasuredHeights() {
+        measuredHeights.removeAll()
+    }
+
+    /// The measured height, or nil until `height(for:)` has run for this state.
+    @MainActor
+    static func cachedHeight(for controller: FanController) -> CGFloat? {
+        measuredHeights[measurementKey(for: controller)].map { min($0 + footerHeight, maximumHeight) }
     }
 
     /// Leaves a margin on short screens, where the content scrolls instead.
@@ -62,6 +83,8 @@ struct OnboardingCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var isVisible = false
+    /// The last height shown, kept while a new language or control-service state is measured.
+    @State private var lastHeight: CGFloat?
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
@@ -116,7 +139,11 @@ struct OnboardingCard: View {
             .padding(.vertical, 14)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: Self.width, height: Self.height(for: controller))
+        .frame(width: Self.width, height: Self.cachedHeight(for: controller) ?? lastHeight ?? Self.maximumHeight)
+        .task(id: "\(languageRawValue)|\(controller.helperState)") {
+            // Runs after the update, so measuring never lays out a view inside `body`.
+            lastHeight = Self.height(for: controller)
+        }
         .background(Color(NSColor.windowBackgroundColor))
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : 8)
