@@ -27,6 +27,14 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Read-only update statistics for the admin, from the update service's UpdateAdmin RPC entrypoint.
+  "services": [
+    {
+      "binding": "UPDATE_SERVICE",
+      "service": "fanbar-update-local",
+      "entrypoint": "UpdateAdmin"
+    }
+  ],
   "ratelimits": [
     {
       "name": "WRITE_LIMIT",
@@ -88,6 +96,13 @@
           "migrations_dir": "migrations"
         }
       ],
+      "services": [
+        {
+          "binding": "UPDATE_SERVICE",
+          "service": "fanbar-update",
+          "entrypoint": "UpdateAdmin"
+        }
+      ],
       "ratelimits": [
         {
           "name": "WRITE_LIMIT",
@@ -116,16 +131,14 @@
       ],
       "secrets": {
         "required": [
-          "LIMIT_SALT",
-          "ADMIN_TOKEN"
+          "LIMIT_SALT"
         ]
       }
     }
   },
   "secrets": {
     "required": [
-      "LIMIT_SALT",
-      "ADMIN_TOKEN"
+      "LIMIT_SALT"
     ]
   }
 }

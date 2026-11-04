@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { HttpError, sameHash, sha256 } from './http.ts';
+import { HttpError } from './http.ts';
 
 // One key set per isolate: jose caches and rotates the fetched keys itself, so
 // admin requests don't each refetch the Access certificates.
@@ -17,13 +17,31 @@ export function localDevelopment(request: Request, env: Env): boolean {
   return env.ENVIRONMENT === 'development'
     && ['localhost', '127.0.0.1', '[::1]'].includes(new URL(request.url).hostname);
 }
-export async function administrator(request: Request, env: Env): Promise<string> {
-  const candidate = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1] ?? '';
-  if (env.ADMIN_TOKEN && sameHash(await sha256(candidate), await sha256(env.ADMIN_TOKEN))) {
-    return 'administrator-key';
-  }
-  if (!env.ACCESS_AUD || !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_TEAM_DOMAIN)) {
-    throw new HttpError(403, env.ADMIN_TOKEN ? 'ADMIN_AUTHENTICATION_REQUIRED' : 'ADMIN_ACCESS_NOT_CONFIGURED');
+
+const accessConfigured = (env: Env) =>
+  Boolean(env.ACCESS_AUD) && /^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_TEAM_DOMAIN);
+
+export interface Administrator {
+  /** Written to the audit log: the Access email, or the subject when the token has none. */
+  actor: string;
+  kind: 'access' | 'localDevelopment';
+  email: string | null;
+  /** When the Access session token stops being accepted. */
+  expiresAt: string | null;
+}
+
+/**
+ * Cloudflare Access is the only way in. There is no administrator key: the Access
+ * application covers /admin* and /api/admin/*, and this still verifies the JWT itself
+ * (signature, issuer, audience) instead of trusting that the gateway ran.
+ * Local development without Access configured is let through, never in production.
+ */
+export async function administrator(request: Request, env: Env): Promise<Administrator> {
+  if (!accessConfigured(env)) {
+    if (localDevelopment(request, env)) {
+      return { actor: 'local-development', kind: 'localDevelopment', email: null, expiresAt: null };
+    }
+    throw new HttpError(403, 'ADMIN_ACCESS_NOT_CONFIGURED');
   }
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
   if (!token) throw new HttpError(403, 'ADMIN_AUTHENTICATION_REQUIRED');
@@ -32,7 +50,11 @@ export async function administrator(request: Request, env: Env): Promise<string>
       issuer: env.ACCESS_TEAM_DOMAIN, audience: env.ACCESS_AUD, algorithms: ['RS256'],
     });
     if (!payload.sub) throw new Error('missing subject');
-    return payload.sub;
+    const email = typeof payload.email === 'string' && payload.email ? payload.email : null;
+    return {
+      actor: email ?? payload.sub, kind: 'access', email,
+      expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+    };
   } catch { throw new HttpError(403, 'ADMIN_AUTHENTICATION_REQUIRED'); }
 }
 export function requireAdminMutation(request: Request): void {

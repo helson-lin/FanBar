@@ -327,14 +327,6 @@ export const translations = {
     "en": "Published by consent · Community report",
     "ja": "任意で公開 · コミュニティレポート"
   },
-  "报告审核 · FanBar": {
-    "en": "Report review · FanBar",
-    "ja": "レポート審査 · FanBar"
-  },
-  "报告审核 · 管理员": {
-    "en": "Report review · Administrator",
-    "ja": "レポート審査 · 管理者"
-  },
   "公开兼容性页 ↗": {
     "en": "Public compatibility page ↗",
     "ja": "公開互換性ページ ↗"
@@ -350,14 +342,6 @@ export const translations = {
   "原始报告默认私有": {
     "en": "Raw reports are private by default",
     "ja": "元のレポートは初期設定で非公開"
-  },
-  "管理员访问密钥": {
-    "en": "Administrator access key",
-    "ja": "管理者アクセスキー"
-  },
-  "进入审核后台": {
-    "en": "Open review dashboard",
-    "ja": "審査画面を開く"
   },
   "审核状态": {
     "en": "Review status",
@@ -535,10 +519,6 @@ export const translations = {
     "en": "Test record removed.",
     "ja": "検証記録を撤回しました。"
   },
-  "需要管理员登录。请输入访问密钥，或使用已配置的 Cloudflare Access。": {
-    "en": "Administrator authentication required. Enter the access key or use configured Cloudflare Access.",
-    "ja": "管理者認証が必要です。アクセスキーを入力するか、設定済みの Cloudflare Access をご利用ください。"
-  },
   "管理员访问尚未配置，服务已拒绝访问。": {
     "en": "Administrator access is not configured. Access was denied.",
     "ja": "管理者アクセスが未設定のため、アクセスを拒否しました。"
@@ -643,9 +623,9 @@ export const translations = {
     "en": "Cloudflare processes metadata such as network addresses to transport and protect the service. The app database does not store raw IP addresses. Only a keyed address digest that changes daily is used in short-lived rate-limit counters, not device tracking. Service logs do not record report contents, withdrawal credentials, request URLs or network addresses. Cloudflare’s own infrastructure processing still exists.",
     "ja": "Cloudflare は通信と保護のため、ネットワークアドレスなどのメタデータを処理します。アプリのデータベースに生の IP は保存しません。鍵付きで毎日変化するアドレスの要約値を短期の制限カウンターにのみ使い、デバイス追跡には使いません。サービスのログにはレポート内容、撤回用の認証情報、リクエスト URL、ネットワークアドレスを記録しません。Cloudflare 自体の基盤での処理は存在します。"
   },
-  "管理员接口要求独立访问密钥，或验证已配置的 Cloudflare Access 身份。管理密钥仅保存在后台页面内存中，刷新后需重新输入。撤回凭证每份报告独立生成，通过请求头发送；数据库只存其 SHA-256 哈希。凭证不进入公开数据或网址。所有生产请求使用 HTTPS。": {
-    "en": "Administrator APIs require an independent access key or a verified configured Cloudflare Access identity. The admin key stays only in page memory and must be re-entered after refresh. Each report has its own withdrawal credential, sent in a request header; the database stores only its SHA-256 hash. Credentials never appear in public data or URLs. All production requests use HTTPS.",
-    "ja": "管理 API には独立したアクセスキー、または設定済みの Cloudflare Access の認証が必要です。管理キーはページのメモリにのみ保持し、更新後に再入力が必要です。撤回用の認証情報はレポートごとに生成し、ヘッダーで送信します。データベースには SHA-256 ハッシュのみ保存します。認証情報は公開データや URL に含めません。本番の通信はすべて HTTPS です。"
+  "管理员接口只能通过 Cloudflare Access 进入，服务端会验证 Access 身份；没有管理密钥。撤回凭证每份报告独立生成，通过请求头发送；数据库只存其 SHA-256 哈希。凭证不进入公开数据或网址。所有生产请求使用 HTTPS。": {
+    "en": "Administrator APIs are reachable only through Cloudflare Access, and the service verifies the Access identity; there is no admin key. Each report has its own withdrawal credential, sent in a request header; the database stores only its SHA-256 hash. Credentials never appear in public data or URLs. All production requests use HTTPS.",
+    "ja": "管理 API には Cloudflare Access 経由でのみアクセスでき、サービス側で Access の認証を検証します。管理キーはありません。撤回用の認証情報はレポートごとに生成し、ヘッダーで送信します。データベースには SHA-256 ハッシュのみ保存します。認証情報は公開データや URL に含めません。本番の通信はすべて HTTPS です。"
   },
   "保存多久，如何删除": {
     "en": "Retention and deletion",
@@ -873,10 +853,6 @@ export const translations = {
     "en": "New model",
     "ja": "新しい機種"
   },
-  "管理密钥": {
-    "en": "Administrator key",
-    "ja": "管理キー"
-  },
   "独立实测": {
     "en": "Independent test",
     "ja": "独立した実機検証"
@@ -1052,5 +1028,321 @@ export const translations = {
   "已删除或已过期": {
     "en": "Deleted or expired",
     "ja": "削除済みまたは期限切れ"
+  },
+  "管理后台": {
+    "en": "Admin",
+    "ja": "管理画面"
+  },
+  "管理后台 · FanBar": {
+    "en": "Admin · FanBar",
+    "ja": "管理画面 · FanBar"
+  },
+  "管理密钥（旧记录）": {
+    "en": "Administrator key (legacy)",
+    "ja": "管理キー（旧記録）"
+  },
+  "本地开发": {
+    "en": "Local development",
+    "ja": "ローカル開発"
+  },
+  "兼容性报告": {
+    "en": "Compatibility reports",
+    "ja": "互換性レポート"
+  },
+  "更新统计": {
+    "en": "Update statistics",
+    "ja": "アップデート統計"
+  },
+  "未登录": {
+    "en": "Not signed in",
+    "ja": "未ログイン"
+  },
+  "本地开发，未经过 Access": {
+    "en": "Local development, not through Access",
+    "ja": "ローカル開発（Access を経由していません）"
+  },
+  "已通过 Cloudflare Access 登录": {
+    "en": "Signed in through Cloudflare Access",
+    "ja": "Cloudflare Access でログイン済み"
+  },
+  "没有有效的 Access 会话": {
+    "en": "No valid Access session",
+    "ja": "有効な Access セッションがありません"
+  },
+  "会话到期": {
+    "en": "Session expires",
+    "ja": "セッションの有効期限"
+  },
+  "审核记录署名": {
+    "en": "Reviews signed as",
+    "ja": "審査記録の署名"
+  },
+  "退出登录": {
+    "en": "Sign out",
+    "ja": "ログアウト"
+  },
+  "本地开发模式": {
+    "en": "Local development mode",
+    "ja": "ローカル開発モード"
+  },
+  "未经过 Cloudflare Access，所有操作署名为 local-development。只在 localhost 且 ENVIRONMENT=development 时生效。": {
+    "en": "Cloudflare Access is bypassed and every action is signed as local-development. This only applies on localhost with ENVIRONMENT=development.",
+    "ja": "Cloudflare Access を経由せず、すべての操作は local-development として署名されます。localhost かつ ENVIRONMENT=development の場合のみ有効です。"
+  },
+  "登录已过期": {
+    "en": "Your session has expired",
+    "ja": "ログインの有効期限が切れました"
+  },
+  "Cloudflare Access 会话已到期，后台数据不再显示。重新登录后会回到当前页面。": {
+    "en": "The Cloudflare Access session has expired, so admin data is hidden. Sign in again to return to this page.",
+    "ja": "Cloudflare Access のセッションが期限切れのため、管理データを表示できません。再ログインするとこのページに戻ります。"
+  },
+  "重新登录": {
+    "en": "Sign in again",
+    "ja": "再ログイン"
+  },
+  "后台尚未配置 Cloudflare Access": {
+    "en": "Cloudflare Access is not configured for the admin",
+    "ja": "管理画面に Cloudflare Access が設定されていません"
+  },
+  "所有管理接口都返回 403。不会退回到密钥登录。": {
+    "en": "Every admin endpoint returns 403. There is no fallback to key sign-in.",
+    "ja": "すべての管理 API は 403 を返します。キーによるログインには戻りません。"
+  },
+  "需要维护者完成配置": {
+    "en": "The maintainer needs to finish setup",
+    "ja": "メンテナーによる設定が必要です"
+  },
+  "在 Zero Trust 新建自托管应用，路径为 /admin* 和 /api/admin/*": {
+    "en": "In Zero Trust, create a self-hosted application for /admin* and /api/admin/*",
+    "ja": "Zero Trust で /admin* と /api/admin/* を対象にセルフホストアプリケーションを作成します"
+  },
+  "策略只允许维护者邮箱": {
+    "en": "Allow only the maintainer's email in the policy",
+    "ja": "ポリシーではメンテナーのメールアドレスのみ許可します"
+  },
+  "在 Worker 设置 ACCESS_TEAM_DOMAIN 和 ACCESS_AUD 后重新部署": {
+    "en": "Set ACCESS_TEAM_DOMAIN and ACCESS_AUD on the Worker, then redeploy",
+    "ja": "Worker に ACCESS_TEAM_DOMAIN と ACCESS_AUD を設定して再デプロイします"
+  },
+  "查看部署说明": {
+    "en": "Read the deployment notes",
+    "ja": "デプロイ手順を見る"
+  },
+  "新": {
+    "en": "New",
+    "ja": "新規"
+  },
+  "来自 update.getfanbar.com 的更新检查计数。这里显示完整数据，包括公开页隐藏的少于 5 的分组。": {
+    "en": "Update check counts from update.getfanbar.com. This view shows complete data, including groups under 5 that the public page hides.",
+    "ja": "update.getfanbar.com のアップデート確認回数です。公開ページでは非表示になる 5 未満のグループも含め、すべてのデータを表示します。"
+  },
+  "仅管理员可见": {
+    "en": "Admins only",
+    "ja": "管理者のみ表示"
+  },
+  "时间范围": {
+    "en": "Time range",
+    "ja": "期間"
+  },
+  "最近 {count} 天": {
+    "en": "Last {count} days",
+    "ja": "過去 {count} 日間"
+  },
+  "较前 {count} 天": {
+    "en": "vs previous {count} days",
+    "ja": "前の {count} 日間比"
+  },
+  "还没有更新检查": {
+    "en": "No update checks yet",
+    "ja": "アップデート確認はまだありません"
+  },
+  "第一次检查之后，这里会按天显示计数。": {
+    "en": "Daily counts appear here after the first check.",
+    "ja": "最初の確認以降、日ごとの回数がここに表示されます。"
+  },
+  "今天（UTC）": {
+    "en": "Today (UTC)",
+    "ja": "今日（UTC）"
+  },
+  "截至 {time} UTC": {
+    "en": "As of {time} UTC",
+    "ja": "{time} UTC 時点"
+  },
+  "开启统计": {
+    "en": "Opted in",
+    "ja": "統計に参加"
+  },
+  "本周 {optedIn} / {checks} 次检查带设备信息": {
+    "en": "{optedIn} of {checks} checks this week included device details",
+    "ja": "今週 {checks} 回中 {optedIn} 回にデバイス情報あり"
+  },
+  "其他": {
+    "en": "Other",
+    "ja": "その他"
+  },
+  "每日更新检查": {
+    "en": "Daily update checks",
+    "ja": "日ごとのアップデート確認"
+  },
+  "版本分布": {
+    "en": "Versions",
+    "ja": "バージョン別"
+  },
+  "版本": {
+    "en": "Version",
+    "ja": "バージョン"
+  },
+  "检查": {
+    "en": "Checks",
+    "ja": "確認回数"
+  },
+  "占比": {
+    "en": "Share",
+    "ja": "割合"
+  },
+  "不在发布列表": {
+    "en": "Not a release",
+    "ja": "リリース一覧にない"
+  },
+  "最新": {
+    "en": "Latest",
+    "ja": "最新"
+  },
+  "服务状态": {
+    "en": "Service status",
+    "ja": "サービスの状態"
+  },
+  "每日任务": {
+    "en": "Daily task",
+    "ja": "日次タスク"
+  },
+  "今天已运行": {
+    "en": "Ran today",
+    "ja": "今日実行済み"
+  },
+  "上次运行于 {day}": {
+    "en": "Last ran on {day}",
+    "ja": "最終実行日 {day}"
+  },
+  "尚未运行": {
+    "en": "Has not run yet",
+    "ja": "まだ実行されていません"
+  },
+  "由当天第一次检查触发": {
+    "en": "Triggered by the day's first check",
+    "ja": "その日最初の確認で実行"
+  },
+  "已发布版本": {
+    "en": "Releases",
+    "ja": "リリース済み"
+  },
+  "发布列表为空": {
+    "en": "No releases listed",
+    "ja": "リリース一覧は空です"
+  },
+  "计为 other": {
+    "en": "Counted as other",
+    "ja": "other として集計"
+  },
+  "本周 {count} 次": {
+    "en": "{count} this week",
+    "ja": "今週 {count} 回"
+  },
+  "版本号不在发布列表（测试版或伪造请求）": {
+    "en": "Version not in the release list (test build or forged request)",
+    "ja": "リリース一覧にないバージョン（テスト版または偽装リクエスト）"
+  },
+  "公开统计": {
+    "en": "Public stats",
+    "ja": "公開統計"
+  },
+  "边缘缓存 1 小时 · 隐藏少于 {count} 的分组": {
+    "en": "Edge-cached for 1 hour · hides groups under {count}",
+    "ja": "エッジで 1 時間キャッシュ · {count} 未満のグループは非表示"
+  },
+  "计数限流": {
+    "en": "Count rate limit",
+    "ja": "集計の回数制限"
+  },
+  "每个地址每分钟 10 次": {
+    "en": "10 per address per minute",
+    "ja": "アドレスごとに毎分 10 回"
+  },
+  "超出只跳过计数，仍然跳转": {
+    "en": "Beyond that the check is not counted, but still redirects",
+    "ja": "超過分は集計されませんが、リダイレクトは行われます"
+  },
+  "Mac 型号": {
+    "en": "Mac model",
+    "ja": "Mac モデル"
+  },
+  "芯片": {
+    "en": "Chip",
+    "ja": "チップ"
+  },
+  "国家 / 地区": {
+    "en": "Country / region",
+    "ja": "国 / 地域"
+  },
+  "开始统计的周": {
+    "en": "Week opted in",
+    "ja": "参加開始週"
+  },
+  "未收录的新机型": {
+    "en": "New model not yet listed",
+    "ja": "未収録の新モデル"
+  },
+  "Apple 芯片 · arm64": {
+    "en": "Apple silicon · arm64",
+    "ja": "Apple シリコン · arm64"
+  },
+  "早期版本（无记录）": {
+    "en": "Earlier versions (no record)",
+    "ja": "以前のバージョン（記録なし）"
+  },
+  "开启统计的设备": {
+    "en": "Opted-in devices",
+    "ja": "統計に参加しているデバイス"
+  },
+  "只来自开启统计的用户；各维度分开计数，不能交叉": {
+    "en": "Opted-in users only. Each dimension is counted separately and cannot be cross-referenced.",
+    "ja": "統計に参加したユーザーのみ。各項目は個別に集計され、組み合わせることはできません。"
+  },
+  "统计周": {
+    "en": "Week",
+    "ja": "集計週"
+  },
+  "{week}（本周）": {
+    "en": "{week} (this week)",
+    "ja": "{week}（今週）"
+  },
+  "这一周没有数据": {
+    "en": "No data for this week",
+    "ja": "この週のデータはありません"
+  },
+  "未公开": {
+    "en": "Not public",
+    "ja": "非公開"
+  },
+  "开启统计的检查": {
+    "en": "Opted-in checks",
+    "ja": "統計参加の確認回数"
+  },
+  "近 {count} 周": {
+    "en": "Last {count} weeks",
+    "ja": "過去 {count} 週"
+  },
+  "Cloudflare Access 会话已到期，请重新登录。": {
+    "en": "Your Cloudflare Access session has expired. Sign in again.",
+    "ja": "Cloudflare Access のセッションが期限切れです。再ログインしてください。"
+  },
+  "更新服务暂时无法读取，兼容性后台不受影响。请稍后刷新。": {
+    "en": "The update service cannot be read right now. The compatibility admin is unaffected. Refresh later.",
+    "ja": "アップデートサービスを読み取れません。互換性の管理画面には影響ありません。しばらくしてから更新してください。"
+  },
+  "时间范围只能是 7、30 或 90 天。": {
+    "en": "The time range must be 7, 30 or 90 days.",
+    "ja": "期間は 7、30、90 日のいずれかです。"
   }
 };

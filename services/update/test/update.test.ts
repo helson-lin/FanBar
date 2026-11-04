@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { createExecutionContext, createScheduledController, waitOnExecutionContext } from 'cloudflare:test';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import worker from '../src/index.ts';
+import worker, { UpdateAdmin } from '../src/index.ts';
 
 const SPARKLE_UA = (version: string) => `FanBar/${version} Sparkle/2.9.6`;
 
@@ -284,4 +284,45 @@ it('explains the service at the root without counting the visit', async () => {
   expect(page).toContain('href="/api/stats"');
   await checks(4);
   expect((await stats()).checksDaily).toEqual([]); // 4 checks + the page visit would be 5
+});
+
+const admin = () => new UpdateAdmin(createExecutionContext(), env);
+
+it('gives the admin every group, including those hidden from /api/stats', async () => {
+  at('2026-11-18T12:00:00Z'); // Wednesday of 2026-W47
+  await checks(2);
+  await checks(3, '?fb_cohort=legacy&fb_model=Mac14,2&fb_os=26&fb_arch=arm64');
+  expect((await stats()).checksDaily).toEqual([{ day: '2026-11-18', version: '0.8.0', n: 5 }]);
+  const result = await admin().stats(7);
+  expect(result.range).toBe(7);
+  expect(result.publicMinimumGroupSize).toBe(5);
+  expect(result.days).toHaveLength(7);
+  expect(result.days.at(-1)).toBe('2026-11-18');
+  expect(result.daily).toEqual([{ day: '2026-11-18', version: '0.8.0', n: 5 }]);
+  expect(result.weeks[0]).toBe('2026-W47');
+  expect(result.weeks).toHaveLength(8);
+  expect(result.weekly.models).toEqual([{ week: '2026-W47', value: 'Mac14,2', n: 3 }]);
+  expect(result.weekly.os).toEqual([{ week: '2026-W47', value: '26', n: 3 }]);
+  expect(result.currentWeek).toEqual({ week: '2026-W47', checks: 5, optedIn: 3 });
+});
+
+it('lists releases newest first and reports the daily task day', async () => {
+  await env.DB.prepare("INSERT INTO releases (version) VALUES ('0.10.0'), ('0.9.0-beta.1'), ('0.9.0')").run();
+  await env.DB.prepare("UPDATE task_runs SET day = '2026-11-18'").run();
+  const result = await admin().stats(30);
+  expect(result.releases).toEqual(['0.10.0', '0.9.0', '0.9.0-beta.1', '0.8.0', '0.7.0']);
+  expect(result.dailyTaskDay).toBe('2026-11-18');
+});
+
+it('keeps enough days to compare the selected range with the one before it', async () => {
+  at('2026-11-01T12:00:00Z');
+  await checks(1);
+  at('2026-11-18T12:00:00Z');
+  await checks(1);
+  expect((await admin().stats(7)).daily.map((row) => row.day)).toEqual(['2026-11-18']);
+  expect((await admin().stats(30)).daily.map((row) => row.day)).toEqual(['2026-11-01', '2026-11-18']);
+});
+
+it('refuses ranges the admin does not offer', async () => {
+  await expect(admin().stats(365)).rejects.toThrow(RangeError);
 });

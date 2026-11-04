@@ -32,9 +32,14 @@ export function FlagBadges({ flags }: { flags: ReviewFlag[] }) {
   );
 }
 
-/** The fixed administrator key is a role, not a person; Access identities are opaque subjects. */
+/**
+ * Reviews are signed with the Access email. Older entries carry the retired shared key,
+ * which was a role rather than a person; local development has its own fixed name.
+ */
 function actorTitle(actor: string): string {
-  return actor === 'administrator-key' ? t('管理密钥') : actor;
+  if (actor === 'administrator-key') return t('管理密钥（旧记录）');
+  if (actor === 'local-development') return t('本地开发');
+  return actor;
 }
 
 const reasonTitles: Record<string, string> = {
@@ -62,12 +67,12 @@ const combination = (item: { macOSVersion: string; appVersion: string; helperVer
 
 /* ---------- Overview ---------- */
 export function OverviewTab({ request, onReady, onError, onOpenReport, onOpenVerification }: {
-  request: Request; onReady: () => void; onError: OnError;
+  request: Request; onReady: (overview: Overview) => void; onError: OnError;
   onOpenReport: (id: string) => void; onOpenVerification: () => void;
 }) {
   const [data, setData] = useState<Overview | null>(null);
   const load = useCallback(async () => {
-    try { setData(await request<Overview>('/api/admin/overview')); onReady(); }
+    try { const overview = await request<Overview>('/api/admin/overview'); setData(overview); onReady(overview); }
     catch (error) { onError(error); }
   }, [request, onReady, onError]);
   useEffect(() => { void load(); }, [load]);

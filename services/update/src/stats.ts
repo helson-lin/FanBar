@@ -1,7 +1,7 @@
 import { isoWeek } from './fields.ts';
 import { DAY_MS, utcDay, WEEKLY_TABLES } from './storage.ts';
 
-const MINIMUM_GROUP_SIZE = 5;
+export const MINIMUM_GROUP_SIZE = 5;
 const STATS_DAYS = 180;
 const STATS_WEEKS = 26;
 const CACHE_SECONDS = 3600;
