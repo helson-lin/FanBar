@@ -4,6 +4,7 @@ import { releasesPath } from "@/lib/releases";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import { languageNames, locales } from "@/lib/i18n";
 import { HTML_LANG } from "@/lib/seo";
+import { statsCopy, statsPath } from "@/lib/statsCopy";
 import { comparisonPath, compatibilityPath, localizedPath, safetyPath } from "@/lib/routes";
 
 interface Props {
@@ -69,6 +70,11 @@ const year = new Date().getFullYear();
         <a href={safetyPath(locale)} class="inline-flex min-h-11 items-center text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
           {dict.nav.safety}
         </a>
+        {(locale === "en" || locale === "zh") && (
+          <a href={statsPath(locale)} class="inline-flex min-h-11 items-center text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+            {statsCopy[locale].footer}
+          </a>
+        )}
         {locales.filter((target) => target !== locale).map((target) => (
           <a href={localizedPath(Astro.url.pathname, target)} lang={HTML_LANG[target]} data-track-event="change-language" data-track-location="footer" data-track-locale={locale} data-track-language={target} class="inline-flex min-h-11 items-center text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
             {languageNames[target]}
