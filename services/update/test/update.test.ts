@@ -176,6 +176,24 @@ it('limits stats to the last 180 days and 26 weeks', async () => {
   expect(body.cohorts.map((row: any) => row.week)).toEqual(['2026-W47']);
 });
 
+it('serves stats from the edge cache in production and survives a database failure', async () => {
+  await checks(5);
+  let reads = 0;
+  const countingDB = { prepare: env.DB.prepare.bind(env.DB), batch: (s: D1PreparedStatement[]) => { reads++; return env.DB.batch(s); } };
+  const production = { ...env, ENVIRONMENT: 'production', DB: countingDB as unknown as D1Database };
+  const first = await call('/api/stats', {}, production);
+  const second = await call('/api/stats?bust=1', {}, production);
+  expect(reads).toBe(1);
+  expect(await second.json()).toEqual(await first.json());
+  await caches.default.delete(new Request('http://localhost/api/stats'));
+
+  const brokenDB = { prepare() { throw new Error('D1 unavailable'); }, batch() { throw new Error('D1 unavailable'); } };
+  const failed = await call('/api/stats', {}, { ...env, DB: brokenDB as unknown as D1Database });
+  expect(failed.status).toBe(503);
+  expect(failed.headers.get('Access-Control-Allow-Origin')).toBe(env.STATS_ORIGIN);
+  expect(failed.headers.get('Cache-Control')).toBe('no-store');
+});
+
 async function runDailyTask() {
   const ctx = createExecutionContext();
   await worker.scheduled(createScheduledController({ cron: '23 4 * * *' }), env, ctx);
@@ -187,13 +205,14 @@ function githubReleases(tags: string[]) {
 }
 
 it('learns newly published versions from GitHub every day', async () => {
-  const fetch = githubReleases(['v0.9.0', 'v0.8.0', 'nightly-build']);
+  const fetch = githubReleases(['v0.9.0', 'v0.9.1-beta.1', 'v0.8.0', 'nightly-build']);
   await runDailyTask();
   expect(String(fetch.mock.calls[0][0])).toBe('https://api.github.com/repos/helson-lin/FanBar/releases?per_page=100');
   vi.restoreAllMocks();
   await checks(5, '', SPARKLE_UA('0.9.0'));
+  await checks(5, '', SPARKLE_UA('0.9.1-beta.1'));
   await checks(5, '', SPARKLE_UA('nightly-build'));
-  expect((await stats()).checksDaily.map((row: any) => row.version).sort()).toEqual(['0.9.0', 'other']);
+  expect((await stats()).checksDaily.map((row: any) => row.version).sort()).toEqual(['0.9.0', '0.9.1-beta.1', 'other']);
 });
 
 it('keeps the known versions when GitHub is unavailable', async () => {

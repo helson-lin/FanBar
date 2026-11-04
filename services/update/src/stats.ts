@@ -4,8 +4,9 @@ import { DAY_MS, utcDay, WEEKLY_TABLES } from './storage.ts';
 const MINIMUM_GROUP_SIZE = 5;
 const STATS_DAYS = 180;
 const STATS_WEEKS = 26;
+const CACHE_SECONDS = 3600;
 
-export async function publicStats(env: Env) {
+async function readStats(env: Env) {
   const now = Date.now();
   const firstDay = utcDay(new Date(now - (STATS_DAYS - 1) * DAY_MS));
   const firstWeek = isoWeek(new Date(now - (STATS_WEEKS - 1) * 7 * DAY_MS));
@@ -18,7 +19,30 @@ export async function publicStats(env: Env) {
   ]);
   const body: Record<string, unknown> = { minimumGroupSize: MINIMUM_GROUP_SIZE, checksDaily: daily.results };
   Object.keys(WEEKLY_TABLES).forEach((name, index) => { body[name] = weekly[index].results; });
-  return Response.json(body, {
-    headers: { 'Access-Control-Allow-Origin': env.STATS_ORIGIN, 'Cache-Control': 'public, max-age=3600' },
+  return body;
+}
+
+/**
+ * Public, unauthenticated and fetched on every stats page view, so production answers
+ * from the edge cache for an hour instead of running six D1 queries per request.
+ * The cache key ignores the query string, so `?anything` cannot bypass it.
+ */
+export async function publicStats(request: Request, env: Env, ctx: ExecutionContext) {
+  const cors = { 'Access-Control-Allow-Origin': env.STATS_ORIGIN };
+  const cache = env.ENVIRONMENT === 'production' ? caches.default : undefined;
+  const cacheKey = new Request(new URL('/api/stats', request.url).toString(), { method: 'GET' });
+  const cached = await cache?.match(cacheKey);
+  if (cached) return cached;
+  let body: Record<string, unknown>;
+  try {
+    body = await readStats(env);
+  } catch (error) {
+    console.error('stats not served', error instanceof Error ? error.message : 'unknown error');
+    return Response.json({ error: 'unavailable' }, { status: 503, headers: { ...cors, 'Cache-Control': 'no-store' } });
+  }
+  const response = Response.json(body, {
+    headers: { ...cors, 'Cache-Control': `public, max-age=${CACHE_SECONDS}` },
   });
+  if (cache) ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 }

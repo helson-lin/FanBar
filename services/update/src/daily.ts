@@ -2,7 +2,8 @@ import { isoWeek } from './fields.ts';
 import { DAY_MS, utcDay, WEEKLY_TABLES } from './storage.ts';
 
 const RELEASES_API = 'https://api.github.com/repos/helson-lin/FanBar/releases?per_page=100';
-const VERSION = /^\d+\.\d+(\.\d+)?$/;
+// Plain releases (0.8.2) and pre-releases such as betas (0.9.0-beta.1, 0.9.0b1).
+const VERSION = /^\d+\.\d+(\.\d+)?(-?[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$/;
 const RETENTION_DAYS = 730;
 
 /** Adds newly published versions. A failed sync keeps the existing list untouched. */

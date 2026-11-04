@@ -37,7 +37,8 @@
 
 - 返回最近 180 天的 `checksDaily`（每行 `{day, version, n}`），以及最近 26 周的 `cohorts`、`models`、`os`、`arch`、`countries`（每行 `{week, value, n}`）。
 - 任何一行 `n < 5` 都不返回，响应中带 `"minimumGroupSize": 5`。
-- 带 `Access-Control-Allow-Origin: <STATS_ORIGIN>` 和 `Cache-Control: public, max-age=3600`。
+- 带 `Access-Control-Allow-Origin: <STATS_ORIGIN>` 和 `Cache-Control: public, max-age=3600`。生产环境用 Cache API 在边缘缓存 1 小时（缓存键忽略查询参数），不会每次访问都查询 D1。
+- 数据库出错时返回 `503`（`no-store`，仍带 CORS 头）。
 
 ### 其他路径
 
@@ -45,7 +46,7 @@
 
 ### 定时任务（每天 UTC 04:23）
 
-1. 从 GitHub Releases API（最近 100 个）同步已发布的版本号到 `releases` 表：去掉 tag 前面的 `v`，只接受 `数字.数字[.数字]`，只增不删。同步失败时保留旧列表。
+1. 从 GitHub Releases API（最近 100 个）同步已发布的版本号到 `releases` 表：去掉 tag 前面的 `v`，只接受 `数字.数字[.数字]`，可带预发布后缀（如 `0.9.0-beta.1`、`0.9.0b1`），只增不删。同步失败时保留旧列表。
 2. 删除超过 730 天的计数行。
 
 ## 3. 客户端约定（供 Swift 端规格引用）

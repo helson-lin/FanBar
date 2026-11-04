@@ -12,7 +12,7 @@ function redirect(env: Env) {
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
-    if (pathname === '/api/stats') return publicStats(env);
+    if (pathname === '/api/stats') return publicStats(request, env, ctx);
     if (pathname !== '/appcast.xml') return new Response('Not found', { status: 404 });
     try {
       ctx.waitUntil(countUpdateCheck(request, env));
