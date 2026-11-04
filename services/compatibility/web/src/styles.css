@@ -47,6 +47,13 @@
 @theme {
   --color-fanbar-mixed: light-dark(#b23f8b, #e872c0);
   --color-fanbar-mixed-tint: light-dark(#fbeef6, #2a1424);
+
+  /* Update statistics: one indigo ramp for versions, darkest for the newest; grey for the rest. */
+  --color-fanbar-v1: light-dark(#5e6ad2, #7c86e6);
+  --color-fanbar-v2: light-dark(#8f97e0, #5a63b8);
+  --color-fanbar-v3: light-dark(#bcc1ee, #3f4690);
+  --color-fanbar-v4: light-dark(#dcdff7, #2d3266);
+  --color-fanbar-v-other: light-dark(#cfd1d6, #3a3c42);
 }
 
 /*

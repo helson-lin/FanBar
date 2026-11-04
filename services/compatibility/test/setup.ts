@@ -1,8 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { applyD1Migrations } from 'cloudflare:test';
 import { beforeAll } from 'vitest';
+import { serveAccessCertificates } from './access.ts';
 import type { D1Migration } from '@cloudflare/vitest-plugin';
 declare global {
   namespace Cloudflare { interface Env { TEST_MIGRATIONS: D1Migration[] } }
 }
-beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
+beforeAll(async () => {
+  serveAccessCertificates();
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+});

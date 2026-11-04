@@ -36,8 +36,10 @@ export const toneOf = (status: CommunityStatus | VerificationStatus): Tone => ({
 export function errorMessage(error: unknown): string {
   const code = error instanceof ApiError ? error.code : '';
   const messages: Record<string, string> = {
-    ADMIN_AUTHENTICATION_REQUIRED: '需要管理员登录。请输入访问密钥，或使用已配置的 Cloudflare Access。',
+    ADMIN_AUTHENTICATION_REQUIRED: 'Cloudflare Access 会话已到期，请重新登录。',
     ADMIN_ACCESS_NOT_CONFIGURED: '管理员访问尚未配置，服务已拒绝访问。',
+    UPDATE_SERVICE_UNAVAILABLE: '更新服务暂时无法读取，兼容性后台不受影响。请稍后刷新。',
+    INVALID_RANGE: '时间范围只能是 7、30 或 90 天。',
     RATE_LIMITED: '请求过于频繁，请稍后重试。',
     REPORT_NOT_FOUND: '报告不存在、已过期、尚未公开，或撤回凭证不正确。',
     INVALID_REPORT: '报告不符合字段或能力证据规则。',

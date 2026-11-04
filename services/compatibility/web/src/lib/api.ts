@@ -3,7 +3,10 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, { cache: 'no-store', ...options });
+  // No API endpoint redirects. A redirect means Cloudflare Access is sending an expired
+  // session to its login page, which fetch cannot follow across origins.
+  const response = await fetch(path, { cache: 'no-store', redirect: 'manual', ...options });
+  if (response.type === 'opaqueredirect') throw new ApiError('ADMIN_AUTHENTICATION_REQUIRED', 403);
   if (response.status === 204) return null as T;
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new ApiError(body?.error?.code ?? 'REQUEST_FAILED', response.status);
@@ -76,6 +79,25 @@ export interface AdminDetail {
     }[];
   };
   reviews: { actor: string; status: ReviewStatus; reason: ReviewReason; reviewed_at: string }[];
+}
+
+/* ---------- Administrator session (src/auth.ts) ---------- */
+export interface AdminSession {
+  actor: string; kind: 'access' | 'localDevelopment'; email: string | null; expiresAt: string | null;
+}
+
+/* ---------- Update statistics (services/update/src/admin.ts, via /api/admin/updates) ---------- */
+export type UpdateRange = 7 | 30 | 90;
+export type UpdateDimension = 'cohorts' | 'models' | 'os' | 'arch' | 'countries';
+export interface UpdateStats {
+  generatedAt: string; range: UpdateRange; publicMinimumGroupSize: number;
+  days: string[];
+  daily: { day: string; version: string; n: number }[];
+  weeks: string[];
+  weekly: Record<UpdateDimension, { week: string; value: string; n: number }[]>;
+  currentWeek: { week: string; checks: number; optedIn: number };
+  releases: string[];
+  dailyTaskDay: string | null;
 }
 
 /* ---------- Administrator insights (src/insights.ts) ---------- */

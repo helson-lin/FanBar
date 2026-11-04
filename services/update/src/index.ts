@@ -1,3 +1,5 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import { adminStats, isAdminRange } from './admin.ts';
 import { countUpdateCheck } from './counting.ts';
 import { runDailyTask, runDailyTaskOncePerDay } from './daily.ts';
 import { home } from './home.ts';
@@ -32,3 +34,15 @@ export default {
     await runDailyTask(env);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Internal RPC for the maintainer admin on report.getfanbar.com, bound there as
+ * UPDATE_SERVICE. A named entrypoint has no URL: only a Worker with a service binding
+ * can call it, so it does no authentication of its own.
+ */
+export class UpdateAdmin extends WorkerEntrypoint<Env> {
+  async stats(range: number) {
+    if (!isAdminRange(range)) throw new RangeError('range must be 7, 30 or 90');
+    return adminStats(this.env, range);
+  }
+}

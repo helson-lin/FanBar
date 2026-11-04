@@ -119,7 +119,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import secrets
-          Path('.dev.vars').write_text('LIMIT_SALT=' + secrets.token_urlsafe(32) + '\nADMIN_TOKEN=' + secrets.token_urlsafe(32) + '\n')
+          Path('.dev.vars').write_text('LIMIT_SALT=' + secrets.token_urlsafe(32) + '\n')
           PY
           npm run db:local
           npm run dev -- --port 8787 --ip 127.0.0.1 > /tmp/fanbar-report-service.log 2>&1 &

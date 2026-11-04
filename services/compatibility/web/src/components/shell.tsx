@@ -6,10 +6,16 @@ import { language, languageNames, localized, switchLanguage, t, type Language } 
 
 export type NavLink = { href: string; label: string; external?: boolean };
 
-export function SiteHeader({ subtitle, links }: { subtitle: string; links: NavLink[] }) {
+/**
+ * `nav` sits beside the brand (the admin's area switch); `account` closes the bar.
+ * Public pages pass neither.
+ */
+export function SiteHeader({ subtitle, links, nav, account }: {
+  subtitle: string; links: NavLink[]; nav?: ReactNode; account?: ReactNode;
+}) {
   return (
     <header className="border-b border-kumo-hairline bg-kumo-base">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
         <a href={localized('/')} className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-kumo-default no-underline">
           <img src={mark} alt="" className="size-6 rounded-md" />
           FanBar
@@ -18,13 +24,18 @@ export function SiteHeader({ subtitle, links }: { subtitle: string; links: NavLi
             {t(subtitle)}
           </span>
         </a>
-        <nav className="flex items-center gap-1 text-[13px]">
+        {nav}
+        <nav className="ml-auto flex items-center gap-1 text-[13px]">
           {links.map(link => (
             <a
               key={link.href}
               href={link.external ? link.href : localized(link.href)}
               {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="hidden rounded-md px-2.5 py-1.5 text-kumo-subtle no-underline transition-colors hover:bg-kumo-tint hover:text-kumo-default md:inline"
+              className={cn(
+                'hidden rounded-md px-2.5 py-1.5 whitespace-nowrap text-kumo-subtle no-underline transition-colors hover:bg-kumo-tint hover:text-kumo-default',
+                // With the admin's area switch beside the brand there is less room for secondary links.
+                nav ? 'xl:inline' : 'md:inline',
+              )}
             >
               {t(link.label)}
             </a>
@@ -37,6 +48,7 @@ export function SiteHeader({ subtitle, links }: { subtitle: string; links: NavLi
             onValueChange={value => value && value !== language && switchLanguage(value as Language)}
             items={languageNames}
           />
+          {account}
         </nav>
       </div>
     </header>
