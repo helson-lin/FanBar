@@ -88,6 +88,14 @@ struct OnboardingCard: View {
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
+    private var measurementID: String { "\(languageRawValue)|\(controller.helperState)" }
+
+    private func remeasure() {
+        DispatchQueue.main.async {
+            lastHeight = Self.height(for: controller)
+        }
+    }
+
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
     }
@@ -140,10 +148,10 @@ struct OnboardingCard: View {
             .background(Color(NSColor.windowBackgroundColor))
         }
         .frame(width: Self.width, height: Self.cachedHeight(for: controller) ?? lastHeight ?? Self.maximumHeight)
-        .task(id: "\(languageRawValue)|\(controller.helperState)") {
-            // Runs after the update, so measuring never lays out a view inside `body`.
-            lastHeight = Self.height(for: controller)
-        }
+        // `task(id:)` needs macOS 12. Measuring waits for the next run-loop turn,
+        // so it never lays out a view inside `body`.
+        .onAppear(perform: remeasure)
+        .onChange(of: measurementID) { _ in remeasure() }
         .background(Color(NSColor.windowBackgroundColor))
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : 8)
