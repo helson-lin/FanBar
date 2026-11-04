@@ -64,6 +64,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Show toolchain
         run: |
@@ -83,6 +85,10 @@ jobs:
           restore-keys: |
             spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
             spm-release-${{ runner.os }}-
+
+      - name: Restore source modification times
+        # Keep unchanged sources older than cached outputs so SwiftPM can skip them.
+        uses: chetan/git-restore-mtime-action@d186aca54f8760da4dec55313195e51ed3ebb0b3
 
       - name: Build ad-hoc signed universal app
         env:
@@ -135,6 +141,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install DMG tooling
         run: brew install create-dmg
@@ -149,6 +157,9 @@ jobs:
           restore-keys: |
             spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
             spm-release-${{ runner.os }}-
+
+      - name: Restore source modification times
+        uses: chetan/git-restore-mtime-action@d186aca54f8760da4dec55313195e51ed3ebb0b3
 
       - name: Validate release secrets
         env:

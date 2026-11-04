@@ -106,6 +106,11 @@ jobs:
             spm-debug-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
             spm-debug-${{ runner.os }}-
 
+      - name: Restore source modification times
+        # Git checkout gives every source file a fresh mtime. Restore each file's
+        # last-commit time so SwiftPM can actually reuse the cached build graph.
+        uses: chetan/git-restore-mtime-action@d186aca54f8760da4dec55313195e51ed3ebb0b3
+
       - name: Build tests once with coverage and warnings as errors
         # `swift test` used to compile the same source tree again with coverage.
         # Build every product and test target once, then execute that exact build below.
