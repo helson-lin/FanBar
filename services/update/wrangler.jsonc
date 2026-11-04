@@ -14,9 +14,10 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "fanbar-usage",
+      "database_name": "fanbar-compatibility",
       "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
+      "migrations_dir": "migrations",
+      "migrations_table": "d1_migrations_update"
     }
   ],
   "ratelimits": [
@@ -26,7 +27,9 @@
       "simple": { "limit": 10, "period": 60 }
     }
   ],
-  "triggers": { "crons": ["23 4 * * *"] },
+  // No cron: the account is at the Workers Free limit of 5. The first update check of
+  // each UTC day runs the daily task instead (src/daily.ts, runDailyTaskOncePerDay).
+  "triggers": { "crons": [] },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
@@ -46,10 +49,12 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "fanbar-usage",
-          // Replace with the real ID from `wrangler d1 create fanbar-usage` before the first deploy.
-          "database_id": "00000000-0000-0000-0000-000000000000",
-          "migrations_dir": "migrations"
+          "database_name": "fanbar-compatibility",
+          // Shares the fanbar-compatibility database: the account is at its D1 limit.
+          // Table names do not overlap, and migrations are tracked in their own table.
+          "database_id": "296396fc-79f2-4a04-99f8-480467d1b694",
+          "migrations_dir": "migrations",
+          "migrations_table": "d1_migrations_update"
         }
       ],
       "ratelimits": [

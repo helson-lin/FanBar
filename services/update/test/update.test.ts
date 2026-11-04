@@ -35,8 +35,13 @@ function at(isoTime: string) {
   vi.setSystemTime(new Date(isoTime));
 }
 
+// Every update check may start the daily task, which asks GitHub for releases: never reach the network.
+const noReleases = () => vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json([]));
+
 beforeEach(async () => {
+  noReleases();
   await env.DB.batch([
+    env.DB.prepare("UPDATE task_runs SET day = ''"),
     ...['checks_daily', 'cohort_weekly', 'model_weekly', 'os_weekly', 'arch_weekly', 'country_weekly']
       .map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
     env.DB.prepare('DELETE FROM releases'),
@@ -209,6 +214,7 @@ it('learns newly published versions from GitHub every day', async () => {
   await runDailyTask();
   expect(String(fetch.mock.calls[0][0])).toBe('https://api.github.com/repos/helson-lin/FanBar/releases?per_page=100');
   vi.restoreAllMocks();
+  noReleases();
   await checks(5, '', SPARKLE_UA('0.9.0'));
   await checks(5, '', SPARKLE_UA('0.9.1-beta.1'));
   await checks(5, '', SPARKLE_UA('nightly-build'));
@@ -219,6 +225,7 @@ it('keeps the known versions when GitHub is unavailable', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('rate limited', { status: 403 }));
   await runDailyTask();
   vi.restoreAllMocks();
+  noReleases();
   await checks(5);
   expect((await stats()).checksDaily).toEqual([{ day: today(), version: '0.8.0', n: 5 }]);
 });
@@ -235,4 +242,34 @@ it('deletes counts older than 730 days', async () => {
   const weeks = await env.DB.prepare('SELECT week FROM cohort_weekly').all();
   expect(days.results).toEqual([{ day: '2026-11-18' }]);
   expect(weeks.results).toEqual([{ week: '2026-W47' }]);
+});
+
+it('runs the daily task from the first update check of each UTC day only', async () => {
+  // Days no other test uses, so this isolate has not claimed them yet.
+  at('2027-03-10T08:00:00Z');
+  const fetch = githubReleases(['v1.0.0']);
+  await checks(3);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  at('2027-03-10T23:59:00Z');
+  await checks(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  // Another isolate that has not seen today's claim still finds the day taken in D1.
+  await env.DB.prepare("UPDATE task_runs SET day = '2027-03-10'").run();
+  at('2027-03-11T00:00:00Z');
+  await checks(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  // The synced version now counts under its own name.
+  vi.restoreAllMocks();
+  noReleases();
+  await checks(5, '', SPARKLE_UA('1.0.0'));
+  expect((await stats()).checksDaily.filter((row: any) => row.version === '1.0.0'))
+    .toEqual([{ day: '2027-03-11', version: '1.0.0', n: 5 }]);
+});
+
+it('keeps redirecting when the daily task fails', async () => {
+  at('2027-04-01T08:00:00Z');
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+  const response = await check();
+  expect(response.status).toBe(302);
+  expect(response.headers.get('Location')).toBe(env.APPCAST_URL);
 });
