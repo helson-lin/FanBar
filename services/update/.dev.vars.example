@@ -1,0 +1,2 @@
+# Local development only. Generate a random value; never reuse it in production.
+LIMIT_SALT=replace-with-a-random-local-secret
