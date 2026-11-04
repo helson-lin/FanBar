@@ -357,6 +357,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    concurrency:
+      group: fanbar-geo-production
+      cancel-in-progress: false
     steps:
       - name: Check out the release notes
         uses: actions/checkout@v4
