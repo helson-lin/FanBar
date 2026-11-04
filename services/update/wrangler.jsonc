@@ -27,7 +27,9 @@
       "simple": { "limit": 10, "period": 60 }
     }
   ],
-  "triggers": { "crons": ["23 4 * * *"] },
+  // No cron: the account is at the Workers Free limit of 5. The first update check of
+  // each UTC day runs the daily task instead (src/daily.ts, runDailyTaskOncePerDay).
+  "triggers": { "crons": [] },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

@@ -38,3 +38,21 @@ export async function runDailyTask(env: Env) {
     }
   }
 }
+
+// Per isolate: once today's run is claimed here, later requests skip the D1 write.
+let claimedDay = '';
+
+/**
+ * Runs the daily task from the first update check of each UTC day: the Cloudflare
+ * account has no cron trigger left. The conditional UPDATE lets exactly one request
+ * claim the day, however many isolates race for it. A failed step waits until the
+ * next day, like a missed cron run; the release list is kept as it was.
+ */
+export async function runDailyTaskOncePerDay(env: Env) {
+  const today = utcDay(new Date());
+  if (claimedDay === today) return;
+  const claim = await env.DB.prepare("UPDATE task_runs SET day = ? WHERE task = 'daily' AND day <> ?")
+    .bind(today, today).run();
+  claimedDay = today;
+  if (claim.meta.changes === 1) await runDailyTask(env);
+}
