@@ -54,21 +54,23 @@ final class SettingsLanguageRefreshTests: XCTestCase {
             }
             for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
                 defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-                host.layoutSubtreeIfNeeded()
-                let actual = try snapshot(host)
                 let fresh = NSHostingView(rootView: FanBarSettingsView(controller: controller).frame(width: 560, height: 1400))
                 fresh.frame = host.frame
                 referenceWindow.contentView = fresh
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-                fresh.layoutSubtreeIfNeeded()
-                let expected = try snapshot(fresh)
+                let deadline = Date().addingTimeInterval(0.45)
+                var difference = Double.infinity
+                repeat {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                    host.layoutSubtreeIfNeeded()
+                    fresh.layoutSubtreeIfNeeded()
+                    let actual = try snapshot(host)
+                    let expected = try snapshot(fresh)
+                    difference = actual == expected ? 0 : try LanguageRefreshRendering.difference(actual, expected)
+                } while difference >= 0.03 && Date() < deadline
                 referenceWindow.contentView = nil
-                if actual != expected, try LanguageRefreshRendering.difference(actual, expected) >= 0.03 {
+                if difference >= 0.03 {
                     stale.append("\(tab.rawValue)→\(language.rawValue)")
                 }
-                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-                host.layoutSubtreeIfNeeded()
             }
         }
         XCTAssertEqual(stale, [], "Tabs that kept the previous language")

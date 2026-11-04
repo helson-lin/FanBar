@@ -425,7 +425,7 @@ final class CustomCoolingPresetTests: XCTestCase {
     @MainActor
     func testFactoryResetIgnoresCustomPresets() throws {
         let controller = makeController()
-        try XCTUnwrap(controller.createCustomPreset(name: "Night", symbol: .moon, copying: .fallback))
+        _ = try XCTUnwrap(controller.createCustomPreset(name: "Night", symbol: .moon, copying: .fallback))
         var edited = controller.curveProfile
         edited.points[0].fraction = 0.3
         controller.setCurveProfile(edited)

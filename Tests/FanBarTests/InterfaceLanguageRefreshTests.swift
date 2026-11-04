@@ -184,36 +184,37 @@ final class InterfaceLanguageRefreshTests: XCTestCase {
         var retainedDraft: String?
         for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-            host.layoutSubtreeIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-            host.layoutSubtreeIfNeeded()
+            let fresh = NSHostingView(rootView: content())
+            fresh.frame = host.frame
+            referenceWindow.contentView = fresh
+            let tolerance = name == "welcome" ? 0.05 : 0.03
+            let deadline = Date().addingTimeInterval(0.8)
+            var actual = Data()
+            var expected = Data()
+            var difference = Double.infinity
+            repeat {
+                // SwiftUI usually updates on the next main-loop turn. Compare with a
+                // freshly constructed view and stop immediately once it matches;
+                // retain the old 0.8 s budget only as a failure timeout.
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                host.layoutSubtreeIfNeeded()
+                fresh.layoutSubtreeIfNeeded()
+                actual = try snapshot(host, hideEditableText: name == "new-preset")
+                expected = try snapshot(fresh, hideEditableText: name == "new-preset")
+                difference = actual == expected ? 0 : try LanguageRefreshRendering.difference(actual, expected)
+            } while difference >= tolerance && Date() < deadline
+
             if name == "new-preset" {
                 let field = try XCTUnwrap(editableFields(in: host).first)
                 if let retainedDraft {
                     XCTAssertEqual(field.stringValue, retainedDraft, "Language changes must preserve the draft name")
                 } else { retainedDraft = field.stringValue }
             }
-            let actual = try snapshot(host, hideEditableText: name == "new-preset")
-            let fresh = NSHostingView(rootView: content())
-            fresh.frame = host.frame
-            referenceWindow.contentView = fresh
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-            fresh.layoutSubtreeIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-            fresh.layoutSubtreeIfNeeded()
-            let expected = try snapshot(fresh, hideEditableText: name == "new-preset")
             referenceWindow.contentView = nil
-            if actual != expected {
-                // Allow minor antialiasing and curve-selection differences,
-                // measured against foreground pixels rather than blank space.
-                let difference = try LanguageRefreshRendering.difference(actual, expected)
-                let tolerance = name == "welcome" ? 0.05 : 0.03
-                if difference >= tolerance {
-                    try saveMismatch(name: name, language: language, actual: actual, expected: expected)
-                }
-                XCTAssertLessThan(difference, tolerance, "\(name) retained stale text for \(language)")
+            if difference >= tolerance {
+                try saveMismatch(name: name, language: language, actual: actual, expected: expected)
             }
+            XCTAssertLessThan(difference, tolerance, "\(name) retained stale text for \(language)")
         }
     }
 

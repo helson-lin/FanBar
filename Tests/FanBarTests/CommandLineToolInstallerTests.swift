@@ -3,7 +3,8 @@ import XCTest
 
 @MainActor
 final class CommandLineToolInstallerTests: XCTestCase {
-    private var root = URL(fileURLWithPath: "/tmp")
+    // XCTest lifecycle overrides are nonisolated; the test case itself is main-actor bound.
+    private nonisolated(unsafe) var root = URL(fileURLWithPath: "/tmp")
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

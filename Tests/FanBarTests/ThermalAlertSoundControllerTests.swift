@@ -7,7 +7,9 @@ import XCTest
 @MainActor
 final class ThermalAlertSoundControllerTests: XCTestCase {
     private let keys = [ThermalAlertSettings.soundKey, FanBarLanguage.preferenceKey]
-    private var saved: [String: Any] = [:]
+    // XCTest lifecycle overrides are nonisolated even though this UI test case runs
+    // on the main actor. XCTest invokes them serially around each test.
+    private nonisolated(unsafe) var saved: [String: Any] = [:]
 
     override func setUp() {
         super.setUp()

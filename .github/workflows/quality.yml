@@ -8,8 +8,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: quality-${{ github.ref }}
-  cancel-in-progress: true
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  # Superseded PR commits are wasted work. Every main commit still runs to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -97,11 +98,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
+          # GitHub caches are immutable. Include the inputs that change build outputs so
+          # each run can save its updated incremental state, then fall back to the newest
+          # compatible build. At ~200 MB per entry this stays well below the 10 GB quota.
+          key: spm-debug-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-${{ hashFiles('Package.swift', 'Sources/**', 'Tests/**') }}
+          restore-keys: |
+            spm-debug-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
+            spm-debug-${{ runner.os }}-
 
-      - name: Build with warnings as errors
-        run: swift build -Xswiftc -warnings-as-errors -Xcc -Werror
+      - name: Build tests once with coverage and warnings as errors
+        # `swift test` used to compile the same source tree again with coverage.
+        # Build every product and test target once, then execute that exact build below.
+        run: swift build --build-tests --enable-code-coverage -Xswiftc -warnings-as-errors -Xcc -Werror
 
       - uses: actions/setup-node@v4
         with:
@@ -133,7 +141,7 @@ jobs:
       - name: Run tests with coverage
         env:
           FANBAR_COMPATIBILITY_TEST_SERVICE_URL: http://127.0.0.1:8787
-        run: swift test --enable-code-coverage
+        run: swift test --skip-build --enable-code-coverage
 
       - name: Coverage report and diff gate
         run: |

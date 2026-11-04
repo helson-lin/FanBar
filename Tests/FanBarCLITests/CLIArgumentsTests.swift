@@ -94,13 +94,15 @@ struct CLIContractTests {
     @Test func oversizedMessagesAreRefused() {
         var pair: [Int32] = [0, 0]
         #expect(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
-        defer { close(pair[1]) }
+        let writeSocket = pair[0]
+        let readSocket = pair[1]
+        defer { close(readSocket) }
         let blob = Data(repeating: UInt8(ascii: "a"), count: FanBarCLIContract.maximumMessageBytes + 10)
         DispatchQueue.global().async {
-            _ = FanBarCLISocket.writeMessage(blob, to: pair[0])
-            close(pair[0])
+            _ = FanBarCLISocket.writeMessage(blob, to: writeSocket)
+            close(writeSocket)
         }
-        #expect(FanBarCLISocket.readMessage(from: pair[1]) == nil)
+        #expect(FanBarCLISocket.readMessage(from: readSocket) == nil)
     }
 
     @Test func socketLivesInTheUsersApplicationSupport() {

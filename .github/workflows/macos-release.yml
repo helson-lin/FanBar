@@ -7,11 +7,18 @@ on:
     tags:
       - "v*"
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'plans/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
 concurrency:
-  group: macos-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  # Never cancel main or release tags: every release-line commit must finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -65,6 +72,17 @@ jobs:
 
       - name: Install DMG tooling
         run: brew install create-dmg
+
+      - name: Cache release builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            !.build/widget-xcode
+          key: spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-${{ hashFiles('Package.swift', 'Sources/**') }}
+          restore-keys: |
+            spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
+            spm-release-${{ runner.os }}-
 
       - name: Build ad-hoc signed universal app
         env:
@@ -120,6 +138,17 @@ jobs:
 
       - name: Install DMG tooling
         run: brew install create-dmg
+
+      - name: Cache release builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            !.build/widget-xcode
+          key: spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-${{ hashFiles('Package.swift', 'Sources/**') }}
+          restore-keys: |
+            spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}-
+            spm-release-${{ runner.os }}-
 
       - name: Validate release secrets
         env:
