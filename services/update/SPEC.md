@@ -40,6 +40,10 @@
 - 带 `Access-Control-Allow-Origin: <STATS_ORIGIN>` 和 `Cache-Control: public, max-age=3600`。生产环境用 Cache API 在边缘缓存 1 小时（缓存键忽略查询参数），不会每次访问都查询 D1。
 - 数据库出错时返回 `503`（`no-store`，仍带 CORS 头）。
 
+### `GET /`
+
+一页静态说明（中英文）：这个地址是什么、统计什么，并链接到 `/api/stats` 和源码。不计数，`Cache-Control: public, max-age=86400`，CSP 为 `default-src 'none'`。
+
 ### 其他路径
 
 一律返回 `404`。
@@ -91,7 +95,7 @@ model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n
 10. 周的计算：周日 23:59 UTC 和周一 00:00 UTC 属于不同的 ISO 周，包括跨年的情况（如 2026-12-31 属于 2026-W53）。
 11. 不带 `fb_cohort` 时，其他 `fb_` 参数和国家都不计数。
 12. 每日任务：每个 UTC 日只由第一次检查触发一次；同步版本列表（mock GitHub API）、同步失败时保留旧列表、删除 730 天前的数据。
-13. 其他路径返回 404。
+13. `/` 返回说明页且不计数；其他路径返回 404。
 
 ## 7. 上线前的运维事项（不写测试）
 
