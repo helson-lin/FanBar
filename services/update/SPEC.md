@@ -55,7 +55,7 @@
 - 升级上来的老用户，`fb_cohort=legacy`。新安装的用户，取首次启动所在的 UTC ISO 周（只存在本机）。
 - 未开启统计时，不附带任何 `fb_` 参数。
 
-## 4. 存储（D1 `fanbar-usage`）
+## 4. 存储（D1，与 `fanbar-compatibility` 共用；迁移记录在 `d1_migrations_update`）
 
 ```sql
 releases(version TEXT PRIMARY KEY)
