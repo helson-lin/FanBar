@@ -85,8 +85,8 @@
       ],
       "vars": {
         "ENVIRONMENT": "production",
-        "ACCESS_TEAM_DOMAIN": "",
-        "ACCESS_AUD": ""
+        "ACCESS_TEAM_DOMAIN": "https://helsonlin.cloudflareaccess.com",
+        "ACCESS_AUD": "4fddd012b8fb20b35dff2c61b17d35457d609fa13998edb253d7c5419fc02bc4"
       },
       "d1_databases": [
         {
