@@ -160,8 +160,8 @@ it('splits weeks at Monday 00:00 UTC, including across the ISO year', async () =
   expect(await weekOf('2027-01-04T00:00:00Z')).toBe('2027-W01');
 });
 
-it('serves only the appcast and stats paths', async () => {
-  for (const path of ['/', '/appcast', '/api/stats/extra', '/admin']) expect((await call(path)).status).toBe(404);
+it('serves only the home, appcast and stats paths', async () => {
+  for (const path of ['/appcast', '/api/stats/extra', '/admin']) expect((await call(path)).status).toBe(404);
   expect((await call('/appcast.xml', { method: 'HEAD' })).status).toBe(302);
 });
 
@@ -272,4 +272,16 @@ it('keeps redirecting when the daily task fails', async () => {
   const response = await check();
   expect(response.status).toBe(302);
   expect(response.headers.get('Location')).toBe(env.APPCAST_URL);
+});
+
+it('explains the service at the root without counting the visit', async () => {
+  const response = await call('/', { headers: { 'User-Agent': SPARKLE_UA('0.8.0') } });
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+  expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
+  const page = await response.text();
+  expect(page).toContain('FanBar update service');
+  expect(page).toContain('href="/api/stats"');
+  await checks(4);
+  expect((await stats()).checksDaily).toEqual([]); // 4 checks + the page visit would be 5
 });
