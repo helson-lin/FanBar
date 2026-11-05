@@ -33,4 +33,8 @@ jobs:
           FANBAR_BACKUP_DIR: ${{ runner.temp }}/fanbar-backup
         run: |
           test -n "$NETLIFY_AUTH_TOKEN" && test -n "$NETLIFY_SITE_ID"
+          if curl -fsS --max-time 20 https://fanbar-download-backup.netlify.app/version.json -o "$RUNNER_TEMP/current-version.json" && cmp -s "$FANBAR_BACKUP_DIR/version.json" "$RUNNER_TEMP/current-version.json"; then
+            echo "Backup is already current"
+            exit 0
+          fi
           npx --yes netlify-cli@27.16.2 deploy --prod --no-build --dir "$FANBAR_BACKUP_DIR" --site "$NETLIFY_SITE_ID" --message "Sync latest FanBar release"
