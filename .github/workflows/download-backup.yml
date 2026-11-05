@@ -1,0 +1,36 @@
+name: Sync download backup
+on:
+  release:
+    types: [published, edited]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fanbar-download-backup
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare and verify latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FANBAR_BACKUP_DIR: ${{ runner.temp }}/fanbar-backup
+        run: python3 services/download-backup/prepare.py
+      - name: Publish backup snapshot
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          FANBAR_BACKUP_DIR: ${{ runner.temp }}/fanbar-backup
+        run: |
+          test -n "$NETLIFY_AUTH_TOKEN" && test -n "$NETLIFY_SITE_ID"
+          npx --yes netlify-cli@27.16.2 deploy --prod --no-build --dir "$FANBAR_BACKUP_DIR" --site "$NETLIFY_SITE_ID" --message "Sync latest FanBar release"
