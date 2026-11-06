@@ -13,6 +13,9 @@ enum JapaneseCatalog {
     }
 
     static let strings: [String: String] = [
+        "It follows your Menu Bar settings.": "「メニューバー」の設定に従って表示されます。",
+        "Panel": "パネル",
+        "Display content": "表示内容",
         "Label and value": "名前と数値",
         "Icon and value": "アイコンと数値",
         "CPU usage": "CPU 使用率",
@@ -28,7 +31,6 @@ enum JapaneseCatalog {
         "Alert %d°": "警告 %d°",
         "Click it to open this panel": "クリックするとこのパネルが開きます",
         "Default %.0f°C. The panel and the curve's alert line use the same value.": "デフォルトは %.0f°C。パネルとカーブの警告ラインも同じ値を使います。",
-        "It follows your Appearance settings.": "表示は「外観」の設定に従います。",
         "Look for this in the menu bar": "メニューバーでこのアイコンを探してください",
         "Max %d%%": "最大 %d%%",
         "On the right: this Mac’s live readings.": "右側はこの Mac の現在の実測値です。",
@@ -275,9 +277,7 @@ enum JapaneseCatalog {
         "Allow FanBar in Login Items & Extensions": "「ログイン項目と機能拡張」で FanBar を許可してください",
         "Aluminum": "アルミニウム",
         "Animation": "アニメーション",
-        "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open.": "アニメーションは画面を継続的に再描画します。オフにすると FanBar の CPU 使用率が下がります。パネルのアニメーションはパネルを開いている間だけ動作します。",
         "App Icon": "App アイコン",
-        "Appearance": "外観",
         "Appears in the menu bar after you sign in.": "ログイン後、メニューバーに表示されます。",
         "Approve control service": "制御サービスを承認",
         "Approve the updated control service in System Settings": "システム設定で更新された制御サービスを承認してください",
@@ -405,7 +405,6 @@ enum JapaneseCatalog {
         "Ringed": "リング",
         "RPM must be a finite, non-negative number": "回転数は 0 以上の有限の数値で指定してください",
         "Running": "動作中",
-        "Selected, %d of %d": "選択中、%d 番目 / 全 %d 件",
         "Settings": "設定",
         "Settings…": "設定…",
         "Show %@ in the menu panel": "メニューパネルに「%@」を表示",

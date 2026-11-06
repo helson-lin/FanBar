@@ -138,7 +138,7 @@ struct OnboardingCard: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.12)))
-                    Text(fanBarText("样子跟随“外观”里的设置。", "It follows your Appearance settings."))
+                    Text(fanBarText("样子跟随“菜单栏”里的设置。", "It follows your Menu Bar settings."))
                         .font(.system(size: 11))
                         .foregroundColor(palette.tertiaryText)
                         .fixedSize(horizontal: false, vertical: true)

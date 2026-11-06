@@ -7,7 +7,7 @@ struct SettingsTabKeyboardShortcuts: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // ⌘1…⌘4 follow the order of the toolbar items.
+            // ⌘1…⌘5 follow the order of the toolbar items.
             ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
                 shortcutButton(for: tab, key: Character(String(index + 1)))
             }

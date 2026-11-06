@@ -5,14 +5,14 @@ import SwiftUI
 /// Settings panes. The selection persists so the window reopens where the
 /// user left off. The native labeled toolbar navigation is installed by the
 /// window presenter so content can use the full height below the title bar.
-/// Case order is the toolbar order (and ⌘1…⌘4).
+/// Case order is the toolbar order (and ⌘1…⌘5).
 enum SettingsTab: String, CaseIterable, Identifiable {
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
     /// Raw value kept from the former "Menu Bar" pane so a saved selection survives.
     case appearance = "menuBar"
+    case panel
     case general
-    /// Last so ⌘1…⌘3 keep their existing meaning.
     case log
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -22,7 +22,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .cooling: fanBarText("散热", "Cooling")
-        case .appearance: fanBarText("外观", "Appearance")
+        case .appearance: fanBarText("菜单栏", "Menu Bar")
+        case .panel: fanBarText("面板", "Panel")
         case .general: fanBarText("通用", "General")
         case .log: fanBarText("日志", "Log")
         }
@@ -31,7 +32,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .cooling: FanBarSymbols.fan
-        case .appearance: "paintbrush"
+        case .appearance: "macwindow"
+        case .panel: "rectangle.on.rectangle"
         case .general: "gearshape"
         case .log: "doc.text"
         }
@@ -65,7 +67,8 @@ struct FanBarSettingsView: View {
             VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
                 switch currentTab {
                 case .cooling: coolingTab
-                case .appearance: appearanceTab
+                case .appearance: menuBarTab
+                case .panel: panelTab
                 case .general: generalTab
                 case .log: logTab
                 }
@@ -108,11 +111,10 @@ struct FanBarSettingsView: View {
         FanCurveEditorView(controller: controller)
     }
 
-    // MARK: - Appearance
+    // MARK: - Menu bar
 
-    /// How FanBar looks: in the menu bar, as an app icon, and in motion.
     @ViewBuilder
-    private var appearanceTab: some View {
+    private var menuBarTab: some View {
         // Icon and readout are one decision about the same status item, so
         // they share a card instead of two sections.
         SettingsSection(
@@ -130,45 +132,28 @@ struct FanBarSettingsView: View {
 
             SettingsChrome.rowDivider
 
-            // One decision, so no dividers between choices; the selected
-            // one is tinted instead.
-            VStack(spacing: 2) {
-                ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
-                    MenuBarDisplayOptionRow(
-                        controller: controller,
-                        mode: mode,
-                        isSelected: mode == displayMode,
-                        position: index + 1,
-                        count: MenuBarDisplayMode.allCases.count,
-                        onSelect: { displayModeRawValue = mode.rawValue }
-                    )
+            HStack(spacing: 12) {
+                SettingsRowText(
+                    title: fanBarText("显示内容", "Display content"),
+                    detail: displayMode.detail
+                )
+                Picker(fanBarText("显示内容", "Display content"), selection: $displayModeRawValue) {
+                    ForEach(MenuBarDisplayMode.allCases) { mode in
+                        Text(mode.title).tag(mode.rawValue)
+                    }
                 }
+                .labelsHidden()
+                .id(languageRawValue)
+                .fixedSize()
             }
-            .padding(SettingsChrome.choiceInset)
+            .settingsRow()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
 
         MenuBarResourceSettings(controller: controller)
-        PanelMonitorSettingsSection()
 
-        SettingsSection(
-            title: fanBarText("App 图标", "App Icon"),
-            footer: fanBarText(
-                "用于访达、启动台和菜单栏面板。",
-                "Used in Finder, Launchpad, and the menu bar panel."
-            )
-        ) {
-            AppIconPickerRow()
-        }
-
-        SettingsSection(
-            title: fanBarText("动画", "Animation"),
-            footer: fanBarText(
-                "动画需要持续重绘界面。关闭可降低 FanBar 的 CPU 占用，主界面动画仅在面板打开时运行。",
-                "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open."
-            )
-        ) {
+        SettingsSection(title: fanBarText("动画", "Animation")) {
             Toggle(isOn: $switchFeedbackAnimationEnabled) {
                 SettingsRowText(
                     title: fanBarText("菜单栏图标动画", "Menu bar icon animation"),
@@ -180,9 +165,17 @@ struct FanBarSettingsView: View {
             }
             .toggleStyle(.switch)
             .settingsRow()
+        }
+    }
 
-            SettingsChrome.rowDivider
+    // MARK: - Panel
 
+    @ViewBuilder
+    private var panelTab: some View {
+        PanelMonitorSettingsSection()
+            .id(languageRawValue)
+
+        SettingsSection(title: fanBarText("动画", "Animation")) {
             Toggle(isOn: $panelAnimationEnabled) {
                 SettingsRowText(
                     title: fanBarText("主界面动画", "Panel animation"),
@@ -209,6 +202,15 @@ struct FanBarSettingsView: View {
         fanControlSection
         NotificationSettingsSection(controller: controller)
         appSection
+        SettingsSection(
+            title: fanBarText("App 图标", "App Icon"),
+            footer: fanBarText(
+                "用于访达、启动台和菜单栏面板。",
+                "Used in Finder, Launchpad, and the menu bar panel."
+            )
+        ) {
+            AppIconPickerRow()
+        }
         ToolIntegrationsSection()
         compatibilitySection
         freeSoftwareNotice

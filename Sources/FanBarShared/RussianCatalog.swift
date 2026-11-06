@@ -14,6 +14,9 @@ enum RussianCatalog {
     }
 
     static let strings: [String: String] = [
+        "It follows your Menu Bar settings.": "Вид зависит от настроек «Строка меню».",
+        "Panel": "Панель",
+        "Display content": "Отображаемые данные",
         "Label and value": "Название и значение",
         "Icon and value": "Значок и значение",
         "CPU usage": "Загрузка CPU",
@@ -29,7 +32,6 @@ enum RussianCatalog {
         "Alert %d°": "Порог %d°",
         "Click it to open this panel": "Нажмите, чтобы открыть эту панель",
         "Default %.0f°C. The panel and the curve's alert line use the same value.": "По умолчанию %.0f°C. Панель и линия порога на кривой используют то же значение.",
-        "It follows your Appearance settings.": "Вид зависит от настроек «Оформление».",
         "Look for this in the menu bar": "Найдите этот значок в строке меню",
         "Max %d%%": "Макс. %d%%",
         "On the right: this Mac’s live readings.": "Справа — текущие показания этого Mac.",
@@ -271,9 +273,7 @@ enum RussianCatalog {
         "Allow FanBar in Login Items & Extensions": "Разрешите FanBar в разделе «Объекты входа и расширения»",
         "Aluminum": "Алюминий",
         "Animation": "Анимация",
-        "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open.": "Анимации перерисовываются постоянно. Их отключение снижает нагрузку FanBar на CPU; анимация панели работает, только пока панель открыта.",
         "App Icon": "Значок приложения",
-        "Appearance": "Оформление",
         "Appears in the menu bar after you sign in.": "Появляется в строке меню после входа в систему.",
         "Approve control service": "Одобрить службу управления",
         "Approve the updated control service in System Settings": "Одобрите обновлённую службу управления в Системных настройках",
@@ -401,7 +401,6 @@ enum RussianCatalog {
         "Ringed": "Кольцо",
         "RPM must be a finite, non-negative number": "Обороты должны быть конечным неотрицательным числом",
         "Running": "Работает",
-        "Selected, %d of %d": "Выбрано, %d из %d",
         "Settings": "Настройки",
         "Settings…": "Настройки…",
         "Show %@ in the menu panel": "Показывать «%@» в панели меню",

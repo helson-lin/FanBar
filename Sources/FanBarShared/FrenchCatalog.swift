@@ -10,6 +10,9 @@ enum FrenchCatalog {
     }
 
     static let strings: [String: String] = [
+        "It follows your Menu Bar settings.": "Son apparence suit les réglages de la barre des menus.",
+        "Panel": "Panneau",
+        "Display content": "Contenu affiché",
         "Label and value": "Nom et valeur",
         "Icon and value": "Icône et valeur",
         "CPU usage": "Utilisation du CPU",
@@ -25,7 +28,6 @@ enum FrenchCatalog {
         "Alert %d°": "Alerte %d°",
         "Click it to open this panel": "Cliquez dessus pour ouvrir ce panneau",
         "Default %.0f°C. The panel and the curve's alert line use the same value.": "Par défaut : %.0f°C. Le panneau et la ligne d’alerte de la courbe utilisent la même valeur.",
-        "It follows your Appearance settings.": "Selon vos réglages d’apparence.",
         "Look for this in the menu bar": "Repérez cette icône dans la barre des menus",
         "Max %d%%": "Max. %d%%",
         "On the right: this Mac’s live readings.": "À droite : les mesures en direct de ce Mac.",
@@ -264,9 +266,7 @@ enum FrenchCatalog {
         "Allow FanBar in Login Items & Extensions": "Autorisez FanBar dans Ouverture et extensions",
         "Aluminum": "Aluminium",
         "Animation": "Animation",
-        "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open.": "Les animations sont redessinées en continu. Les désactiver réduit l’utilisation du CPU par FanBar ; l’animation du panneau ne fonctionne que lorsqu’il est ouvert.",
         "App Icon": "Icône de l’app",
-        "Appearance": "Apparence",
         "Appears in the menu bar after you sign in.": "Apparaît dans la barre des menus après l’ouverture de session.",
         "Approve control service": "Autoriser le service de contrôle",
         "Approve the updated control service in System Settings": "Autorisez le service de contrôle mis à jour dans Réglages Système",
@@ -394,7 +394,6 @@ enum FrenchCatalog {
         "Ringed": "Anneau",
         "RPM must be a finite, non-negative number": "Le régime doit être un nombre fini et positif ou nul",
         "Running": "En cours",
-        "Selected, %d of %d": "Sélectionné, %d sur %d",
         "Settings": "Réglages",
         "Settings…": "Réglages…",
         "Show %@ in the menu panel": "Afficher %@ dans le panneau du menu",
