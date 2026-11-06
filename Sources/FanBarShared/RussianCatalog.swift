@@ -14,6 +14,13 @@ enum RussianCatalog {
     }
 
     static let strings: [String: String] = [
+        "Label and value": "Название и значение",
+        "Icon and value": "Значок и значение",
+        "CPU usage": "Загрузка CPU",
+        "Memory usage": "Использование памяти",
+        "GPU usage": "Загрузка GPU",
+        "System resources": "Системные ресурсы",
+        "Each item appears separately in the menu bar. Click one to open the panel and highlight that resource.": "Каждый показатель отображается отдельно в строке меню. Нажмите его, чтобы открыть панель и выделить соответствующий ресурс.",
         "CPU average": "CPU средн.",
         "CPU avg": "CPU средн.",
         "CPU max": "CPU макс.",

@@ -149,6 +149,8 @@ struct FanBarSettingsView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
 
+        MenuBarResourceSettings(controller: controller)
+
         SettingsSection(
             title: fanBarText("App 图标", "App Icon"),
             footer: fanBarText(

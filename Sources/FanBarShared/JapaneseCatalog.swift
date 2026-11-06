@@ -13,6 +13,13 @@ enum JapaneseCatalog {
     }
 
     static let strings: [String: String] = [
+        "Label and value": "名前と数値",
+        "Icon and value": "アイコンと数値",
+        "CPU usage": "CPU 使用率",
+        "Memory usage": "メモリ使用率",
+        "GPU usage": "GPU 使用率",
+        "System resources": "システムリソース",
+        "Each item appears separately in the menu bar. Click one to open the panel and highlight that resource.": "各項目はメニューバーに個別に表示されます。クリックするとパネルが開き、対応するリソースが強調表示されます。",
         "CPU average": "CPU 平均",
         "CPU avg": "CPU 平均",
         "CPU max": "CPU 最高",

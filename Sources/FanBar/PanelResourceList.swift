@@ -1,6 +1,16 @@
 import FanBarShared
 import SwiftUI
 
+private struct FocusedMenuBarResourceKey: EnvironmentKey {
+    static let defaultValue: PanelResourceList.Resource? = nil
+}
+extension EnvironmentValues {
+    var focusedMenuBarResource: PanelResourceList.Resource? {
+        get { self[FocusedMenuBarResourceKey.self] }
+        set { self[FocusedMenuBarResourceKey.self] = newValue }
+    }
+}
+
 // MARK: - Resources
 
 /// A two-by-two resource grid held together by whitespace; disk details expand beneath it.
@@ -20,6 +30,7 @@ struct PanelResourceList: View {
 
     @Binding var expanded: Resource?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.focusedMenuBarResource) private var focusedResource
     @State private var isDiskDetailRevealed = false
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
@@ -146,6 +157,7 @@ struct PanelResourceList: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(focusedResource == resource ? 0.10 : 0)).padding(.horizontal, -6))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue([value, meta, level(resource).spokenName].compactMap { $0 }.joined(separator: ", "))

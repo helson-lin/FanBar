@@ -10,6 +10,13 @@ enum FrenchCatalog {
     }
 
     static let strings: [String: String] = [
+        "Label and value": "Nom et valeur",
+        "Icon and value": "Icône et valeur",
+        "CPU usage": "Utilisation du CPU",
+        "Memory usage": "Utilisation de la mémoire",
+        "GPU usage": "Utilisation du GPU",
+        "System resources": "Ressources système",
+        "Each item appears separately in the menu bar. Click one to open the panel and highlight that resource.": "Chaque élément apparaît séparément dans la barre des menus. Cliquez dessus pour ouvrir le panneau et mettre la ressource en évidence.",
         "CPU average": "CPU moyenne",
         "CPU avg": "CPU moy.",
         "CPU max": "CPU max.",
