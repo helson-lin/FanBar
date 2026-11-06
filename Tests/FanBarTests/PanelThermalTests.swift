@@ -119,44 +119,4 @@ final class PanelThermalTests: XCTestCase {
         XCTAssertNil(ThermalFocus.from(nil))
         XCTAssertNil(ThermalFocus.from(ThermalReading(sampledAt: Date(), cpuCelsius: nil, gpuCelsius: nil)))
     }
-
-    func testTrendComparesWithReadingOneSpanAgo() throws {
-        let end = Date(timeIntervalSince1970: 100_000)
-        let history = stride(from: 900.0, through: 0, by: -60).map { secondsAgo in
-            // 1 °C cooler per minute back in time.
-            ThermalReading(
-                sampledAt: end.addingTimeInterval(-secondsAgo),
-                cpuCelsius: 70 - secondsAgo / 60,
-                gpuCelsius: nil
-            )
-        }
-        let focus = try XCTUnwrap(ThermalFocus.from(history.last))
-        let trend = try XCTUnwrap(focus.trend(in: history, span: 600))
-
-        XCTAssertEqual(trend.delta, 10, accuracy: 1e-9)
-        XCTAssertEqual(trend.minutes, 10)
-    }
-
-    func testTrendReportsRealAgeWhenHistoryIsShort() throws {
-        let end = Date(timeIntervalSince1970: 100_000)
-        let history = [
-            ThermalReading(sampledAt: end.addingTimeInterval(-180), cpuCelsius: 60, gpuCelsius: nil),
-            ThermalReading(sampledAt: end, cpuCelsius: 63, gpuCelsius: nil)
-        ]
-        let focus = try XCTUnwrap(ThermalFocus.from(history.last))
-        let trend = try XCTUnwrap(focus.trend(in: history, span: 1_800))
-
-        XCTAssertEqual(trend.delta, 3, accuracy: 1e-9)
-        XCTAssertEqual(trend.minutes, 3)
-    }
-
-    func testNoTrendUnderOneMinuteOfHistory() throws {
-        let end = Date(timeIntervalSince1970: 100_000)
-        let history = [
-            ThermalReading(sampledAt: end.addingTimeInterval(-30), cpuCelsius: 60, gpuCelsius: nil),
-            ThermalReading(sampledAt: end, cpuCelsius: 63, gpuCelsius: nil)
-        ]
-        let focus = try XCTUnwrap(ThermalFocus.from(history.last))
-        XCTAssertNil(focus.trend(in: history, span: 600))
-    }
 }

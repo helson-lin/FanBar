@@ -14,8 +14,6 @@ enum FanBarServiceStatus: Equatable {
 /// launchd fallback. The helper protocol remains identical on every release.
 @MainActor
 final class FanBarServiceManager {
-    static let helperLabel = FanBarService.helperPlistName
-
     private(set) var status: FanBarServiceStatus = .notRegistered
     private var hasReportedStatus = false
 

@@ -120,7 +120,7 @@ FanBar 是一款免费开源的原生 macOS 菜单栏应用，用于查看 CPU/G
   </tr>
 </table>
 
-「通用」页包含本机兼容性检查、控制服务状态、自动恢复、通知、语言、登录启动与更新。「日志」页可把温度和风扇转速记录为 CSV。较长的设置页面可向下滚动。
+「通用」页包含本机兼容性检查、控制服务状态、自动恢复、通知、语言、登录启动、更新，以及命令行与 Raycast 设置。「日志」页可把温度和风扇转速记录为 CSV。较长的设置页面可向下滚动。
 
 <table>
   <tr>
@@ -143,6 +143,7 @@ FanBar 是一款免费开源的原生 macOS 菜单栏应用，用于查看 CPU/G
 - **智能温控曲线**：每个面板预设都有独立曲线，按芯片温度平滑调速，可在设置中分别编辑。
 - **温度来源可选**：温控曲线支持 CPU、GPU 或硬盘（SSD）温度作为控制来源；设备未提供对应传感器时会保持安全回退。
 - **高温通知**：可在设置中开启 CPU/GPU 高温通知，达到设定温度（60–105°C，默认 90°C）时发送 macOS 通知；同一次高温只提醒一次，降温后会重新提醒。可选择提示音，即使关闭了通知声音或开启了专注模式也会播放。过热时面板会提供一键切换到最大散热。
+- **命令行与 Raycast**：`fanbar` 命令行工具可以在终端或脚本里查看状态和温度、切换预设、设置固定转速，或把风扇交还给 macOS，并支持 `--json` 输出，方便自动化。在 **设置 → 通用 → 命令行与自动化** 中一键安装，同一处还能设置 Raycast 脚本命令。
 - **CSV 日志**：每 2–60 秒把 CPU、GPU、SSD、电池温度、风扇转速和控制模式写入 `~/Library/Application Support/FanBar/Logs` 下的 CSV 文件，可选择在启动时、每天零点或从不新建文件。
 - **安全回退**：转速始终限制在硬件报告范围内；退出、断连或服务异常时尽力恢复系统自动控制。
 - **原生授权流程**：首次使用会解释控制服务用途，并自动打开正确的 macOS 设置页面。
@@ -204,6 +205,23 @@ brew uninstall --cask helson-lin/fanbar/fanbar
 固定转速和面板预设支持在 15 分钟、30 分钟或 1 小时后自动恢复 macOS 管理，避免忘记关闭手动控制。
 
 在 macOS 14 及更高版本中，打开通知中心的组件编辑器，搜索并添加 **FanBar**。组件展示主应用最近发布的风扇快照；WidgetKit 的刷新频率由 macOS 决定，因此需要秒级实时数据时仍应使用菜单栏面板。
+
+### 命令行与 Raycast
+
+在 **设置 → 通用 → 命令行与自动化 → 命令行工具** 中点「安装…」，会把 `/usr/local/bin/fanbar` 链接到 App 内的工具，随 FanBar 一起更新。
+
+```sh
+fanbar status                  # 模式、预设、风扇、温度
+fanbar preset set performance
+fanbar mode fixed 3000 --hold  # 保持到你手动更改
+fanbar mode auto               # 把风扇交还给 macOS
+```
+
+不加 `--hold` 时，会按设置里的自动恢复时间交还 macOS 控制。加 `--json` 可输出机器可读结果。FanBar 未运行时，命令会在后台打开它；切换模式需要已批准风扇控制服务。
+
+Raycast：在同一区块点「在 Raycast 中设置…」，然后在 Raycast 中添加一次脚本目录（设置 → Extensions → **+** → Add Script Directory）。之后就能在 Raycast 里切换预设、设置固定转速、交还自动控制，并在根搜索中直接看到 CPU、GPU、SSD 温度。
+
+完整说明见 [docs/cli.md](docs/cli.md)（英文）。
 
 ### 切换界面语言
 
@@ -303,8 +321,9 @@ git push origin v0.6.3
 
 ### 更新 Homebrew Cask
 
-通过本地脚本或 CI 发布稳定版后，运行以下命令下载通用 DMG、计算校验和，并将生成的
-Cask 变更提交为 PR：
+CI 发布稳定版后，`macos-release.yml` 的 `homebrew` job 会把 Cask 固定到该版本，并自动开出
+`chore/homebrew-cask-<version>` PR，检查通过后合并即可。本地发布，或需要固定到其他 tag 时，
+运行以下命令，再自行把 Cask 变更提交为 PR：
 
 ```sh
 python3 scripts/update-homebrew-cask.py          # 最新稳定版
@@ -348,6 +367,10 @@ Apple Silicon 的控制序列参考了 MIT 许可的 [`agoodkind/macos-smc-fan`]
     <td align="center">
       <img src="docs/contributors/taolela.png" width="64" height="64" alt="Taolela 的头像"><br>
       <sub><b>Taolela</b></sub>
+    </td>
+    <td align="center">
+      <img src="docs/contributors/estelle00.png" width="64" height="64" alt="Estelle00 的头像"><br>
+      <sub><b>Estelle00</b></sub>
     </td>
   </tr>
 </table>

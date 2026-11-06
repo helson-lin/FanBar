@@ -27,6 +27,14 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Read-only update statistics for the admin, from the update service's UpdateAdmin RPC entrypoint.
+  "services": [
+    {
+      "binding": "UPDATE_SERVICE",
+      "service": "fanbar-update-local",
+      "entrypoint": "UpdateAdmin"
+    }
+  ],
   "ratelimits": [
     {
       "name": "WRITE_LIMIT",
@@ -77,8 +85,8 @@
       ],
       "vars": {
         "ENVIRONMENT": "production",
-        "ACCESS_TEAM_DOMAIN": "",
-        "ACCESS_AUD": ""
+        "ACCESS_TEAM_DOMAIN": "https://helsonlin.cloudflareaccess.com",
+        "ACCESS_AUD": "4fddd012b8fb20b35dff2c61b17d35457d609fa13998edb253d7c5419fc02bc4"
       },
       "d1_databases": [
         {
@@ -86,6 +94,13 @@
           "database_name": "fanbar-compatibility",
           "database_id": "296396fc-79f2-4a04-99f8-480467d1b694",
           "migrations_dir": "migrations"
+        }
+      ],
+      "services": [
+        {
+          "binding": "UPDATE_SERVICE",
+          "service": "fanbar-update",
+          "entrypoint": "UpdateAdmin"
         }
       ],
       "ratelimits": [
@@ -116,16 +131,14 @@
       ],
       "secrets": {
         "required": [
-          "LIMIT_SALT",
-          "ADMIN_TOKEN"
+          "LIMIT_SALT"
         ]
       }
     }
   },
   "secrets": {
     "required": [
-      "LIMIT_SALT",
-      "ADMIN_TOKEN"
+      "LIMIT_SALT"
     ]
   }
 }

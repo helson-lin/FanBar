@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import worker from '../src/index.ts';
 import { cleanup } from '../src/reports.ts';
 import { reportSchema, type Report } from '../src/schema.ts';
-import { POLICY_VERSION } from '../src/policy.ts';
+import { LEGACY_POLICY_VERSION, POLICY_VERSION } from '../src/policy.ts';
+import { accessToken, adminHeaders } from './access.ts';
 const token = 'A'.repeat(43);
 function fixture(): Report {
   return {
@@ -26,16 +27,15 @@ function request(path: string, method = 'GET', body?: unknown, headers: Record<s
     'CF-Connecting-IP': crypto.randomUUID(), 'Content-Type': 'application/json', ...headers,
   }, ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) });
 }
-function submit(report: Report, publish = false, credential = token) {
+function submit(report: Report, publish = false, credential = token, policyVersion = POLICY_VERSION) {
   return SELF.fetch(request('/api/reports', 'POST', report, {
-    Authorization: 'Bearer ' + credential, 'X-FanBar-Policy-Version': POLICY_VERSION,
+    Authorization: 'Bearer ' + credential, 'X-FanBar-Policy-Version': policyVersion,
     'X-FanBar-Publish-Report': publish ? '1' : '0',
   }));
 }
-function review(id: string, status = 'approved', origin = 'http://localhost') {
-  return SELF.fetch(request('/api/admin/reports/' + id + '/review', 'PUT', { status, reason: 'reviewed' }, {
-    Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: origin,
-  }));
+async function review(id: string, status = 'approved', origin = 'http://localhost') {
+  return SELF.fetch(request('/api/admin/reports/' + id + '/review', 'PUT', { status, reason: 'reviewed' },
+    await adminHeaders({ 'X-FanBar-Admin': '1', Origin: origin })));
 }
 async function matrix() {
   const response = await SELF.fetch(request('/api/compatibility'));
@@ -70,7 +70,7 @@ describe('consent and closed schema', () => {
   });
   it('serves every administrator entry without canonical redirect loops', async () => {
     for (const path of ['/admin', '/admin/', '/admin.html']) {
-      const response = await SELF.fetch(request(path));
+      const response = await SELF.fetch(request(path, 'GET', undefined, await adminHeaders()));
       expect(response.status).toBe(200);
       expect(response.headers.get('location')).toBeNull();
       expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -171,7 +171,7 @@ describe('publication and withdrawal', () => {
     expect((await submit(report)).status).toBe(409);
   });
   it('keeps the audit of a published verification while expiring report audits', async () => {
-    const headers = { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' };
+    const headers = await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' });
     const created = await SELF.fetch(request('/api/admin/verifications', 'POST', {
       modelIdentifier: 'Mac14,13', macOSVersion: '15.0.0', appVersion: '1.0', helperVersion: '10',
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent controlled test',
@@ -204,12 +204,69 @@ describe('publication and withdrawal', () => {
   });
 });
 describe('admin boundaries', () => {
-  it('fails closed without configured production authentication', async () => {
-    expect((await SELF.fetch(request('/api/admin/reports'))).status).toBe(403);
-    const response = await worker.fetch(request('/api/admin/reports', 'GET', undefined, {
-      Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-    }), { ...env, ENVIRONMENT: 'production', ADMIN_TOKEN: '' });
-    expect(response.status).toBe(403);
+  const code = async (response: Response) => (await response.json<{ error: { code: string } }>()).error.code;
+  it('accepts only a valid Cloudflare Access token', async () => {
+    const rejected = async (headers: Record<string, string>) => {
+      const response = await SELF.fetch(request('/api/admin/reports', 'GET', undefined, headers));
+      expect(response.status).toBe(403);
+      expect(await code(response)).toBe('ADMIN_AUTHENTICATION_REQUIRED');
+    };
+    await rejected({});
+    await rejected({ Authorization: 'Bearer ' + 'Z'.repeat(43) }); // There is no administrator key any more.
+    await rejected({ 'Cf-Access-Jwt-Assertion': 'not-a-token' });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { audience: 'another-application' }) });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { issuer: 'https://other.cloudflareaccess.com' }) });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { expiresIn: Math.floor(Date.now() / 1000) - 60 }) });
+    const forged = await crypto.subtle.generateKey(
+      { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'],
+    ) as CryptoKeyPair;
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { key: forged.privateKey }) });
+    expect((await SELF.fetch(request('/api/admin/reports', 'GET', undefined, await adminHeaders()))).status).toBe(200);
+  });
+  it('fails closed when Access is not configured, except for local development', async () => {
+    const unconfigured = { ...env, ACCESS_TEAM_DOMAIN: '', ACCESS_AUD: '' };
+    const production = await worker.fetch(request('/api/admin/session'), { ...unconfigured, ENVIRONMENT: 'production' });
+    expect(production.status).toBe(403);
+    expect(await code(production)).toBe('ADMIN_ACCESS_NOT_CONFIGURED');
+    const remote = await worker.fetch(new Request('https://report.example.com/api/admin/session'), unconfigured);
+    expect(await code(remote)).toBe('ADMIN_ACCESS_NOT_CONFIGURED');
+    const local = await worker.fetch(request('/api/admin/session'), unconfigured);
+    expect(await local.json()).toEqual({ actor: 'local-development', kind: 'localDevelopment', email: null, expiresAt: null });
+  });
+  it('describes the signed-in administrator and signs reviews with the Access email', async () => {
+    const session = await (await SELF.fetch(request('/api/admin/session', 'GET', undefined, await adminHeaders()))).json<any>();
+    expect(session).toMatchObject({ actor: 'maintainer@example.com', kind: 'access', email: 'maintainer@example.com' });
+    expect(Date.parse(session.expiresAt)).toBeGreaterThan(Date.now());
+    const report = fixture(); await submit(report); await review(report.reportID);
+    expect(await env.DB.prepare('SELECT actor FROM reviews').first('actor')).toBe('maintainer@example.com');
+    const noEmail = await SELF.fetch(request('/api/admin/session', 'GET', undefined, {
+      'Cf-Access-Jwt-Assertion': await accessToken({ email: undefined }),
+    }));
+    expect((await noEmail.json<any>()).actor).toBe('7f1c2b54-0000-4000-8000-000000000001');
+  });
+  it('keeps the admin page closed without Access', async () => {
+    const closed = await SELF.fetch(request('/admin/'));
+    expect(closed.status).toBe(403);
+    const body = await closed.text();
+    expect(body).toContain('ADMIN_AUTHENTICATION_REQUIRED');
+    expect(body).not.toMatch(/assets\/admin-/);
+    const page = await SELF.fetch(request('/admin/', 'GET', undefined, await adminHeaders()));
+    expect(page.status).toBe(200);
+    expect(page.headers.get('Cache-Control')).toBe('no-store');
+  });
+  it('reads update statistics through the update service binding', async () => {
+    const calls: number[] = [];
+    const UPDATE_SERVICE = { stats: async (range: number) => { calls.push(range); return { range, days: [] }; } };
+    const call = async (path: string, service: unknown = UPDATE_SERVICE) =>
+      worker.fetch(request(path, 'GET', undefined, await adminHeaders()), { ...env, UPDATE_SERVICE: service } as unknown as Env);
+    expect((await SELF.fetch(request('/api/admin/updates'))).status).toBe(403);
+    expect(await (await call('/api/admin/updates?range=7')).json()).toEqual({ range: 7, days: [] });
+    await call('/api/admin/updates');
+    expect(calls).toEqual([7, 30]);
+    expect((await call('/api/admin/updates?range=365')).status).toBe(400);
+    const failing = await call('/api/admin/updates', { stats: async () => { throw new Error('down'); } });
+    expect(failing.status).toBe(503);
+    expect(await code(failing)).toBe('UPDATE_SERVICE_UNAVAILABLE');
   });
   it('rejects cross-origin admin mutations', async () => {
     const report = fixture(); await submit(report);
@@ -218,9 +275,7 @@ describe('admin boundaries', () => {
   });
   it('does not leak internal columns in admin details', async () => {
     const report = fixture(); await submit(report);
-    const response = await SELF.fetch(request('/api/admin/reports/' + report.reportID, 'GET', undefined, {
-      Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-    }));
+    const response = await SELF.fetch(request('/api/admin/reports/' + report.reportID, 'GET', undefined, await adminHeaders()));
     expect(response.status).toBe(200); const text = await response.text();
     expect(text).not.toContain('payload_hash'); expect(text).not.toContain('deletion_token_hash'); expect(text).not.toContain(token);
   });
@@ -229,16 +284,14 @@ describe('admin boundaries', () => {
       modelIdentifier: 'Mac14,13', macOSVersion: '15.0.0', appVersion: '1.0', helperVersion: '10',
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent controlled test',
       sourceURL: 'https://github.com/helson-lin/FanBar', verifiedOn: new Date().toISOString().slice(0, 10),
-    }, { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' }));
+    }, await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' })));
     expect(response.status).toBe(201); const data = await matrix();
     expect(data.groups[0].community).toEqual([]); expect(data.groups[0].developerVerifications).toHaveLength(1);
   });
 });
 
 describe('admin insights', () => {
-  const adminGet = (path: string) => SELF.fetch(request(path, 'GET', undefined, {
-    Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-  }));
+  const adminGet = async (path: string) => SELF.fetch(request(path, 'GET', undefined, await adminHeaders()));
 
   it('protects all insight endpoints and handles an empty database', async () => {
     for (const path of ['/api/admin/overview', '/api/admin/audit', '/api/admin/verifications']) {
@@ -308,7 +361,7 @@ describe('admin insights', () => {
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent test',
       sourceURL: 'https://github.com/helson-lin/FanBar', verifiedOn: new Date().toISOString().slice(0, 10),
     };
-    const headers = { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' };
+    const headers = await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' });
     expect((await SELF.fetch(request('/api/admin/verifications', 'POST', {
       ...verification, verifiedOn: '2025-02-30',
     }, headers))).status).toBe(400);
@@ -414,5 +467,57 @@ describe('machines without a built-in battery', () => {
     const report = fixture();
     report.capabilities[3] = { capability: 'batteryTemperature', status: 'available', reasonCode: 'NO_BUILT_IN_BATTERY' };
     expect((await submit(report)).status).toBe(400);
+  });
+});
+describe('control failure details', () => {
+  function failed(failure: NonNullable<Report['capabilities'][number]['failure']>): Report {
+    const report = fixture();
+    report.capabilities[5] = { capability: 'manualControl', status: 'requestFailed', reasonCode: 'CONTROL_REQUEST_FAILED', failure };
+    return report;
+  }
+  it('keeps the legacy policy as the default response and serves the current one on request', async () => {
+    const legacy = await (await SELF.fetch(request('/api/policy'))).json<{ version: string; fields: string[] }>();
+    expect(legacy.version).toBe(LEGACY_POLICY_VERSION);
+    expect(legacy.fields.some(field => field.includes('failure'))).toBe(false);
+    const current = await (await SELF.fetch(request('/api/policy?version=' + POLICY_VERSION)))
+      .json<{ version: string; fields: string[] }>();
+    expect(current.version).toBe(POLICY_VERSION);
+    expect(current.fields).toContain('capabilities[].failure.code');
+    expect((await (await SELF.fetch(request('/api/policy?version=1999-01-01'))).json<{ version: string }>()).version)
+      .toBe(LEGACY_POLICY_VERSION);
+  });
+  it('stores bounded failure evidence under the current policy', async () => {
+    const report = failed({ code: 'UNLOCK_TIMEOUT', smcKey: 'F0Md', fanIndex: 1, durationMS: 10512, restoredAutomatic: true });
+    expect((await submit(report, true)).status).toBe(201);
+    await review(report.reportID);
+    const data = await (await SELF.fetch(request('/api/reports/' + report.reportID))).json<{ report: Report }>();
+    expect(data.report.capabilities[5].failure).toEqual(report.capabilities[5].failure);
+    const row = await env.DB.prepare('SELECT policy_version FROM reports WHERE id = ?').bind(report.reportID).first('policy_version');
+    expect(row).toBe(POLICY_VERSION);
+  });
+  it('still accepts legacy reports, but never with failure details', async () => {
+    const legacy = fixture();
+    expect((await submit(legacy, false, token, LEGACY_POLICY_VERSION)).status).toBe(201);
+    expect(await env.DB.prepare('SELECT policy_version FROM reports WHERE id = ?').bind(legacy.reportID).first('policy_version'))
+      .toBe(LEGACY_POLICY_VERSION);
+    expect((await submit(failed({ code: 'HELPER_TIMEOUT' }), false, token, LEGACY_POLICY_VERSION)).status).toBe(400);
+    expect((await submit(fixture(), false, token, '2026-01-01')).status).toBe(409);
+  });
+  it('rejects failure details on anything but a failed control and free-form evidence', async () => {
+    const onSuccess = fixture();
+    onSuccess.capabilities[5] = { ...onSuccess.capabilities[5], failure: { code: 'HELPER_TIMEOUT' } };
+    expect((await submit(onSuccess)).status).toBe(400);
+    const onSensor = fixture();
+    onSensor.capabilities[0] = { ...onSensor.capabilities[0], failure: { code: 'HELPER_TIMEOUT' } };
+    expect((await submit(onSensor)).status).toBe(400);
+    for (const bad of [
+      { code: 'HELPER_TIMEOUT', message: 'Timed out unlocking system mode for fan 1' },
+      { code: 'SOMETHING_ELSE' },
+      { code: 'SMC_OPERATION_FAILED', smcKey: '/Users/me' },
+      { code: 'READBACK_NOT_MANUAL', readbackManual: Array(9).fill(false) },
+      { code: 'UNLOCK_TIMEOUT', fanIndex: 8 },
+    ]) {
+      expect((await submit(failed(bad as never))).status).toBe(400);
+    }
   });
 });

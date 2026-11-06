@@ -146,6 +146,9 @@ enum TemperatureChartRange: TimeInterval, CaseIterable, Identifiable {
 /// current reading and toggles each series. Drawn with SwiftUI paths so it
 /// works on macOS 11 without Charts.framework.
 struct TemperatureChart: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     static let historyDuration = TemperatureChartTimeAxis.historyDuration
 
     /// Everything the controller retains, newest last. `samples` narrows it to the selected window.
@@ -239,9 +242,14 @@ struct TemperatureChart: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
                 Text(fanBarText("温度", "Temperature"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: TemperatureHeadingLayout.headingFontSize, weight: .semibold))
 
-                Spacer()
+                if let power = SystemPowerReadout.current(from: allSamples) {
+                    powerReadout(power)
+                        .padding(.leading, TemperatureHeadingLayout.readoutLeading)
+                }
+
+                Spacer(minLength: TemperatureHeadingLayout.minimumGap)
 
                 PanelSegmentedControl(
                     options: TemperatureChartRange.allCases.map { ($0, $0.title) },
@@ -282,6 +290,32 @@ struct TemperatureChart: View {
             axisLabels
                 .padding(.top, 5)
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+
+    /// Secondary to the heading and never a status color: power has no high threshold.
+    private func powerReadout(_ power: SystemPowerReadout) -> some View {
+        let size = TemperatureHeadingLayout.readoutFontSize
+        let showsTitle = TemperatureHeadingLayout.showsPowerTitle(
+            heading: fanBarText("温度", "Temperature"),
+            rangeTitles: TemperatureChartRange.allCases.map(\.title),
+            powerTitle: SystemPowerReadout.title,
+            valueText: power.valueText
+        )
+        return HStack(spacing: TemperatureHeadingLayout.titleSpacing) {
+            if showsTitle {
+                Text(SystemPowerReadout.title)
+                    .font(.system(size: size))
+                    .foregroundColor(palette.secondaryText)
+            }
+            Text(power.valueText)
+                .font(.system(size: size, weight: .semibold).monospacedDigit())
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(power.accessibilityLabel)
+        .help(SystemPowerReadout.help)
     }
 
     private var legend: some View {

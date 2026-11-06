@@ -20,6 +20,8 @@ final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
         Self.pendingController = nil
         self.controller = controller
         LegacyStatusItemController.shared.install(controller: controller)
+        CLIServer.shared.start(controller: controller)
+        RaycastScriptsInstaller.shared.syncIfSetUp()
         // Optional local launch convenience; appearance always follows macOS.
         if CommandLine.arguments.contains("--show-panel") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -35,6 +37,7 @@ final class FanBarAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        CLIServer.shared.stop()
         RuntimeDiagnostics.shared.record(.app, .shutdown, .succeeded)
     }
 
@@ -111,7 +114,7 @@ struct FanBarApp: App {
         RuntimeDiagnostics.shared.beginLaunch()
         // Keep Sparkle alive for the full LSUIElement app lifetime. Diagnostic
         // command-line modes exit above and never start network update checks.
-        _ = SoftwareUpdateController.shared
+        SoftwareUpdateController.shared.start()
         let controller = FanController()
         RuntimeDiagnostics.shared.record(.app, .controllerReady, .succeeded)
         _controller = StateObject(wrappedValue: controller)

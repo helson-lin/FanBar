@@ -17,9 +17,24 @@ export const reasons = [
 const shortText = (maximum: number) => z.string().min(1).max(maximum).regex(/^[^\x00-\x1f\x7f]+$/);
 export const version = shortText(40).regex(/^[A-Za-z0-9._+-]+$/);
 export const modelIdentifier = shortText(64).regex(/^[A-Za-z][A-Za-z0-9]*[0-9]+,[0-9]+$|^unknown$/);
+/** Why a control request failed. Reports cannot be followed up, so the code has to say it. */
+export const failureCodes = [
+  'SMC_CONNECTION_FAILED', 'SMC_OPERATION_FAILED', 'SMC_INVALID_VALUE', 'UNLOCK_TIMEOUT', 'MODE_KEY_MISSING',
+  'INVALID_REQUEST', 'HELPER_TIMEOUT', 'HELPER_CONNECTION_FAILED', 'READBACK_NOT_MANUAL', 'HELPER_ERROR_UNCLASSIFIED',
+] as const;
+export const failureSchema = z.strictObject({
+  code: z.enum(failureCodes),
+  smcKey: z.string().regex(/^[A-Za-z0-9! ]{4}$/).optional(),
+  resultCode: z.number().int().min(-2147483648).max(2147483647).optional(),
+  fanIndex: z.number().int().min(0).max(7).optional(),
+  durationMS: z.number().int().min(0).max(600000).optional(),
+  readbackManual: z.array(z.boolean()).min(1).max(8).optional(),
+  restoredAutomatic: z.boolean().optional(),
+});
 export const capabilitySchema = z.strictObject({
   capability: z.enum(capabilities), status: z.enum(statuses), reasonCode: z.enum(reasons),
   userConfirmedWorking: z.literal(true).optional(),
+  failure: failureSchema.optional(),
 });
 export const reportSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -58,6 +73,7 @@ export function validEvidence(report: Report): boolean {
     if (row.userConfirmedWorking && (!['manualControl', 'smartCooling'].includes(row.capability)
       || !confirmableStatuses.includes(row.status))) return false;
     if (reasonStatuses[row.reasonCode] !== row.status) return false;
+    if (row.failure && row.reasonCode !== 'CONTROL_REQUEST_FAILED') return false;
     const isSensor = row.capability.endsWith('Temperature');
     if (isSensor) return ['SENSOR_READ_SUCCEEDED', 'SENSOR_NOT_DETECTED', 'SMC_CONNECTION_FAILED'].includes(row.reasonCode);
     if (row.capability === 'fanReadings') {

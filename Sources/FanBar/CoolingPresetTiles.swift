@@ -7,13 +7,16 @@ import SwiftUI
 /// Selecting a tile edits that preset's curve; its checkbox decides whether
 /// the menu panel shows it.
 struct CoolingPresetTiles: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     @ObservedObject private var rename = PresetRenameCoordinator.shared
     @AppStorage(CoolingPresetPreferences.preferenceKey)
     private var menuPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @State private var isShowingNewPreset = false
     @State private var renameText = ""
-    @State private var renameProblem: String?
+    @State private var renameProblem: CustomPresetRules.NameProblem?
 
     private static let columns = 4
     private static let spacing: CGFloat = 8
@@ -43,7 +46,9 @@ struct CoolingPresetTiles: View {
     }
 
     private var footerText: String {
-        if let renameProblem { return renameProblem }
+        if let renameProblem {
+            return fanBarFormat("%@，已保留原名。", "%@. The previous name was kept.", renameProblem.message)
+        }
         if !controller.canAddCustomPreset {
             return fanBarText(
                 "最多 6 个自定义预设，删除一个后可以再新建。",
@@ -92,6 +97,7 @@ struct CoolingPresetTiles: View {
             renameText = controller.presetTitle(for: renaming)
             renameProblem = nil
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     /// Built-ins fill the first row; custom presets wrap after them. When the
@@ -208,11 +214,7 @@ struct CoolingPresetTiles: View {
     private func commitRename(_ preset: CoolingPresetID) {
         guard rename.renaming == preset else { return }
         if let problem = controller.renameCustomPreset(preset, to: renameText) {
-            renameProblem = fanBarFormat(
-                "%@，已保留原名。",
-                "%@. The previous name was kept.",
-                problem.message
-            )
+            renameProblem = problem
         } else {
             renameProblem = nil
         }
@@ -372,41 +374,50 @@ final class PresetRenameCoordinator: ObservableObject {
 
 /// Shared by a tile's context menu and the curve editor's ⋯ menu.
 struct PresetActionsMenu: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     let preset: CoolingPresetID
 
     var body: some View {
-        switch preset {
-        case .builtIn:
-            Button(fanBarText("复制为自定义预设", "Duplicate as Custom Preset")) {
-                controller.duplicatePreset(preset)
-            }
-            .disabled(!controller.canAddCustomPreset)
-        case .custom(let id):
-            Button(fanBarText("重命名…", "Rename…")) {
-                controller.selectCoolingCurvePreset(preset)
-                PresetRenameCoordinator.shared.renaming = preset
-            }
-            Menu(fanBarText("更换图标", "Change Icon")) {
-                let current = controller.customPresets.first { $0.id == id }?.symbol
-                ForEach(CustomPresetSymbol.allCases) { symbol in
-                    Button {
-                        controller.setCustomPresetSymbol(preset, symbol: symbol)
-                    } label: {
-                        Label(symbol.title, systemImage: symbol.systemImage)
+        Group {
+            switch preset {
+            case .builtIn:
+                Button(fanBarText("复制为自定义预设", "Duplicate as Custom Preset"), action: duplicate)
+                    .disabled(!controller.canAddCustomPreset)
+            case .custom(let id):
+                Button(fanBarText("重命名…", "Rename…"), action: startRename)
+                Menu(fanBarText("更换图标", "Change Icon")) {
+                    let current = controller.customPresets.first { $0.id == id }?.symbol
+                    ForEach(CustomPresetSymbol.allCases) { symbol in
+                        Button {
+                            controller.setCustomPresetSymbol(preset, symbol: symbol)
+                        } label: {
+                            Label(symbol.title, systemImage: symbol.systemImage)
+                        }
+                        .disabled(symbol == current)
                     }
-                    .disabled(symbol == current)
+                }
+                Button(fanBarText("复制", "Duplicate"), action: duplicate)
+                    .disabled(!controller.canAddCustomPreset)
+                Divider()
+                Button(fanBarText("删除…", "Delete…")) {
+                    CustomPresetDeletion.confirm(controller: controller, preset: preset)
                 }
             }
-            Button(fanBarText("复制", "Duplicate")) {
-                controller.duplicatePreset(preset)
-            }
-            .disabled(!controller.canAddCustomPreset)
-            Divider()
-            Button(fanBarText("删除…", "Delete…")) {
-                CustomPresetDeletion.confirm(controller: controller, preset: preset)
-            }
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+
+    func duplicate() {
+        controller.duplicatePreset(preset)
+    }
+
+    /// Selects the preset so its tile is on screen, then edits its name in place.
+    func startRename() {
+        controller.selectCoolingCurvePreset(preset)
+        PresetRenameCoordinator.shared.renaming = preset
     }
 }
 
@@ -441,6 +452,9 @@ enum CustomPresetDeletion {
 
 /// Popover for a new custom preset: name, icon and the curve to start from.
 struct NewCustomPresetForm: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     @Binding var isPresented: Bool
     @State private var name = ""
@@ -498,6 +512,7 @@ struct NewCustomPresetForm: View {
                     }
                 }
                 .labelsHidden()
+                .id(languageRawValue)
                 .frame(maxWidth: .infinity)
             }
 
@@ -516,6 +531,7 @@ struct NewCustomPresetForm: View {
             name = CustomPresetRules.defaultName(takenNames: controller.takenPresetNames())
             source = controller.curveCoolingPreset
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func row<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {

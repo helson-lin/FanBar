@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-13",
+  "version": "2026-10-21",
   "serviceOrigin": "https://report.getfanbar.com",
   "retentionDays": 90,
   "maximumReportBytes": 16384,
@@ -19,6 +19,13 @@
     "capabilities[].status",
     "capabilities[].reasonCode",
     "capabilities[].userConfirmedWorking",
+    "capabilities[].failure.code",
+    "capabilities[].failure.smcKey",
+    "capabilities[].failure.resultCode",
+    "capabilities[].failure.fanIndex",
+    "capabilities[].failure.durationMS",
+    "capabilities[].failure.readbackManual",
+    "capabilities[].failure.restoredAutomatic",
     "selectedTemperatureSource"
   ],
   "excluded": [
@@ -33,6 +40,7 @@
   ],
   "rules": [
     "Extra fields and inconsistent evidence are rejected.",
+    "A failed control request carries only a fixed failure code and bounded numeric evidence, never error text.",
     "Reports are private unless the user explicitly opts to publish a reviewed report.",
     "Reviewed reports contribute to public compatibility counts, including private reports.",
     "Counts are reports, not unique devices. Retries of one report do not count again.",

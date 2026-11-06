@@ -5,14 +5,24 @@ struct HelperClientError: LocalizedError, Sendable {
     let message: String
     /// Connection failures need a system-settings action; hardware errors do not.
     let isConnectionFailure: Bool
+    /// The reply never arrived, as opposed to the connection being refused.
+    let isTimeout: Bool
+    /// Structured cause from a current helper; `nil` for older helpers and app-side failures.
+    let failure: HelperControlFailure?
     var diagnosticCode: Int?
 
-    init(message: String, isConnectionFailure: Bool = false) {
+    init(message reply: String, isConnectionFailure: Bool = false, isTimeout: Bool = false) {
+        let failure = HelperControlFailure.decode(reply: reply)
+        let message = failure?.message ?? reply
         self.message = message
+        self.failure = failure
         self.isConnectionFailure = isConnectionFailure
-        // Older helpers already include numeric SMC codes in the localized reply.
-        // Extract only that bounded number; never persist the free-form message.
-        if let match = message.range(of: #"[（(]-?[0-9]{1,11}[）)]$"#, options: .regularExpression) {
+        self.isTimeout = isTimeout
+        if let code = failure?.resultCode {
+            diagnosticCode = Int(code)
+        } else if let match = message.range(of: #"[（(]-?[0-9]{1,11}[）)]$"#, options: .regularExpression) {
+            // Older helpers already include numeric SMC codes in the localized reply.
+            // Extract only that bounded number; never persist the free-form message.
             diagnosticCode = Int(message[match].dropFirst().dropLast())
         }
     }
@@ -308,7 +318,8 @@ final class HelperClient: @unchecked Sendable {
                         "控制服务未响应，请重新授权或重启 FanBar",
                         "The fan control service did not respond. Reauthorize it or restart FanBar."
                     ),
-                    isConnectionFailure: true
+                    isConnectionFailure: true,
+                    isTimeout: true
                 )
             )
         }

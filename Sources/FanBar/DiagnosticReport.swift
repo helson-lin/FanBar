@@ -22,7 +22,8 @@ struct DiagnosticProbe: Codable, Equatable, Sendable {
 
 struct DiagnosticReport: Encodable {
     let schemaVersion = 1
-    let diagnosticID: String
+    /// Random per upload; reuses the compatibility report's ID when sent together with it.
+    var diagnosticID: String
     let capturedAt: String
     let device: CompatibilityDevice
     let helperState: String

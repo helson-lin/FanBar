@@ -87,7 +87,70 @@ struct CompatibilityResult: Codable, Equatable, Identifiable {
     let status: CompatibilityStatus
     let reasonCode: String
     var userConfirmedWorking: Bool?
+    /// Only on a failed control request; the service rejects it anywhere else.
+    var failure: CompatibilityControlFailure?
     var id: CompatibilityCapability { capability }
+}
+
+/// Why a control request failed. Reports cannot be followed up with the submitter,
+/// so this has to say enough on its own: fixed codes and bounded numbers, never error text.
+struct CompatibilityControlFailure: Codable, Equatable {
+    enum Code: String, Codable {
+        case smcConnectionFailed = "SMC_CONNECTION_FAILED"
+        case smcOperationFailed = "SMC_OPERATION_FAILED"
+        case smcInvalidValue = "SMC_INVALID_VALUE"
+        case unlockTimeout = "UNLOCK_TIMEOUT"
+        case modeKeyMissing = "MODE_KEY_MISSING"
+        case invalidRequest = "INVALID_REQUEST"
+        case helperTimeout = "HELPER_TIMEOUT"
+        case helperConnectionFailed = "HELPER_CONNECTION_FAILED"
+        /// The write was accepted, but the fans did not read back as manual.
+        case readbackNotManual = "READBACK_NOT_MANUAL"
+        /// An older helper's plain-text reply, or an error from outside the helper.
+        case helperErrorUnclassified = "HELPER_ERROR_UNCLASSIFIED"
+    }
+
+    let code: Code
+    var smcKey: String?
+    var resultCode: Int32?
+    var fanIndex: Int?
+    var durationMS: Int?
+    var readbackManual: [Bool]?
+    var restoredAutomatic: Bool?
+
+    init(code: Code, smcKey: String? = nil, resultCode: Int32? = nil, fanIndex: Int? = nil,
+         durationMS: Int? = nil, readbackManual: [Bool]? = nil, restoredAutomatic: Bool? = nil) {
+        self.code = code
+        self.smcKey = smcKey
+        self.resultCode = resultCode
+        self.fanIndex = fanIndex
+        self.durationMS = durationMS
+        // The service requires 1–8 values; an empty readback is omitted rather than sent as [].
+        self.readbackManual = readbackManual.flatMap { $0.isEmpty ? nil : Array($0.prefix(8)) }
+        self.restoredAutomatic = restoredAutomatic
+    }
+
+    init(error: Error) {
+        guard let error = error as? HelperClientError else {
+            self.init(code: .helperErrorUnclassified)
+            return
+        }
+        if let failure = error.failure {
+            self.init(
+                code: Code(rawValue: failure.code.rawValue) ?? .helperErrorUnclassified,
+                smcKey: failure.smcKey, resultCode: failure.resultCode,
+                fanIndex: failure.fanIndex, durationMS: failure.durationMS
+            )
+        } else {
+            let code: Code = error.isTimeout ? .helperTimeout
+                : error.isConnectionFailure ? .helperConnectionFailed : .helperErrorUnclassified
+            self.init(code: code, resultCode: error.diagnosticCode.flatMap(Int32.init(exactly:)))
+        }
+    }
+
+    static func readbackNotManual(_ readings: [FanReading]) -> Self {
+        Self(code: .readbackNotManual, readbackManual: readings.sorted { $0.index < $1.index }.map(\.isManual))
+    }
 }
 
 /// One fresh sample; missing values never inherit earlier successful readings.
@@ -120,6 +183,8 @@ struct CompatibilitySnapshot: Equatable {
         helperState: FanController.HelperState,
         manualEvidence: CompatibilityControlEvidence,
         curveEvidence: CompatibilityControlEvidence,
+        manualFailure: CompatibilityControlFailure? = nil,
+        curveFailure: CompatibilityControlFailure? = nil,
         curveSensor: FanCurveSensor = .maxChip
     ) -> Self {
         let thermal = observation.thermal
@@ -147,9 +212,9 @@ struct CompatibilitySnapshot: Equatable {
             reasonCode: observation.fanCount.map { $0 > 0 ? "FAN_READ_SUCCEEDED" : "NO_FANS_REPORTED" }
                 ?? (observation.connectionFailed ? "SMC_CONNECTION_FAILED" : "FAN_READ_FAILED")
         ))
-        for (capability, evidence) in [
-            (CompatibilityCapability.manualControl, manualEvidence),
-            (.smartCooling, curveEvidence),
+        for (capability, evidence, failure) in [
+            (CompatibilityCapability.manualControl, manualEvidence, manualFailure),
+            (.smartCooling, curveEvidence, curveFailure),
         ] {
             let status: CompatibilityStatus
             let reason: String
@@ -179,7 +244,8 @@ struct CompatibilitySnapshot: Equatable {
                     reason = "CONTROL_REQUEST_FAILED"
                 }
             }
-            results.append(CompatibilityResult(capability: capability, status: status, reasonCode: reason))
+            results.append(CompatibilityResult(capability: capability, status: status, reasonCode: reason,
+                failure: status == .requestFailed ? failure : nil))
         }
         return Self(
             device: device, checkedAt: observation.sampledAt, fanCount: observation.fanCount,
@@ -194,6 +260,7 @@ struct CompatibilitySnapshot: Equatable {
         case .cpu: required = [.cpuTemperature]
         case .gpu: required = [.gpuTemperature]
         case .ssd: required = [.ssdTemperature]
+        case .battery: required = [.batteryTemperature]
         }
         return results.contains { required.contains($0.capability) && $0.status == .available }
     }

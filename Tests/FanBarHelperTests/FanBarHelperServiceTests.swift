@@ -108,7 +108,10 @@ final class FanBarHelperServiceTests: XCTestCase {
 
         let result = write { service.setAllFans(rpm: 3_000, reply: $0) }
         XCTAssertFalse(result.ok)
-        XCTAssertEqual(result.message, FanHardwareError.unavailable(-3).localizedDescription)
+        let failure = result.message.flatMap(HelperControlFailure.decode(reply:))
+        XCTAssertEqual(failure?.code, .smcConnectionFailed)
+        XCTAssertEqual(failure?.resultCode, -3)
+        XCTAssertEqual(failure?.message, FanHardwareError.unavailable(-3).localizedDescription)
         XCTAssertFalse(fanCount(service).ok)
     }
 
@@ -119,7 +122,30 @@ final class FanBarHelperServiceTests: XCTestCase {
 
         let result = write { service.setAllFans(rpm: 3_000, reply: $0) }
         XCTAssertFalse(result.ok)
-        XCTAssertEqual(result.message, FanHardwareError.operation("F0Tg", -9).localizedDescription)
+        let failure = result.message.flatMap(HelperControlFailure.decode(reply:))
+        XCTAssertEqual(failure?.code, .smcOperationFailed)
+        XCTAssertEqual(failure?.smcKey, "F0Tg")
+        XCTAssertEqual(failure?.resultCode, -9)
+        XCTAssertNotNil(failure?.durationMS)
+        XCTAssertEqual(failure?.message, FanHardwareError.operation("F0Tg", -9).localizedDescription)
+    }
+
+    func testRejectedRequestIsReportedAsInvalidRequest() {
+        let service = makeService(DriverFactory())
+        let result = write { service.setAllFans(rpm: .nan, reply: $0) }
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.message.flatMap(HelperControlFailure.decode(reply:))?.code, .invalidRequest)
+    }
+
+    func testUnlockTimeoutKeepsTheFanButNeverALocalizedParameterName() {
+        let timeout = FanHardwareError.unlockTimeout(1).controlFailure(durationMS: 10_500)
+        XCTAssertEqual(timeout.code, .unlockTimeout)
+        XCTAssertEqual(timeout.fanIndex, 1)
+        XCTAssertEqual(timeout.durationMS, 10_500)
+        let invalid = FanHardwareError.invalidValue("cooling fraction").controlFailure()
+        XCTAssertEqual(invalid.code, .smcInvalidValue)
+        XCTAssertNil(invalid.smcKey)
+        XCTAssertEqual(FanHardwareError.invalidValue("FNum").controlFailure().smcKey, "FNum")
     }
 
     func testGetFanReturnsReadingAndRejectsUnknownIndex() {
@@ -199,6 +225,38 @@ final class FanBarHelperServiceTests: XCTestCase {
         XCTAssertEqual(factory.smc.rpm("F0Tg"), 0)
         _ = fanCount(service)
         XCTAssertEqual(factory.created, 2)
+    }
+
+    // MARK: Sleep and wake
+
+    func testSleepRestoresAutomaticAndHoldsWritesUntilWake() throws {
+        let factory = DriverFactory()
+        let service = makeService(factory)
+        XCTAssertTrue(write { service.setCoolingFraction(1, reply: $0) }.ok)
+
+        service.prepareForSleep()
+        XCTAssertEqual(factory.smc.bytes("F0md"), [0])
+        XCTAssertEqual(factory.smc.bytes("F1md"), [0])
+        XCTAssertEqual(factory.smc.rpm("F0Tg"), 0)
+
+        // A curve tick that lands between will-sleep and sleep must not take the fans back.
+        let refused = write { service.setCoolingFraction(1, reply: $0) }
+        XCTAssertFalse(refused.ok)
+        XCTAssertEqual(HelperControlFailure.decode(reply: try XCTUnwrap(refused.message))?.code, .systemSleeping)
+        XCTAssertEqual(factory.smc.bytes("F0md"), [0])
+        XCTAssertTrue(write { service.restoreAutomatic(reply: $0) }.ok, "Handing back is always allowed")
+
+        service.systemDidWake()
+        XCTAssertTrue(write { service.setCoolingFraction(1, reply: $0) }.ok)
+        XCTAssertEqual(factory.smc.bytes("F0md"), [1])
+    }
+
+    func testSleepWithoutDriverDoesNotOpenTheSMC() {
+        let factory = DriverFactory()
+        let service = makeService(factory)
+        service.prepareForSleep()
+        service.systemDidWake()
+        XCTAssertEqual(factory.created, 0)
     }
 
     // MARK: Client authorization

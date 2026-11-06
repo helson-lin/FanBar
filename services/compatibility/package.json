@@ -15,7 +15,8 @@
     "test": "vite build && vitest run && node --test test/localization.test.mjs",
     "db:local": "wrangler d1 migrations apply fanbar-compatibility --local",
     "dry-run": "vite build && wrangler deploy --dry-run --env production",
-    "deploy": "vite build && wrangler deploy --env production"
+    "deploy": "vite build && wrangler deploy --env production",
+    "lint:css": "stylelint \"web/src/**/*.css\""
   },
   "dependencies": {
     "jose": "6.2.12",
@@ -33,6 +34,8 @@
     "@vitejs/plugin-react": "6.1.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "stylelint": "16.26.1",
+    "stylelint-config-standard": "36.0.1",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.3.4",

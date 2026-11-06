@@ -1,0 +1,30 @@
+name: Update check service
+on:
+  push:
+    branches: [main]
+    paths: ['services/update/**', 'contracts/**', '.github/workflows/update-service.yml']
+  pull_request:
+    paths: ['services/update/**', 'contracts/**', '.github/workflows/update-service.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/update
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      WRANGLER_LOG_PATH: /tmp/fanbar-wrangler-ci.log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: services/update/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run dry-run

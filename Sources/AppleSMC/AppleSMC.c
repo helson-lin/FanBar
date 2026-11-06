@@ -71,7 +71,10 @@ enum { kSMCGetKeyInfo = 9, kSMCReadBytes = 5, kSMCWriteBytes = 6, kSMCMethod = 2
 static io_connect_t connection = IO_OBJECT_NULL;
 // The connection is process-wide. Each SMCClient/SMCFanDriver holds one reference, so
 // a short-lived reader on another thread (diagnostics) cannot close the main reader's
-// connection when it is released. Calls through an open connection need no lock.
+// connection when it is released. Calls through an open connection need no lock,
+// but fanbar_smc_reopen replaces it, so a process that may reopen must not make
+// SMC calls from more than one thread at a time (the helper runs every call on
+// one serial queue).
 static pthread_mutex_t connection_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int connection_users = 0;
 
@@ -80,26 +83,39 @@ static kern_return_t smc_call(SMCParamStruct *input, SMCParamStruct *output) {
     return IOConnectCallStructMethod(connection, kSMCMethod, input, sizeof(*input), output, &output_size);
 }
 
+// Caller holds connection_lock.
+static kern_return_t smc_connect(void) {
+    mach_port_t master_port = MACH_PORT_NULL;
+    if (__builtin_available(macOS 12.0, *)) {
+        master_port = kIOMainPortDefault;
+    } else {
+        master_port = MACH_PORT_NULL; // Same value as the deprecated kIOMasterPortDefault.
+    }
+    io_service_t service = IOServiceGetMatchingService(master_port, IOServiceMatching("AppleSMC"));
+    if (service == IO_OBJECT_NULL) return KERN_FAILURE;
+    kern_return_t result = IOServiceOpen(service, mach_task_self(), 0, &connection);
+    IOObjectRelease(service);
+    if (result != KERN_SUCCESS) connection = IO_OBJECT_NULL;
+    return result;
+}
+
 int fanbar_smc_open(void) {
     pthread_mutex_lock(&connection_lock);
     kern_return_t result = KERN_SUCCESS;
-    if (connection == IO_OBJECT_NULL) {
-        mach_port_t master_port = MACH_PORT_NULL;
-        if (__builtin_available(macOS 12.0, *)) {
-            master_port = kIOMainPortDefault;
-        } else {
-            master_port = MACH_PORT_NULL; // Same value as the deprecated kIOMasterPortDefault.
-        }
-        io_service_t service = IOServiceGetMatchingService(master_port, IOServiceMatching("AppleSMC"));
-        if (service == IO_OBJECT_NULL) {
-            result = KERN_FAILURE;
-        } else {
-            result = IOServiceOpen(service, mach_task_self(), 0, &connection);
-            IOObjectRelease(service);
-            if (result != KERN_SUCCESS) connection = IO_OBJECT_NULL;
-        }
-    }
+    if (connection == IO_OBJECT_NULL) result = smc_connect();
     if (result == KERN_SUCCESS) connection_users += 1;
+    pthread_mutex_unlock(&connection_lock);
+    return result;
+}
+
+int fanbar_smc_reopen(void) {
+    pthread_mutex_lock(&connection_lock);
+    kern_return_t result = kIOReturnNotOpen;
+    if (connection_users > 0) {
+        if (connection != IO_OBJECT_NULL) IOServiceClose(connection);
+        connection = IO_OBJECT_NULL;
+        result = smc_connect();
+    }
     pthread_mutex_unlock(&connection_lock);
     return result;
 }
@@ -133,7 +149,8 @@ int fanbar_smc_key_at_index(uint32_t index, uint32_t *key) {
 
 int fanbar_smc_read_diagnostic(uint32_t key, FanBarSMCValue *value, int *stage) {
     if (stage != NULL) *stage = 1;
-    if (connection == IO_OBJECT_NULL || value == NULL) return KERN_INVALID_ARGUMENT;
+    if (connection == IO_OBJECT_NULL) return kIOReturnNotOpen;
+    if (value == NULL) return KERN_INVALID_ARGUMENT;
     SMCParamStruct input = {0}, output = {0};
     input.key = key;
     input.data8 = kSMCGetKeyInfo;
@@ -156,7 +173,8 @@ int fanbar_smc_read_diagnostic(uint32_t key, FanBarSMCValue *value, int *stage) 
 }
 
 int fanbar_smc_write(uint32_t key, const FanBarSMCValue *value) {
-    if (connection == IO_OBJECT_NULL || value == NULL || value->data_size > 32) return KERN_INVALID_ARGUMENT;
+    if (connection == IO_OBJECT_NULL) return kIOReturnNotOpen;
+    if (value == NULL || value->data_size > 32) return KERN_INVALID_ARGUMENT;
     SMCParamStruct input = {0}, output = {0};
     input.key = key;
     input.key_info.data_type = value->data_type;

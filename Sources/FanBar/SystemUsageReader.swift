@@ -26,7 +26,6 @@ struct MemoryBreakdown: Equatable, Sendable {
     var swapUsedBytes: UInt64?
 
     var usedBytes: UInt64 { appBytes + compressedBytes }
-    var availableBytes: UInt64 { totalBytes > usedBytes ? totalBytes - usedBytes : 0 }
     /// Pages not used and not holding cache.
     var freeBytes: UInt64 {
         let occupied = usedBytes + cachedBytes

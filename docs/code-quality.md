@@ -9,15 +9,26 @@ to a target, but anything a PR adds has to pass.
 | SwiftLint | a violation not in `.swiftlint-baseline.json` appears (warnings count, `--strict`) | `swiftlint lint --strict --baseline .swiftlint-baseline.json` |
 | SwiftFormat | any file drifts from `.swiftformat` | `swiftformat --lint .` (fix: `swiftformat .`) |
 | Build | the compiler emits any Swift or C warning | `swift build -Xswiftc -warnings-as-errors -Xcc -Werror` |
+| Unused code | a declaration in `Sources/` is mentioned only where it is declared (references from `Tests/` do not count; framework entry points and test hooks are listed in `scripts/unused-code-allowlist.txt`) | `python3 scripts/find-unused-code.py` |
 | Tests | any test fails | `swift test --enable-code-coverage` |
 | Diff coverage | < 60% of executable lines added in `Sources/` are covered (only when the PR adds ≥ 5 such lines) | `python3 scripts/coverage-report.py --base origin/main --min-diff 60` |
+| Stylelint (`compatibility-service.yml`) | compatibility-site CSS breaks `services/compatibility/.stylelintrc.json` | `npm run lint:css` in `services/compatibility` |
 
-Tools: `brew install swiftlint swiftformat`. Optional pre-commit hook that
-lints staged files:
+Tools: `zsh scripts/install-lint-tools.sh` installs the SwiftFormat and SwiftLint
+versions CI uses (pinned in `scripts/lint-tools.env`) into `.build/lint-tools/bin`. The pre-commit hook refuses a
+commit until SwiftFormat, SwiftLint (staged Swift), Stylelint (staged
+compatibility-site CSS), the unused-code scan and `swift test` pass. Enable it
+once per clone:
 
 ```sh
-ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
+zsh scripts/install-git-hooks.sh
 ```
+
+The scan and the tests run whenever the commit touches something the Swift
+build can see (the same rule as `scripts/ci-swift-relevant.sh`). They check the
+working tree, so the hook stops while Swift changes under `Sources/` or
+`Tests/` are left unstaged; stage them or `git stash push --keep-index
+--include-untracked` first.
 
 ## Legacy debt
 

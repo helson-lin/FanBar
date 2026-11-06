@@ -1,9 +1,10 @@
 import { deleteDiagnostic, diagnosticList, diagnosticPolicy, submitDiagnostic } from './diagnostics.ts';
-import { administrator, localDevelopment, rateLimit, requireAdminMutation } from './auth.ts';
+import { administrator, rateLimit, requireAdminMutation } from './auth.ts';
 import { createVerification, deleteVerification, reportDetail, reportList, reviewReport } from './admin.ts';
 import { boundedJSON, HttpError, json, secureResponse } from './http.ts';
 import { auditLog, overview, verificationList } from './insights.ts';
 import { publicMatrix } from './matrix.ts';
+import { updateStats } from './updates.ts';
 import { DIAGNOSTIC_MAXIMUM_BYTES, policy } from './policy.ts';
 import { cleanup, deleteReport, ownerReceipt, publicReport, submitReport } from './reports.ts';
 
@@ -24,7 +25,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     await rateLimit(request, env, 'write');
     return deleteDiagnostic(request, env, diagnosticMatch[1]);
   }
-  if (path === '/api/policy'  && request.method === 'GET') return json(policy(url.origin));
+  if (path === '/api/policy'  && request.method === 'GET') return json(policy(url.origin, url.searchParams.get('version')));
   if (path === '/api/reports' && request.method === 'POST') {
     await rateLimit(request, env, 'write');
     return submitReport(request, env, await boundedJSON(request));
@@ -47,8 +48,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
   if (path.startsWith('/api/admin/')) {
     await rateLimit(request, env, request.method === 'GET' ? 'read' : 'write');
-    const actor = await administrator(request, env);
+    const admin = await administrator(request, env);
+    const actor = admin.actor;
     if (request.method !== 'GET') requireAdminMutation(request);
+    if (path === '/api/admin/session' && request.method === 'GET') return json(admin);
+    if (path === '/api/admin/updates' && request.method === 'GET') return updateStats(env, url);
     if (path === '/api/admin/diagnostics' && request.method === 'GET') return diagnosticList(env, url);
     if (path === '/api/admin/overview' && request.method === 'GET') return overview(env);
     if (path === '/api/admin/audit' && request.method === 'GET') return auditLog(env, url);
@@ -64,7 +68,13 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
   if (path.startsWith('/api/')) throw new HttpError(404, 'NOT_FOUND');
   if (path === '/admin' || path === '/admin/' || path === '/admin.html') {
-    if (!env.ADMIN_TOKEN && !localDevelopment(request, env)) await administrator(request, env);
+    // Access normally stops a signed-out visitor at the edge; this keeps the page closed anyway.
+    // The refusal is a short static page, never the admin bundle.
+    try { await administrator(request, env); }
+    catch (error) {
+      if (error instanceof HttpError) return closedAdminPage(error);
+      throw error;
+    }
     const asset = new URL('/admin.html', request.url);
     const response = await env.ASSETS.fetch(new Request(asset, request));
     const headers = new Headers(response.headers);
@@ -93,3 +103,24 @@ export default {
   },
   async scheduled(_event, env): Promise<void> { await cleanup(env); },
 } satisfies ExportedHandler<Env>;
+
+const closedAdminText: Record<string, [string, string]> = {
+  ADMIN_ACCESS_NOT_CONFIGURED: [
+    'Cloudflare Access is not configured for this admin. Every admin route returns 403; there is no key sign-in.',
+    'Create a self-hosted Access application for /admin* and /api/admin/*, allow only the maintainer email, then set ACCESS_TEAM_DOMAIN and ACCESS_AUD and redeploy.',
+  ],
+  ADMIN_AUTHENTICATION_REQUIRED: [
+    'Sign in through Cloudflare Access to open the admin.',
+    'If you just signed in, your session may have expired. Reload the page to sign in again.',
+  ],
+};
+
+function closedAdminPage(error: HttpError): Response {
+  const [title, detail] = closedAdminText[error.code] ?? ['The admin is unavailable.', ''];
+  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">`
+    + `<title>FanBar admin</title><h1>FanBar admin</h1><p>${title}</p><p>${detail}</p><p><code>${error.code}</code></p></html>`;
+  return new Response(html, {
+    status: error.status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}

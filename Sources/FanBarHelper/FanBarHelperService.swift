@@ -11,6 +11,8 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     private let makeDriver: () throws -> SMCFanDriver
     private var driver: SMCFanDriver?
     private var activeConnections = 0
+    /// Set between the system's will-sleep and has-powered-on messages.
+    private var isSystemSleeping = false
     private let launchBuild: String
 
     init(
@@ -45,6 +47,32 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
                 RuntimeDiagnostics.shared.record(.helper, .shutdown, .failed)
             }
             driver = nil
+        }
+    }
+
+    /// Runs before the system sleeps; sleep waits for it to return. A fan held in
+    /// manual mode through sleep and dark wakes can leave the SMC refusing every
+    /// mode write until a restart (issue 114), so macOS gets the fans back first.
+    /// The app re-applies its mode after wake.
+    func prepareForSleep() {
+        hardwareQueue.sync {
+            isSystemSleeping = true
+            // Never open the SMC just to go to sleep.
+            guard let driver else { return }
+            Self.log.notice("System will sleep; restoring automatic fan control")
+            RuntimeDiagnostics.shared.record(.helper, .recovery, .started)
+            do {
+                try driver.restoreAutomatic()
+                RuntimeDiagnostics.shared.record(.helper, .recovery, .succeeded)
+            } catch {
+                RuntimeDiagnostics.shared.record(.helper, .recovery, .failed, code: Self.diagnosticCode(error))
+            }
+        }
+    }
+
+    func systemDidWake() {
+        hardwareQueue.sync {
+            isSystemSleeping = false
         }
     }
 
@@ -97,7 +125,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
                 reply(true, try self.connectedDriver().fans().count, nil)
             } catch {
                 RuntimeDiagnostics.shared.record(.helper, .fanCount, .failed, code: Self.diagnosticCode(error))
-                reply(false, 0, error.localizedDescription)
+                reply(false, 0, Self.failureReply(error))
             }
         }
     }
@@ -117,7 +145,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
             } catch {
                 RuntimeDiagnostics.shared.record(.helper,
                     .fanRead, .failed, code: Self.diagnosticCode(error), fanIndex: (0...7).contains(index) ? index : nil)
-                reply(false, 0, 0, 0, false, error.localizedDescription)
+                reply(false, 0, 0, 0, false, Self.failureReply(error))
             }
         }
     }
@@ -128,7 +156,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     ) {
         // NaN survives min/max clamping and would reach the SMC unchanged.
         guard rpm.isFinite, rpm >= 0 else {
-            reply(false, fanBarText("转速必须是有效的非负数", "RPM must be a finite, non-negative number"))
+            reply(false, Self.invalidRequest(fanBarText("转速必须是有效的非负数", "RPM must be a finite, non-negative number")))
             return
         }
         performWrite("setAllFans", reply: reply) { driver in
@@ -141,7 +169,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         reply: @escaping @Sendable (Bool, String?) -> Void
     ) {
         guard let preset = FanCoolingPreset(rawValue: rawValue) else {
-            reply(false, fanBarText("未知的散热预设", "Unknown cooling preset"))
+            reply(false, Self.invalidRequest(fanBarText("未知的散热预设", "Unknown cooling preset")))
             return
         }
         performWrite("setCoolingPreset", reply: reply) { driver in
@@ -156,7 +184,7 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
         // Keep the root API bounded even if a compromised client sends malformed input.
         // 0% is allowed so smart cooling can idle below the low-temp knee.
         guard fraction.isFinite, (0...1.00).contains(fraction) else {
-            reply(false, fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%"))
+            reply(false, Self.invalidRequest(fanBarText("散热比例必须在 0% 到 100% 之间", "Cooling fraction must be between 0% and 100%")))
             return
         }
         performWrite("setCoolingFraction", reply: reply) { driver in
@@ -203,6 +231,15 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
             default: action = .restoreAutomatic
             }
             let requestID = UUID().uuidString.lowercased()
+            // Handing back is always allowed; taking control waits until the Mac is awake.
+            if self.isSystemSleeping, action != .restoreAutomatic {
+                RuntimeDiagnostics.shared.record(.helper, action, .rejected, requestID: requestID, code: Self.systemSleepingCode)
+                reply(false, HelperControlFailure(
+                    code: .systemSleeping,
+                    message: fanBarText("Mac 正在进入睡眠，风扇已交回 macOS", "The Mac is going to sleep; macOS has the fans")
+                ).encodedReply())
+                return
+            }
             RuntimeDiagnostics.shared.record(.helper, action, .started, requestID: requestID)
             do {
                 try body(self.connectedDriver())
@@ -215,10 +252,23 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
                 RuntimeDiagnostics.shared.record(.helper, action, .failed, requestID: requestID,
                     code: Self.diagnosticCode(error), durationMS: elapsed * 1000)
                 Self.log.error("\(operation, privacy: .public) failed after \(elapsed, format: .fixed(precision: 2))s: \(error.localizedDescription, privacy: .public)")
-                reply(false, error.localizedDescription)
+                reply(false, Self.failureReply(error, durationMS: Int(elapsed * 1000)))
             }
         }
     }
+
+    /// Hardware failures carry a structured payload; the app falls back to the text for older helpers.
+    private static func failureReply(_ error: Error, durationMS: Int? = nil) -> String {
+        guard let hardware = error as? FanHardwareError else { return error.localizedDescription }
+        return hardware.controlFailure(durationMS: durationMS).encodedReply()
+    }
+
+    private static func invalidRequest(_ message: String) -> String {
+        HelperControlFailure(code: .invalidRequest, message: message).encodedReply()
+    }
+
+    /// Next to the hardware codes below; a write refused because the Mac is going to sleep.
+    private static let systemSleepingCode = -10004
 
     private static func diagnosticCode(_ error: Error) -> Int {
         guard let hardware = error as? FanHardwareError else { return (error as NSError).code }

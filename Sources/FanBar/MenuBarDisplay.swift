@@ -41,6 +41,9 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 
 /// The single source of truth for both the real menu bar label and its settings preview.
 struct MenuBarStatusLabel: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     let displayMode: MenuBarDisplayMode
     @AppStorage(MenuBarIconStyle.preferenceKey)
@@ -69,6 +72,7 @@ struct MenuBarStatusLabel: View {
         }
         .accessibilityLabel(accessibilityText)
         .help(controller.temperatureHistory.last?.cpuTemperatureSummary ?? "FanBar")
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private var statusText: String? {
@@ -122,12 +126,12 @@ enum MenuBarResource: String, CaseIterable {
         let image = NSImage(size: NSSize(width: 14, height: 14), flipped: false) { _ in
             NSColor.black.setStroke()
             NSColor.black.setFill()
-            func line(_ a: NSPoint, _ b: NSPoint) {
+            func line(_ start: NSPoint, _ end: NSPoint) {
                 let path = NSBezierPath()
                 path.lineWidth = 1.1
                 path.lineCapStyle = .round
-                path.move(to: a)
-                path.line(to: b)
+                path.move(to: start)
+                path.line(to: end)
                 path.stroke()
             }
             let rect: NSRect = resource == .memory
@@ -175,13 +179,20 @@ enum MenuBarResource: String, CaseIterable {
         image.isTemplate = true
         return image
     }
+
     var currentStyle: MenuBarResourceStyle {
         guard let saved = UserDefaults.standard.string(forKey: stylePreferenceKey) else { return .icon }
         return MenuBarResourceStyle(rawValue: saved) ?? .label
     }
+
     var label: String {
-        switch self { case .cpu: "CPU"; case .memory: "MEM"; case .gpu: "GPU" }
+        switch self {
+        case .cpu: "CPU"
+        case .memory: "MEM"
+        case .gpu: "GPU"
+        }
     }
+
     var title: String {
         switch self {
         case .cpu: fanBarText("CPU 使用率", "CPU usage")
@@ -189,16 +200,27 @@ enum MenuBarResource: String, CaseIterable {
         case .gpu: fanBarText("GPU 使用率", "GPU usage")
         }
     }
+
     var panelResource: PanelResourceList.Resource {
-        switch self { case .cpu: .cpu; case .memory: .memory; case .gpu: .gpu }
+        switch self {
+        case .cpu: .cpu
+        case .memory: .memory
+        case .gpu: .gpu
+        }
     }
+
     func text(for usage: SystemUsage, style: MenuBarResourceStyle = .label) -> String {
         let value = valueText(for: usage)
         return style == .label ? "\(label) \(value)" : value
     }
+
     private func valueText(for usage: SystemUsage) -> String {
         let fraction: Double?
-        switch self { case .cpu: fraction = usage.cpuFraction; case .memory: fraction = usage.memoryFraction; case .gpu: fraction = usage.gpuFraction }
+        switch self {
+        case .cpu: fraction = usage.cpuFraction
+        case .memory: fraction = usage.memoryFraction
+        case .gpu: fraction = usage.gpuFraction
+        }
         guard let value = fraction, value.isFinite else { return "—" }
         return "\(Int((min(max(value, 0), 1) * 100).rounded()))%"
     }

@@ -4,13 +4,28 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct CompatibilityReceiptsView: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @Environment(\.presentationMode) private var presentationMode
     @State private var receipts: [CompatibilitySavedReceipt] = []
-    @State private var message: String?
+    @State private var notice: Notice?
     @State private var busyID: String?
     @State private var withdrawing: CompatibilitySavedReceipt?
     @State private var retrying: CompatibilitySavedReceipt?
     private let store: any CompatibilityReceiptStoring
+
+    private enum Notice {
+        case service(CompatibilityServiceError)
+        case withdrawn
+
+        var message: String {
+            switch self {
+            case .service(let error): error.message
+            case .withdrawn: fanBarText("报告已撤回，或已经过期。", "Report withdrawn or already expired.")
+            }
+        }
+    }
 
     init(store: any CompatibilityReceiptStoring = CompatibilityReceiptStore()) {
         self.store = store
@@ -38,7 +53,7 @@ struct CompatibilityReceiptsView: View {
                     ForEach(receipts) { receipt in receiptCard(receipt) }
                 }
             }
-            if let message { Text(message).font(.caption).foregroundColor(.secondary) }
+            if let notice { Text(notice.message).font(.caption).foregroundColor(.secondary) }
         }
         .padding(24).frame(width: 510, height: 450)
         .onAppear(perform: reload)
@@ -61,6 +76,7 @@ struct CompatibilityReceiptsView: View {
                 secondaryButton: .cancel()
             )
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func receiptCard(_ receipt: CompatibilitySavedReceipt) -> some View {
@@ -88,13 +104,13 @@ struct CompatibilityReceiptsView: View {
     }
 
     private func reload() {
-        do { receipts = try store.receipts() } catch { message = CompatibilityServiceError.credentialStorage.message }
+        do { receipts = try store.receipts() } catch { notice = .service(.credentialStorage) }
     }
 
     private func withdraw(_ receipt: CompatibilitySavedReceipt) async {
         guard busyID == nil else { return }
         guard let configuration = receiptConfiguration(receipt) else {
-            message = CompatibilityServiceError.notConfigured.message
+            notice = .service(.notConfigured)
             return
         }
         busyID = receipt.reportID
@@ -103,9 +119,9 @@ struct CompatibilityReceiptsView: View {
             try await CompatibilityReportService(configuration: configuration).withdraw(receipt)
             try store.remove(reportID: receipt.reportID)
             reload()
-            message = fanBarText("报告已撤回，或已经过期。", "Report withdrawn or already expired.")
+            notice = .withdrawn
         } catch {
-            message = (error as? CompatibilityServiceError ?? .server).message
+            notice = .service(error as? CompatibilityServiceError ?? .server)
         }
     }
 
@@ -131,7 +147,7 @@ struct CompatibilityReceiptsView: View {
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 try encoder.encode(credential).write(to: url, options: .atomic)
-            } catch { message = CompatibilityServiceError.credentialStorage.message }
+            } catch { notice = .service(.credentialStorage) }
         }
     }
 

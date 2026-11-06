@@ -1,0 +1,35 @@
+# Declarations that scripts/find-unused-code.py would report but that are called
+# by convention rather than by name. One name per line, with the reason.
+
+# Entry points the system launches.
+FanBarApp                          # @main of the menu bar app
+appDelegate                        # @NSApplicationDelegateAdaptor property
+FanBarHelperMain                   # @main of the privileged helper
+FanBarWidget                       # widget extension entry point
+
+# Delegate and protocol methods the frameworks call.
+applicationDidFinishLaunching      # NSApplicationDelegate
+applicationWillTerminate           # NSApplicationDelegate
+applicationShouldHandleReopen      # NSApplicationDelegate
+popoverWillShow                    # NSPopoverDelegate
+popoverDidClose                    # NSPopoverDelegate
+userNotificationCenter             # UNUserNotificationCenterDelegate
+urlSession                         # URLSessionDelegate callback
+toolbarAllowedItemIdentifiers      # NSToolbarDelegate
+toolbarSelectableItemIdentifiers   # NSToolbarDelegate
+getSnapshot                        # WidgetKit TimelineProvider
+getTimeline                        # WidgetKit TimelineProvider
+validateDrop                       # SwiftUI DropDelegate (monitoring module reorder)
+dropEntered                        # SwiftUI DropDelegate
+dropUpdated                        # SwiftUI DropDelegate
+performDrop                        # SwiftUI DropDelegate
+
+# Decoded from service responses; kept so the payload shape stays explicit.
+receivedAt                         # CompatibilityReportService receipt
+expiresAt                          # CompatibilityReportService receipt
+
+# Hooks that exist only so tests can drive or await the app.
+settlePathResolution               # CommandLineToolInstaller tests
+waitForPendingWrites               # TemperatureLog tests
+launchBuildForTesting              # FanBarHelperService tests
+setControlStateForTesting          # Control notice rendering tests

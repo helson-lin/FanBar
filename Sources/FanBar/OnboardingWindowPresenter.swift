@@ -9,6 +9,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
     static let shared = OnboardingWindowPresenter()
 
     private var windowController: NSWindowController?
+    private var localizedTitle: LocalizedWindowTitle?
     private var isCompleting = false
 
     func show(controller: FanController) {
@@ -45,6 +46,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
         window.delegate = self
         window.center()
         windowController = NSWindowController(window: window)
+        localizedTitle = LocalizedWindowTitle(window: window, chinese: "欢迎使用 FanBar", english: "Welcome to FanBar")
 
         NSApplication.shared.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -54,6 +56,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
         guard !isCompleting else { return }
         OnboardingPreferences.complete()
         windowController = nil
+        localizedTitle = nil
     }
 
     private func complete(openMenu: Bool) {
@@ -62,6 +65,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
         OnboardingPreferences.complete()
         windowController?.close()
         windowController = nil
+        localizedTitle = nil
         isCompleting = false
 
         if openMenu {

@@ -12,20 +12,32 @@ final class CompatibilityUploadCoordinator: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var isSending = false
     @Published private(set) var error: CompatibilityServiceError?
+    /// Opt-in: send a diagnostic report under its own rules once this report is received.
+    @Published var attachDiagnostic = false
+    @Published private(set) var diagnosticUpload: DiagnosticUploadCoordinator?
+    private let collectDiagnostic: (@MainActor () async -> DiagnosticReport)?
+    private let makeDiagnosticUpload: @MainActor (@escaping @MainActor () async -> DiagnosticReport) -> DiagnosticUploadCoordinator
 
     init(
         data: Data,
         configuration: CompatibilityServiceConfiguration? = .current,
         api: (any CompatibilityReportServing)? = nil,
         store: any CompatibilityReceiptStoring = CompatibilityReceiptStore(),
-        receipt: CompatibilitySavedReceipt? = nil
+        receipt: CompatibilitySavedReceipt? = nil,
+        collectDiagnostic: (@MainActor () async -> DiagnosticReport)? = nil,
+        makeDiagnosticUpload: @escaping @MainActor (@escaping @MainActor () async -> DiagnosticReport)
+            -> DiagnosticUploadCoordinator = { DiagnosticUploadCoordinator(collect: $0) }
     ) {
         self.data = data
         self.configuration = configuration
         self.api = api ?? configuration.map { CompatibilityReportService(configuration: $0) }
         self.store = store
         self.receipt = receipt
+        self.collectDiagnostic = collectDiagnostic
+        self.makeDiagnosticUpload = makeDiagnosticUpload
     }
+
+    var canAttachDiagnostic: Bool { collectDiagnostic != nil }
 
     func isUserConfirmedWorking(_ capability: CompatibilityCapability) -> Bool {
         (try? JSONDecoder().decode(CompatibilityReport.self, from: data))?
@@ -92,6 +104,32 @@ final class CompatibilityUploadCoordinator: ObservableObject {
             error = nil
         } catch {
             self.error = error as? CompatibilityServiceError ?? .credentialStorage
+            return
         }
+        await submitAttachedDiagnostic()
+    }
+
+    /// Runs only after the report is received. The diagnostic takes the report's ID so the
+    /// two can be read side by side; it keeps its own policy check, receipt and withdrawal.
+    func submitAttachedDiagnostic() async {
+        guard attachDiagnostic, let collectDiagnostic, let reportID = receipt?.response?.reportID else { return }
+        let upload: DiagnosticUploadCoordinator
+        if let existing = diagnosticUpload {
+            upload = existing // A retry: keep the collected report and its saved receipt.
+        } else {
+            upload = makeDiagnosticUpload {
+                var report = await collectDiagnostic()
+                report.diagnosticID = reportID
+                return report
+            }
+            diagnosticUpload = upload
+        }
+        if upload.report == nil {
+            await upload.prepare()
+        } else if upload.policy == nil {
+            await upload.loadPolicy()
+        }
+        upload.consent = true
+        await upload.submit()
     }
 }

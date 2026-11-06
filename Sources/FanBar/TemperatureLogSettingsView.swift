@@ -4,6 +4,9 @@ import SwiftUI
 
 /// Recording options and file management for the local CSV temperature log.
 struct TemperatureLogSettingsView: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
 
     @AppStorage(TemperatureLogPreferences.enabledKey)
@@ -29,8 +32,11 @@ struct TemperatureLogSettingsView: View {
     }
 
     var body: some View {
-        recordingSection
-        fileSection
+        Group {
+            recordingSection
+            fileSection
+        }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private var recordingSection: some View {
@@ -61,6 +67,7 @@ struct TemperatureLogSettingsView: View {
                     }
                 }
                 .labelsHidden()
+                .id(languageRawValue)
                 .frame(width: SettingsChrome.trailingControlMinWidth)
             }
             .settingsRow()
@@ -129,6 +136,7 @@ struct TemperatureLogSettingsView: View {
                 }
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
+                .id(languageRawValue)
             }
             .settingsRow()
         }

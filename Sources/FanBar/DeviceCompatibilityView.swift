@@ -6,11 +6,14 @@ import SwiftUI
 
 /// Resizable content for the independent compatibility window.
 struct DeviceCompatibilityView: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     var onClose: () -> Void = {}
     @State private var presentation: CompatibilityPresentation?
     @State private var confirmsControlTest = false
-    @State private var reportError: String?
+    @State private var reportFailed = false
     private let catalog = CompatibilityCatalog.load()
 
     var body: some View {
@@ -60,11 +63,15 @@ struct DeviceCompatibilityView: View {
         }
         .sheet(item: $presentation) { item in
             switch item {
-            case .report(let data): CompatibilityReportPreview(data: data, preparesSubmission: true)
+            case .report(let data):
+                CompatibilityReportPreview(data: data, preparesSubmission: true) { [controller] in
+                    await controller.collectDiagnosticReport()
+                }
             case .receipts: CompatibilityReceiptsView()
             case .diagnostics: DiagnosticUploadView(controller: controller)
             }
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func deviceSymbol(_ name: String) -> String {
@@ -226,7 +233,10 @@ struct DeviceCompatibilityView: View {
                 Text(fanBarText("检测在本机完成，不会自动上传设备信息。", "Checks run locally. Device information is not automatically uploaded."))
                     .font(.system(size: 11)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let reportError { Text(reportError).font(.caption).foregroundColor(.orange) }
+                if reportFailed {
+                    Text(fanBarText("无法生成报告，请重试。", "Unable to create the report. Please retry."))
+                        .font(.caption).foregroundColor(.orange)
+                }
             }
             .padding(.horizontal, 24).padding(.vertical, 16)
         }
@@ -281,9 +291,9 @@ struct DeviceCompatibilityView: View {
         guard !controller.isBusy else { return }
         do {
             presentation = .report(try CompatibilityReport(snapshot: snapshot).jsonData())
-            reportError = nil
+            reportFailed = false
         } catch {
-            reportError = fanBarText("无法生成报告，请重试。", "Unable to create the report. Please retry.")
+            reportFailed = true
         }
     }
 }

@@ -17,7 +17,7 @@ for (const file of ['../../contracts/compatibility-report.schema.json', 'web/pub
 }
 
 const policyFile = '../../contracts/compatibility-policy.example.json';
-const policyText = JSON.stringify(policy('https://report.getfanbar.com'), null, 2) + '\n';
+const policyText = JSON.stringify(policy('https://report.getfanbar.com', POLICY_VERSION), null, 2) + '\n';
 if (process.argv.includes('--check')) {
   if (readFileSync(policyFile, 'utf8') !== policyText) throw new Error('Policy fixture drift');
 } else { writeFileSync(policyFile, policyText); }

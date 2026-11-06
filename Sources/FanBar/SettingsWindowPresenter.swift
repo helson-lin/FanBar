@@ -145,6 +145,7 @@ final class SettingsWindowPresenter: NSObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.applySelectedTabChange()
+                self?.updateTitle()
             }
         }
     }

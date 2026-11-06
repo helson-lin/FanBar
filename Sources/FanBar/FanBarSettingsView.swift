@@ -51,7 +51,6 @@ struct FanBarSettingsView: View {
     private var panelAnimationEnabled = true
     @AppStorage(SettingsTab.preferenceKey)
     private var selectedTabRawValue = SettingsTab.cooling.rawValue
-    @State private var isFooterLinkHovered = false
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
@@ -84,6 +83,7 @@ struct FanBarSettingsView: View {
         .onChange(of: selectedTabRawValue) { _ in
             SettingsWindowPresenter.shared.resizeToFitContentSoon()
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     // MARK: - Cooling
@@ -150,6 +150,7 @@ struct FanBarSettingsView: View {
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
 
         MenuBarResourceSettings(controller: controller)
+        PanelMonitorSettingsSection()
 
         SettingsSection(
             title: fanBarText("App 图标", "App Icon"),
@@ -206,8 +207,9 @@ struct FanBarSettingsView: View {
     @ViewBuilder
     private var generalTab: some View {
         fanControlSection
-        notificationsSection
+        NotificationSettingsSection(controller: controller)
         appSection
+        ToolIntegrationsSection()
         compatibilitySection
         freeSoftwareNotice
             .frame(maxWidth: .infinity)
@@ -321,8 +323,267 @@ struct FanBarSettingsView: View {
         }
     }
 
-    private var notificationsSection: some View {
+    private var automaticRestoreRow: some View {
+        HStack {
+            SettingsRowText(
+                title: fanBarText("自动恢复为自动模式", "Restore automatic control"),
+                detail: fanBarText(
+                    "手动模式到时交还 macOS；主界面中的修改只对当次生效。",
+                    "Manual modes hand back to macOS when time runs out. Menu changes apply to that session only."
+                )
+            )
+            Spacer(minLength: 12)
+            Picker(
+                fanBarText("自动恢复为自动模式", "Restore automatic control"),
+                selection: Binding(
+                    get: { controller.defaultAutomaticRestoreDuration },
+                    set: { controller.setDefaultAutomaticRestoreDuration($0) }
+                )
+            ) {
+                ForEach(FanController.AutomaticRestoreDuration.allCases) { duration in
+                    Text(duration.title).tag(duration)
+                }
+            }
+            .labelsHidden()
+            .id(languageRawValue)
+            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
+            .fixedSize()
+        }
+        .settingsRow()
+    }
+
+    private var languageRow: some View {
+        HStack {
+            Text(fanBarText("界面语言", "Interface language"))
+            Spacer(minLength: 12)
+            Picker(
+                fanBarText("界面语言", "Interface language"),
+                selection: Binding(
+                    get: { languageRawValue },
+                    set: {
+                        languageRawValue = $0
+                        SettingsWindowPresenter.shared.updateTitle()
+                    }
+                )
+            ) {
+                ForEach(FanBarLanguage.allCases) { language in
+                    Text(language.title).tag(language.rawValue)
+                }
+            }
+            .labelsHidden()
+            .id(languageRawValue)
+            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
+            .fixedSize()
+        }
+        .settingsRow()
+    }
+
+    /// Version, manual check and the automatic-check switch share one row,
+    /// so everything about updates is found in one place.
+    private var softwareUpdateRow: some View {
+        let updater = SoftwareUpdateController.shared
+        return HStack(spacing: 12) {
+            SettingsRowText(
+                title: fanBarText("自动检查更新", "Automatically check for updates"),
+                detail: fanBarFormat("当前版本 %@", "Current version %@", updater.currentVersion)
+            )
+            Button(fanBarText("检查更新…", "Check for Updates…")) {
+                updater.checkForUpdates()
+            }
+            Toggle(
+                fanBarText("自动检查更新", "Automatically check for updates"),
+                isOn: Binding(
+                    get: { updater.automaticallyChecksForUpdates },
+                    set: { updater.setAutomaticallyChecksForUpdates($0) }
+                )
+            )
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .settingsRow()
+    }
+
+    private var freeSoftwareNotice: some View {
+        SettingsSupportFooter()
+    }
+}
+
+/// One quiet line at the foot of the General tab: FanBar is free and open
+/// source, then a link to Star the repository and a link to the donation checkout.
+struct SettingsSupportFooter: View {
+    /// Read so the footer repaints when the interface language changes.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Match the links' 8pt inset so the dots sit evenly between items.
+            Text(fanBarText("FanBar 免费开源", "FanBar is free and open source"))
+                .padding(.trailing, 8)
+            separator
+            SettingsFooterLink(
+                destination: FanBarLinks.repository,
+                title: fanBarText("在 GitHub 点 Star", "Star on GitHub"),
+                help: fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser")
+            ) {
+                Image(nsImage: GitHubMark.image)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
+            }
+            separator
+            SettingsFooterLink(
+                destination: FanBarLinks.donation,
+                title: fanBarText("支持开发", "Support"),
+                help: fanBarText(
+                    "随意付，用于签名证书与维护。在浏览器中打开支持页面",
+                    "Pay what you want toward signing and upkeep. Opens in your browser."
+                )
+            ) {
+                Image(systemName: "heart")
+            }
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .lineLimit(1)
+        .fixedSize()
+        .frame(maxWidth: .infinity)
+    }
+
+    private var separator: some View {
+        Text("·").accessibilityHidden(true)
+    }
+}
+
+/// Pages FanBar opens in the browser.
+enum FanBarLinks {
+    static let repository = URL(string: "https://github.com/helson-lin/FanBar")!
+    /// Dodo Payments checkout for donations.
+    static let donation = URL(string: "https://checkout.dodopayments.com/buy/pdt_0NqThcy5f4slzzZQspCty?quantity=1")!
+}
+
+/// A caption-sized link at the foot of the General tab that turns accent on hover.
+struct SettingsFooterLink<Icon: View>: View {
+    let destination: URL
+    let title: String
+    let help: String
+    @ViewBuilder let icon: () -> Icon
+    @State private var isHovered = false
+
+    var body: some View {
+        Link(destination: destination) {
+            HStack(spacing: 6) {
+                icon()
+                    .accessibilityHidden(true)
+                Text(title)
+                Image(systemName: "arrow.up.right")
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .font(.caption)
+        .foregroundColor(isHovered ? .accentColor : .secondary)
+        .onHover { isHovered = $0 }
+        .help(help)
+    }
+}
+
+/// Shown on the Cooling pane only when the control service needs attention,
+/// with the state named by symbol and text rather than color alone.
+struct ControlServiceBanner: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
+    @ObservedObject var controller: FanController
+
+    var body: some View {
+        let state = controller.helperState
+        HStack(spacing: 12) {
+            Image(systemName: state.symbolName)
+                .font(.system(size: 18))
+                .foregroundColor(state.tint)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.noticeTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(fanBarFormat(
+                    "曲线已保存，服务可用后才会生效。%@。",
+                    "Your curves are saved and apply once the service is available. %@.",
+                    state.noticeDetail
+                ))
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let actionTitle = state.actionTitle {
+                Button(actionTitle, action: controller.performHelperAction)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
+                .fill(state.tint.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
+                .stroke(state.tint.opacity(0.4), lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+}
+
+/// Turns the one-minute warning and the hand-back notification on or off.
+private struct HandBackReminderRow: View {
+    /// Repaints the copy when the interface language changes.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+    @ObservedObject var controller: FanController
+
+    var body: some View {
+        Toggle(
+            isOn: Binding(
+                get: { controller.handBackRemindersEnabled },
+                set: { controller.setHandBackRemindersEnabled($0) }
+            )
+        ) {
+            // swiftlint:disable line_length
+            SettingsRowText(
+                title: fanBarText("控制交回 macOS 前提醒", "Remind before handing back to macOS"),
+                detail: fanBarText(
+                    "定时结束前 1 分钟提醒，可以直接延长；没有处理，交回后再提示一次。面板开着时只在面板里显示。",
+                    "One minute before a timer ends, with a button to extend; if nothing changes, once more after the hand-back. With the panel open, it shows there instead."
+                )
+            )
+            // swiftlint:enable line_length
+        }
+        .toggleStyle(.switch)
+        .settingsRow()
+    }
+}
+
+/// High-temperature alerts and hand-back reminders.
+private struct NotificationSettingsSection: View {
+    /// Repaints the copy when the interface language changes.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+    @ObservedObject var controller: FanController
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
         SettingsSection(title: fanBarText("通知", "Notifications")) {
+            HandBackReminderRow(controller: controller)
+
+            SettingsChrome.rowDivider
+
             Toggle(
                 isOn: Binding(
                     get: { controller.highTemperatureNotificationsEnabled },
@@ -386,157 +647,5 @@ struct FanBarSettingsView: View {
         }
         .settingsRow()
         .disabled(!controller.highTemperatureNotificationsEnabled)
-    }
-
-    private var automaticRestoreRow: some View {
-        HStack {
-            SettingsRowText(
-                title: fanBarText("自动恢复为自动模式", "Restore automatic control"),
-                detail: fanBarText(
-                    "手动模式到时交还 macOS；主界面中的修改只对当次生效。",
-                    "Manual modes hand back to macOS when time runs out. Menu changes apply to that session only."
-                )
-            )
-            Spacer(minLength: 12)
-            Picker(
-                fanBarText("自动恢复为自动模式", "Restore automatic control"),
-                selection: Binding(
-                    get: { controller.defaultAutomaticRestoreDuration },
-                    set: { controller.setDefaultAutomaticRestoreDuration($0) }
-                )
-            ) {
-                ForEach(FanController.AutomaticRestoreDuration.allCases) { duration in
-                    Text(duration.title).tag(duration)
-                }
-            }
-            .labelsHidden()
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
-            .fixedSize()
-        }
-        .settingsRow()
-    }
-
-    private var languageRow: some View {
-        HStack {
-            Text(fanBarText("界面语言", "Interface language"))
-            Spacer(minLength: 12)
-            Picker(
-                fanBarText("界面语言", "Interface language"),
-                selection: Binding(
-                    get: { languageRawValue },
-                    set: {
-                        languageRawValue = $0
-                        SettingsWindowPresenter.shared.updateTitle()
-                    }
-                )
-            ) {
-                ForEach(FanBarLanguage.allCases) { language in
-                    Text(language.title).tag(language.rawValue)
-                }
-            }
-            .labelsHidden()
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
-            .fixedSize()
-        }
-        .settingsRow()
-    }
-
-    /// Version, manual check and the automatic-check switch share one row,
-    /// so everything about updates is found in one place.
-    private var softwareUpdateRow: some View {
-        let updater = SoftwareUpdateController.shared
-        return HStack(spacing: 12) {
-            SettingsRowText(
-                title: fanBarText("自动检查更新", "Automatically check for updates"),
-                detail: fanBarFormat("当前版本 %@", "Current version %@", updater.currentVersion)
-            )
-            Button(fanBarText("检查更新…", "Check for Updates…")) {
-                updater.checkForUpdates()
-            }
-            Toggle(
-                fanBarText("自动检查更新", "Automatically check for updates"),
-                isOn: Binding(
-                    get: { updater.automaticallyChecksForUpdates },
-                    set: { updater.setAutomaticallyChecksForUpdates($0) }
-                )
-            )
-            .labelsHidden()
-            .toggleStyle(.switch)
-        }
-        .settingsRow()
-    }
-
-    /// One quiet line with a single destination: the repository, where the
-    /// license and the Star button both live.
-    private var freeSoftwareNotice: some View {
-        Link(destination: URL(string: "https://github.com/helson-lin/FanBar")!) {
-            HStack(spacing: 6) {
-                Image(nsImage: GitHubMark.image)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 12, height: 12)
-                    .accessibilityHidden(true)
-                Text(fanBarText(
-                    "FanBar 免费开源 · 喜欢的话在 GitHub 点个 Star",
-                    "FanBar is free and open source · Star it on GitHub"
-                ))
-                Image(systemName: "arrow.up.right")
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .font(.caption)
-        .foregroundColor(isFooterLinkHovered ? .accentColor : .secondary)
-        .onHover { isFooterLinkHovered = $0 }
-        .help(fanBarText("在浏览器中打开 FanBar 的 GitHub 仓库", "Open the FanBar GitHub repository in a browser"))
-    }
-}
-
-/// Shown on the Cooling pane only when the control service needs attention,
-/// with the state named by symbol and text rather than color alone.
-struct ControlServiceBanner: View {
-    @ObservedObject var controller: FanController
-
-    var body: some View {
-        let state = controller.helperState
-        HStack(spacing: 12) {
-            Image(systemName: state.symbolName)
-                .font(.system(size: 18))
-                .foregroundColor(state.tint)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.noticeTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(fanBarFormat(
-                    "曲线已保存，服务可用后才会生效。%@。",
-                    "Your curves are saved and apply once the service is available. %@.",
-                    state.noticeDetail
-                ))
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let actionTitle = state.actionTitle {
-                Button(actionTitle, action: controller.performHelperAction)
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
-                .fill(state.tint.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: SettingsChrome.cardCornerRadius, style: .continuous)
-                .stroke(state.tint.opacity(0.4), lineWidth: 1)
-        )
-        .accessibilityElement(children: .contain)
     }
 }

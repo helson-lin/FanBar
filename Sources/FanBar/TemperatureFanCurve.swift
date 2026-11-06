@@ -7,8 +7,17 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
     case cpu
     case gpu
     case ssd
+    case battery
 
     var id: String { rawValue }
+
+    /// Sources the curve editor offers. Battery is left out on a Mac without one, where it
+    /// could never be read and control would fall back to macOS; a profile already using it
+    /// keeps the option so the selection never silently changes.
+    static func selectable(reading: ThermalReading?, current: FanCurveSensor) -> [FanCurveSensor] {
+        let hasBattery = reading?.hasBuiltInBattery == true || reading?.batteryCelsius != nil
+        return allCases.filter { $0 != .battery || hasBattery || $0 == current }
+    }
 
     var title: String {
         switch self {
@@ -16,6 +25,7 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
         case .cpu: fanBarText("仅 CPU", "CPU only")
         case .gpu: fanBarText("仅 GPU", "GPU only")
         case .ssd: fanBarText("硬盘（SSD）", "SSD")
+        case .battery: fanBarText("电池", "Battery")
         }
     }
 
@@ -26,6 +36,7 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
         case .cpu: reading.cpuCelsius
         case .gpu: reading.gpuCelsius ?? reading.cpuCelsius
         case .ssd: reading.ssdCelsius
+        case .battery: reading.batteryCelsius
         }
     }
 
@@ -37,6 +48,7 @@ enum FanCurveSensor: String, Codable, CaseIterable, Identifiable, Sendable {
             source = reading?.gpuCelsius == nil && reading?.cpuCelsius != nil
                 ? fanBarText("CPU（GPU 不可用）", "CPU (GPU unavailable)") : "GPU"
         case .ssd: source = "SSD"
+        case .battery: source = fanBarText("电池", "Battery")
         case .maxChip: source = title
         }
         let value = reading.flatMap { temperature(in: $0) }.map { "\(Int($0.rounded()))°" } ?? "—"

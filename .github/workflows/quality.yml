@@ -58,7 +58,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install linters
-        run: brew install swiftlint swiftformat
+        # Versions are pinned in scripts/lint-tools.env so a new upstream rule
+        # can't fail CI on code nobody touched.
+        run: |
+          zsh scripts/install-lint-tools.sh
+          echo "$PWD/.build/lint-tools/bin" >> "$GITHUB_PATH"
 
       - name: SwiftLint (new violations only)
         # Existing violations live in .swiftlint-baseline.json; --strict turns
@@ -67,6 +71,10 @@ jobs:
 
       - name: SwiftFormat
         run: swiftformat --lint --reporter github-actions-log .
+
+      - name: Unused code
+        # Every declaration in Sources must be used by Sources; see scripts/unused-code-allowlist.txt.
+        run: python3 scripts/find-unused-code.py
 
   test:
     name: Build (0 warnings) + tests + coverage
@@ -111,7 +119,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import secrets
-          Path('.dev.vars').write_text('LIMIT_SALT=' + secrets.token_urlsafe(32) + '\nADMIN_TOKEN=' + secrets.token_urlsafe(32) + '\n')
+          Path('.dev.vars').write_text('LIMIT_SALT=' + secrets.token_urlsafe(32) + '\n')
           PY
           npm run db:local
           npm run dev -- --port 8787 --ip 127.0.0.1 > /tmp/fanbar-report-service.log 2>&1 &
@@ -136,6 +144,17 @@ jobs:
           else
             python3 scripts/coverage-report.py
           fi
+
+      - name: Upload failed language snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-language-snapshots
+          path: |
+            /tmp/fanbar-*-actual.png
+            /tmp/fanbar-*-expected.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload lcov
         if: always()

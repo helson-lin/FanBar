@@ -1,6 +1,6 @@
 cask "fanbar" do
-  version "0.6.3"
-  sha256 "6f0ac67581397c511661b6e38610fa7a9af5a5d6a7a1635da3d013b626ea426c"
+  version "0.8.2"
+  sha256 "d5909fb17084168aad48cf60df06422f1cec784c2506585941246fa5063ea685"
 
   url "https://github.com/helson-lin/FanBar/releases/download/v#{version}/FanBar-#{version}.dmg"
   name "FanBar"
@@ -11,6 +11,7 @@ cask "fanbar" do
   depends_on :macos
 
   app "FanBar.app"
+  binary "#{appdir}/FanBar.app/Contents/Helpers/fanbar"
 
   uninstall launchctl: ["local.fanbar.app", "local.fanbar.helper", "local.fanbar.helper.plist"],
             quit:      "local.fanbar.app",

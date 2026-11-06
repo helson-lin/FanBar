@@ -57,16 +57,6 @@ struct PanelPalette {
     /// Reclaimable cache: memory macOS can hand back, so it never takes a status color.
     var memoryCache: Color { isDark ? Self.rgb(0x636366) : Self.rgb(0xBCC2CA) }
 
-    var glyphGradient: LinearGradient {
-        LinearGradient(
-            colors: isDark ? [Self.rgb(0x3A3A3C), Self.rgb(0x242426)] : [Self.rgb(0xFDFDFE), Self.rgb(0xE4E7EB)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    var glyphInk: Color { isDark ? Self.rgb(0xE6E8EB) : Self.rgb(0x3A4049) }
-
     func color(for level: ThermalLevel) -> Color {
         switch level {
         case .normal: accent
@@ -91,6 +81,12 @@ enum ThermalPart: CaseIterable, Equatable {
         case .ssd: "SSD"
         case .battery: fanBarText("电池", "Battery")
         }
+    }
+
+    /// The header's calm line has room for a temperature but not a qualifier, so it reads
+    /// "CPU 65°" (the average); the chart legend carries the qualified "CPU max" / "CPU avg".
+    var headerName: String {
+        self == .cpu ? "CPU" : name
     }
 
     /// Heat assessment uses the same average as notifications and the CSV log.
@@ -118,15 +114,6 @@ enum ThermalPart: CaseIterable, Equatable {
         case .cpu, .gpu: ThermalAlertSettings.thresholdCelsius
         case .ssd: 75
         case .battery: 45
-        }
-    }
-
-    /// Range of the hero's scale bar, wide enough to show normal and hot.
-    var scale: ClosedRange<Double> {
-        switch self {
-        case .cpu, .gpu: 30...105
-        case .ssd: 25...85
-        case .battery: 20...50
         }
     }
 }
@@ -175,19 +162,49 @@ struct ThermalFocus: Equatable {
         // The battery runs far cooler than chips, so it never leads when all is normal.
         return readings.filter { $0.part != .battery }.max { $0.celsius < $1.celsius } ?? mostUrgent
     }
+}
 
-    /// Change against the reading about `span` ago. When history is shorter,
-    /// compares with the oldest reading and reports its real age; under a
-    /// minute of history there is no trend to show.
-    func trend(in history: [ThermalReading], span: TimeInterval) -> (delta: Double, minutes: Int)? {
-        guard let latest = history.last else { return nil }
-        let keyPath = part.keyPath
-        let target = latest.sampledAt.addingTimeInterval(-span)
-        guard let past = history.first(where: { $0.sampledAt >= target && $0[keyPath: keyPath] != nil }),
-              let pastValue = past[keyPath: keyPath] else { return nil }
-        let age = latest.sampledAt.timeIntervalSince(past.sampledAt)
-        guard age >= 60 else { return nil }
-        return (celsius - pastValue, Int((age / 60).rounded()))
+/// Lays out the header's status line in the width left beside the app icon and settings button.
+/// Parts are joined with " · " on one line; when that does not fit, the line breaks before the
+/// last part, so no language truncates the temperature, the controller or the restore countdown.
+@MainActor
+enum PanelHeaderStatus {
+    static let fontSize: CGFloat = 11
+    static let indicatorSpacing: CGFloat = 6
+    static let separator = " · "
+
+    /// Room for the status text beside the 32pt icon, the gaps, and the settings button
+    /// (whose hover well hangs 6pt past the content edge), less the status indicator.
+    static func textWidth(indicatorWidth: CGFloat) -> CGFloat {
+        let content = FanMenu.panelWidth - FanMenu.padding * 2
+        let beside = content - FanMenu.headerIconSize - FanMenu.headerSpacing * 3
+            - FanMenu.headerSpacerMinimum - FanMenu.settingsButtonSize + FanMenu.settingsButtonOverhang
+        return beside - indicatorWidth - indicatorSpacing
+    }
+
+    /// One line when the joined parts and the trailing control fit, else two.
+    static func lines(
+        _ parts: [String], weight: NSFont.Weight, trailingWidth: CGFloat, fitting width: CGFloat
+    ) -> [String] {
+        let joined = parts.joined(separator: separator)
+        let trailing = trailingWidth > 0 ? trailingWidth + indicatorSpacing : 0
+        guard parts.count > 1, measure(joined, weight: weight) + trailing > width else { return [joined] }
+        return [parts.dropLast().joined(separator: separator), parts[parts.count - 1]]
+    }
+
+    /// Whether the trailing control still fits after the last line. An alert title is a single part
+    /// that cannot break, so in manual mode the restore countdown moves to a line of its own instead.
+    static func trailingFits(after lines: [String], weight: NSFont.Weight, trailingWidth: CGFloat,
+                             fitting width: CGFloat) -> Bool {
+        guard trailingWidth > 0, let last = lines.last else { return true }
+        return measure(last, weight: weight) + indicatorSpacing + trailingWidth <= width
+    }
+
+    static func measure(_ text: String, weight: NSFont.Weight = .regular, monospacedDigits: Bool = false) -> CGFloat {
+        let font = monospacedDigits
+            ? NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: weight)
+            : NSFont.systemFont(ofSize: fontSize, weight: weight)
+        return ceil((text as NSString).size(withAttributes: [.font: font]).width)
     }
 }
 
@@ -312,221 +329,19 @@ private struct PanelPressBody<Content: View>: View {
     }
 }
 
-// MARK: - Thermal hero
+// MARK: - Fan glyph
 
-/// The hottest temperature, the panel's single large number, with the fans it drives beside it.
-struct ThermalHero: View {
-    let focus: ThermalFocus?
-    let trend: (delta: Double, minutes: Int)?
-    let fans: [FanReading]
-    let targets: [Int?]
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
-    private var level: ThermalLevel { focus?.level ?? .normal }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            temperature
-                .frame(width: 116, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 11) {
-                ForEach(Array(fans.prefix(2).enumerated()), id: \.element.id) { position, fan in
-                    FanMeter(
-                        name: fans.count > 1
-                            ? fanBarFormat("风扇 %d", "Fan %d", fan.index + 1)
-                            : fanBarText("风扇", "Fan"),
-                        fan: fan,
-                        target: position < targets.count ? targets[position] : nil,
-                        isHot: level == .hot
-                    )
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var temperature: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(focusLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(palette.secondaryText)
-
-            HStack(alignment: .top, spacing: 1) {
-                Text(focus.map { "\(Int($0.celsius.rounded()))" } ?? "—")
-                    .font(.system(size: 44, weight: .semibold).monospacedDigit())
-                    .tracking(-1.5)
-                    .foregroundColor(level == .normal ? .primary : palette.color(for: level))
-                Text("°C")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(palette.secondaryText)
-                    .padding(.top, 5)
-            }
-            .frame(height: 48)
-            .accessibilityElement(children: .combine)
-
-            trendLine
-                .padding(.top, 2)
-
-            TemperatureScale(celsius: focus?.celsius, part: focus?.part ?? .cpu, palette: palette)
-                .padding(.top, 9)
-        }
-    }
-
-    /// "最高 · CPU" while all is normal; "关注 · 电池" when a part passes its own limit.
-    private var focusLabel: String {
-        guard let focus else { return fanBarText("温度", "Temperature") }
-        return focus.isAlert
-            ? fanBarFormat("关注 · %@", "Attention · %@", focus.part.name)
-            : fanBarFormat("最高 · %@", "Hottest · %@", focus.part.name)
-    }
-
-    @ViewBuilder private var trendLine: some View {
-        if let trend {
-            let rounded = Int(trend.delta.rounded())
-            let arrow = rounded > 0 ? "↑" : rounded < 0 ? "↓" : "→"
-            HStack(spacing: 4) {
-                Text("\(arrow) \(abs(rounded))°")
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                Text(fanBarFormat("较 %d 分钟前", "vs %d min ago", trend.minutes))
-                    .foregroundColor(palette.secondaryText)
-            }
-            .font(.system(size: 11).monospacedDigit())
-            .lineLimit(1)
-        } else {
-            Text(" ")
-                .font(.system(size: 11))
-        }
-    }
+private struct PanelVisibleKey: EnvironmentKey {
+    /// Views hosted anywhere other than the menu bar popover (settings,
+    /// previews) are visible whenever they exist.
+    static let defaultValue = true
 }
 
-/// The part's own range on a cool-to-hot ramp, with ticks at the ends and at
-/// its warning threshold, and a marker at the current reading.
-private struct TemperatureScale: View {
-    let celsius: Double?
-    let part: ThermalPart
-    let palette: PanelPalette
-
-    private func position(_ value: Double) -> CGFloat {
-        let range = part.scale
-        return CGFloat(min(1, max(0, (value - range.lowerBound) / (range.upperBound - range.lowerBound))))
-    }
-
-    var body: some View {
-        let warmStop = Double(position(part.warmThreshold))
-        let hotStop = max(Double(position(part.hotThreshold)), warmStop + 0.01)
-        VStack(spacing: 3) {
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(LinearGradient(
-                            stops: [
-                                .init(color: palette.accent.opacity(0.45), location: 0),
-                                .init(color: palette.warm.opacity(0.55), location: warmStop),
-                                .init(color: palette.hot.opacity(0.7), location: min(1, hotStop))
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
-                        .frame(height: 4)
-                    if let celsius {
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.primary)
-                            .frame(width: 2, height: 10)
-                            .offset(x: position(celsius) * proxy.size.width - 1)
-                    }
-                }
-                .frame(height: 10)
-            }
-            .frame(height: 10)
-
-            GeometryReader { proxy in
-                ZStack(alignment: .topLeading) {
-                    Text("\(Int(part.scale.lowerBound))")
-                    Text("\(Int(part.warmThreshold))")
-                        .fixedSize()
-                        .frame(width: 30)
-                        .offset(x: position(part.warmThreshold) * proxy.size.width - 15)
-                    Text("\(Int(part.scale.upperBound))")
-                        .frame(width: proxy.size.width, alignment: .trailing)
-                }
-            }
-            .frame(height: 12)
-            .font(.system(size: 9.5).monospacedDigit())
-            .foregroundColor(palette.tertiaryText)
-        }
-        .accessibilityHidden(true)
-    }
-}
-
-/// Live RPM on the fan's own range, with an accent tick at the target FanBar asks for.
-private struct FanMeter: View {
-    let name: String
-    let fan: FanReading
-    let target: Int?
-    let isHot: Bool
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
-
-    private func position(_ rpm: Int) -> CGFloat {
-        let span = max(fan.maximumRPM - fan.minimumRPM, 1)
-        return CGFloat(min(1, max(0, Double(rpm - fan.minimumRPM) / Double(span))))
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 7) {
-                SpinningFanGlyph(rpm: fan.currentRPM)
-                    .frame(width: 16, height: 16)
-                    .foregroundColor(palette.secondaryText)
-                Text(name)
-                    .font(.system(size: 11))
-                    .foregroundColor(palette.secondaryText)
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(FanBarNumberFormatter.grouped(fan.currentRPM))
-                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                    Text("rpm")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(palette.tertiaryText)
-                }
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(palette.well)
-                        .frame(height: 4)
-                    Capsule()
-                        .fill(isHot ? palette.warm.opacity(0.8) : palette.secondaryText.opacity(0.55))
-                        .frame(width: position(fan.currentRPM) * proxy.size.width, height: 4)
-                    if let target {
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(palette.accent)
-                            .frame(width: 2, height: 10)
-                            .offset(x: position(target) * proxy.size.width - 1)
-                    }
-                }
-                .frame(height: 10)
-            }
-            .frame(height: 10)
-            .padding(.leading, 23)
-        }
-        .help(fanBarFormat(
-            "范围 %@–%@ RPM",
-            "Range %@–%@ RPM",
-            FanBarNumberFormatter.grouped(fan.minimumRPM),
-            FanBarNumberFormatter.grouped(fan.maximumRPM)
-        ))
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(target.map {
-            fanBarFormat("目标 %@ RPM", "Target %@ RPM", FanBarNumberFormatter.grouped($0))
-        } ?? "")
+extension EnvironmentValues {
+    /// False while the menu bar popover that hosts this view is closed.
+    var isPanelVisible: Bool {
+        get { self[PanelVisibleKey.self] }
+        set { self[PanelVisibleKey.self] = newValue }
     }
 }
 
@@ -579,22 +394,11 @@ enum PanelByteFormat {
     static let gibibyte = 1_073_741_824.0
     static let gigabyte = 1_000_000_000.0
 
-    /// "128 / 358 GB" for disks, using decimal units like Finder.
-    static func diskPair(used: UInt64, total: UInt64) -> String {
-        let usedGB = FanBarNumberFormatter.grouped(Int((Double(used) / gigabyte).rounded()))
-        let totalGB = FanBarNumberFormatter.grouped(Int((Double(total) / gigabyte).rounded()))
-        return "\(usedGB) / \(totalGB) GB"
-    }
-
     /// Short size such as "0 B", "512 MB", or "3.7 GB".
     static func compact(_ bytes: UInt64, unit: Double = gibibyte) -> String {
         let value = Double(bytes)
         if bytes == 0 { return "0 B" }
         if value >= unit { return String(format: "%.1f GB", value / unit) }
         return String(format: "%.0f MB", value / (unit / 1024))
-    }
-
-    static func diskGigabytes(_ bytes: UInt64) -> String {
-        "\(FanBarNumberFormatter.grouped(Int((Double(bytes) / gigabyte).rounded()))) GB"
     }
 }

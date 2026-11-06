@@ -324,6 +324,27 @@ final class FanCurveInteractionTests: XCTestCase {
         XCTAssertEqual(equalCoolSample, 0.60, accuracy: 0.001)
     }
 
+    /// Issue 114: with every write failing, the rate limit kept stepping from the
+    /// last output that did reach the fans (0%), so a 70 °C CPU asked for 5% forever.
+    /// After a failed write the controller drops that base and asks for the curve's value.
+    func testRateLimitWithoutABaseAsksForTheCurveValue() {
+        let profile = FanCurveProfile(
+            sensor: .cpu,
+            points: [
+                FanCurvePoint(celsius: 38, fraction: 0),
+                FanCurvePoint(celsius: 82, fraction: 1)
+            ],
+            hysteresisCelsius: 0,
+            maxFractionStepPerUpdate: 0.05
+        )
+        let stale = FanCurveControlTarget.fraction(profile: profile, temperature: 70, previousFraction: 0, force: false)
+        let fresh = FanCurveControlTarget.fraction(profile: profile, temperature: 70, previousFraction: nil, force: false)
+
+        XCTAssertEqual(stale, 0.05, accuracy: 0.001)
+        XCTAssertEqual(fresh, profile.fraction(at: 70), accuracy: 0.001)
+        XCTAssertGreaterThan(fresh, 0.7)
+    }
+
     func testFallingHysteresisNeverRaisesOutputWhileCooling() {
         let profile = FanCurveProfile(
             sensor: .cpu,

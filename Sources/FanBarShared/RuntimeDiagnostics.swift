@@ -70,7 +70,10 @@ public final class RuntimeDiagnostics: @unchecked Sendable {
             Self.log.notice("\(text, privacy: .public)")
         }
         // Keep launch markers even when repeated cooling requests fill the operation ring.
-        let markers: Set<RuntimeDiagnosticEvent.Action> = [.startup, .controllerReady, .menuReady, .shutdown, .previousExitUnknown]
+        // The service status is recorded only when it changes, so without this a run of
+        // failed writes evicts it and the export reports the helper as unavailable.
+        let markers: Set<RuntimeDiagnosticEvent.Action> = [.startup, .controllerReady, .menuReady, .shutdown,
+                                                           .previousExitUnknown, .status]
         let recent = events.filter { Date().timeIntervalSince($0.timestamp) <= 86400 }
         events = (Array(recent.filter { markers.contains($0.action) }.suffix(32))
             + Array(recent.filter { !markers.contains($0.action) }.suffix(224))).sorted { $0.timestamp < $1.timestamp }

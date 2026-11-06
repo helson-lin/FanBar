@@ -4,6 +4,7 @@ import SwiftUI
 private struct FocusedMenuBarResourceKey: EnvironmentKey {
     static let defaultValue: PanelResourceList.Resource? = nil
 }
+
 extension EnvironmentValues {
     var focusedMenuBarResource: PanelResourceList.Resource? {
         get { self[FocusedMenuBarResourceKey.self] }
@@ -13,114 +14,164 @@ extension EnvironmentValues {
 
 // MARK: - Resources
 
-/// A two-by-two resource grid held together by whitespace; disk details expand beneath it.
+/// A two-column resource grid held together by whitespace; disk and CPU details expand beneath it.
+/// Shows the modules chosen in Settings, in order; an odd last module spans its row.
 struct PanelResourceList: View {
-    enum Resource: Hashable {
-        case cpu
-        case memory
-        case gpu
-        case disk
-    }
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
+    typealias Resource = PanelMonitorModule
 
     let usage: SystemUsage
     let thermal: ThermalReading?
     let cpuHistory: [Double]
     let gpuHistory: [Double]
     let animates: Bool
+    var modules: [PanelMonitorModule] = PanelMonitorPreferences.defaultModules
+    /// Sampled only while the CPU detail is open.
+    var topApps: TopAppsSnapshot?
 
     @Binding var expanded: Resource?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.focusedMenuBarResource) private var focusedResource
-    @State private var isDiskDetailRevealed = false
+    @State private var isDetailRevealed = false
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
-    /// Height shared by the CPU core bars and the memory bar's row, so the first row lines up.
+    /// Every cell stacks label, value, a visualization `vizHeight` tall (bars sit on its
+    /// bottom edge) and a `captionHeight` caption, so any two modules side by side line up.
     private static let vizHeight: CGFloat = 20
+    private static let captionHeight: CGFloat = 14
 
     var body: some View {
         VStack(spacing: 0) {
             resourceGrid
                 .padding(.vertical, 7)
-            if expanded == .disk {
+            // One detail at a time: opening the CPU list closes the disk list and vice versa.
+            if let detail = expanded, detail == .disk || detail == .cpu, modules.contains(detail) {
                 PanelDivider()
-                diskDetail
-                    .padding(.vertical, PanelLayout.rowVerticalPadding)
-                    // Height changes instantly (see setExpanded); only the drawing eases in.
-                    .opacity(isDiskDetailRevealed ? 1 : 0)
-                    .scaleEffect(isDiskDetailRevealed ? 1 : 0.98, anchor: .top)
-                    .onAppear {
-                        guard animates else {
-                            isDiskDetailRevealed = true
-                            return
-                        }
-                        withAnimation(.easeOut(duration: 0.15)) { isDiskDetailRevealed = true }
+                Group {
+                    if detail == .disk {
+                        diskDetail
+                    } else {
+                        PanelTopAppsDetail(snapshot: topApps, palette: palette) { setExpanded(nil) }
                     }
-                    .onDisappear { isDiskDetailRevealed = false }
+                }
+                .padding(.vertical, PanelLayout.rowVerticalPadding)
+                // Height changes instantly (see setExpanded); only the drawing eases in.
+                .opacity(isDetailRevealed ? 1 : 0)
+                .scaleEffect(isDetailRevealed ? 1 : 0.98, anchor: .top)
+                .id(detail)
+                .onAppear {
+                    guard animates else {
+                        isDetailRevealed = true
+                        return
+                    }
+                    withAnimation(.easeOut(duration: 0.15)) { isDetailRevealed = true }
+                }
             }
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func setExpanded(_ resource: Resource?) {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
-        withTransaction(transaction) { expanded = resource }
+        withTransaction(transaction) {
+            isDetailRevealed = false
+            expanded = resource
+        }
     }
 
     private var resourceGrid: some View {
         VStack(spacing: 0) {
-            gridRow {
-                cell(.cpu, title: "CPU", value: percent(usage.cpuFraction)) {
-                    CoreGroups(
-                        fractions: usage.cpuCoreFractions,
-                        kinds: usage.cpuCoreKinds,
-                        coreCount: usage.cpuCoreCount,
-                        color: resourceColor(.cpu),
-                        barHeight: Self.vizHeight,
-                        palette: palette
-                    )
-                    .padding(.top, 4)
-                }
-            } trailing: {
-                cell(
-                    .memory,
-                    title: fanBarText("内存", "Memory"),
-                    meta: usage.memory.map(memoryMeta),
-                    value: percent(usage.memoryFraction)
-                ) {
-                    let used = resourceColor(.memory)
-                    VStack(alignment: .leading, spacing: 6) {
-                        MemoryBar(memory: usage.memory, usedColor: used, palette: palette)
-                            .frame(height: 6)
-                            .frame(height: Self.vizHeight, alignment: .bottom)
-                        HStack(spacing: 9) {
-                            memoryKey(used, fanBarText("应用", "App"))
-                            memoryKey(used.opacity(MemoryBar.compressedOpacity), fanBarText("压缩", "Comp."))
-                            memoryKey(palette.memoryCache, fanBarText("缓存", "Cache"))
-                        }
-                    }
-                    .padding(.top, 4)
+            ForEach(PanelMonitorPreferences.rows(modules), id: \.self) { row in
+                if row.count == 2 {
+                    gridRow { moduleCell(row[0]) } trailing: { moduleCell(row[1]) }
+                } else if let only = row.first {
+                    moduleCell(only)
                 }
             }
-            gridRow {
-                cell(
-                    .gpu,
-                    title: "GPU",
-                    meta: usage.gpuCoreCount.map { fanBarFormat("%d 核", "%d cores", $0) },
-                    value: percent(usage.gpuFraction)
-                ) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        CapacityBar(fraction: usage.gpuFraction, color: resourceColor(.gpu), palette: palette)
-                            .frame(height: 6)
-                        summaryText(usage.gpuMemoryInUseBytes.map {
-                            fanBarFormat("显存 %@", "Memory %@", PanelByteFormat.compact($0))
-                        } ?? "—")
-                    }
-                    .padding(.top, 6)
-                }
-            } trailing: {
-                diskCell
+        }
+    }
+
+    @ViewBuilder
+    private func moduleCell(_ module: PanelMonitorModule) -> some View {
+        switch module {
+        case .cpu: cpuCell
+        case .memory: memoryCell
+        case .gpu: gpuCell
+        case .disk: diskCell
+        }
+    }
+
+    /// Tappable like the disk cell; it opens the apps using the most CPU.
+    private var cpuCell: some View {
+        let isOpen = expanded == .cpu
+        return Button {
+            setExpanded(isOpen ? nil : .cpu)
+        } label: {
+            cell(.cpu, title: "CPU", value: percent(usage.cpuFraction),
+                 chevron: isOpen ? "chevron.up" : "chevron.down") {
+                CoreGroups(
+                    fractions: usage.cpuCoreFractions,
+                    kinds: usage.cpuCoreKinds,
+                    coreCount: usage.cpuCoreCount,
+                    color: resourceColor(.cpu),
+                    barHeight: Self.vizHeight,
+                    palette: palette
+                )
+                .padding(.top, 4)
             }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PanelDimButtonStyle())
+        .accessibilityAddTraits(isOpen ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(isOpen
+            ? fanBarText("收起占用 CPU 最多的应用", "Hide the apps using the most CPU")
+            : fanBarText("展开占用 CPU 最多的应用", "Show the apps using the most CPU"))
+    }
+
+    private var memoryCell: some View {
+        cell(
+            .memory,
+            title: fanBarText("内存", "Memory"),
+            meta: usage.memory.map(memoryMeta),
+            value: percent(usage.memoryFraction)
+        ) {
+            let used = resourceColor(.memory)
+            VStack(alignment: .leading, spacing: 6) {
+                MemoryBar(memory: usage.memory, usedColor: used, palette: palette)
+                    .frame(height: 6)
+                    .frame(height: Self.vizHeight, alignment: .bottom)
+                HStack(spacing: 9) {
+                    memoryKey(used, fanBarText("应用", "App"))
+                    memoryKey(used.opacity(MemoryBar.compressedOpacity), fanBarText("压缩", "Comp."))
+                    memoryKey(palette.memoryCache, fanBarText("缓存", "Cache"))
+                }
+                .frame(height: Self.captionHeight, alignment: .leading)
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var gpuCell: some View {
+        cell(
+            .gpu,
+            title: "GPU",
+            meta: usage.gpuCoreCount.map { fanBarFormat("%d 核", "%d cores", $0) },
+            value: percent(usage.gpuFraction)
+        ) {
+            VStack(alignment: .leading, spacing: 6) {
+                CapacityBar(fraction: usage.gpuFraction, color: resourceColor(.gpu), palette: palette)
+                    .frame(height: 6)
+                    .frame(height: Self.vizHeight, alignment: .bottom)
+                summaryText(usage.gpuMemoryInUseBytes.map {
+                    fanBarFormat("显存 %@", "Memory %@", PanelByteFormat.compact($0))
+                } ?? "—")
+                .frame(height: Self.captionHeight, alignment: .leading)
+            }
+            .padding(.top, 4)
         }
     }
 
@@ -146,10 +197,11 @@ struct PanelResourceList: View {
         title: String,
         meta: String? = nil,
         value: String,
+        chevron: String? = nil,
         @ViewBuilder viz: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            labelRow(title: title, meta: meta, level: level(resource))
+            labelRow(title: title, meta: meta, level: level(resource), chevron: chevron)
             Text(value)
                 .font(.system(size: 22, weight: .semibold).monospacedDigit())
                 .foregroundColor(.primary)
@@ -157,7 +209,11 @@ struct PanelResourceList: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.vertical, 9)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(focusedResource == resource ? 0.10 : 0)).padding(.horizontal, -6))
+        .background(
+            RoundedRectangle(cornerRadius: 7)
+                .fill(Color.accentColor.opacity(focusedResource == resource ? 0.10 : 0))
+                .padding(.horizontal, -6)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue([value, meta, level(resource).spokenName].compactMap { $0 }.joined(separator: ", "))
@@ -173,8 +229,9 @@ struct PanelResourceList: View {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(palette.secondaryText)
-            // Color is never the only cue: a raised level is also said in words.
-            if let name = level.spokenName {
+            // Only critical is said in words on screen; elevated stays color-only
+            // (VoiceOver still hears it via spokenName, see ResourceLevel).
+            if let name = level.visibleName {
                 Text(name)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(level == .critical ? palette.hot : palette.warmInk)
@@ -202,11 +259,8 @@ struct PanelResourceList: View {
         let summary: Text = {
             let total = Text(fanBarFormat("共 %@", "%@ total", wholeGigabytes(diskTotalBytes)))
             switch level {
-            case .normal:
+            case .normal, .elevated:
                 return total
-            case .elevated:
-                return Text(fanBarText("空间偏低", "Space low")).fontWeight(.semibold).foregroundColor(palette.warmInk)
-                    + Text(" · ") + total
             case .critical:
                 return Text(fanBarText("空间不足", "Almost full")).fontWeight(.semibold).foregroundColor(palette.hot)
                     + Text(" · ") + total
@@ -234,13 +288,15 @@ struct PanelResourceList: View {
                     CapacityBar(fraction: diskFraction, color: level.color(palette),
                                 palette: palette)
                         .frame(height: 6)
+                        .frame(height: Self.vizHeight, alignment: .bottom)
                     summary
                         .font(.system(size: 11).monospacedDigit())
                         .foregroundColor(palette.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                        .frame(height: Self.captionHeight, alignment: .leading)
                 }
-                .padding(.top, 6)
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.vertical, 9)
@@ -347,7 +403,8 @@ struct PanelResourceList: View {
                     HStack(spacing: 8) {
                         (Text(disk.name).fontWeight(.medium).foregroundColor(.primary)
                             + Text(disk.isInternal ? "" : fanBarText(" · 外置", " · External"))
-                            .foregroundColor(palette.tertiaryText))
+                            .foregroundColor(palette.tertiaryText)
+                            + ssdTemperatureText(for: disk))
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 4)
@@ -367,6 +424,18 @@ struct PanelResourceList: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The SSD sensor only describes the internal drive, so only the startup disk shows it.
+    /// Quiet when normal; takes the SSD warm/hot colors only once it nears its limits.
+    private func ssdTemperatureText(for disk: DiskVolumeUsage) -> Text {
+        guard disk.id == "/", disk.isInternal, let celsius = thermal?.ssdCelsius else { return Text("") }
+        let color: Color = switch ThermalLevel(celsius: celsius, part: .ssd) {
+        case .normal: palette.tertiaryText
+        case .warm: palette.warmInk
+        case .hot: palette.hot
+        }
+        return Text(String(format: " · %.0f°C", celsius)).foregroundColor(color)
     }
 
     private func percent(_ fraction: Double?) -> String {
@@ -456,6 +525,13 @@ enum ResourceLevel: Equatable {
         case .critical: fanBarText("空间不足", "Almost full")
         }
     }
+
+    /// On screen, only the critical tier gets a word — elevated is advisory, not
+    /// actionable, so color + the percentage already in view is enough and a label
+    /// would just read as alarm. VoiceOver still gets `spokenName` at both tiers.
+    var visibleName: String? {
+        self == .critical ? spokenName : nil
+    }
 }
 
 // MARK: - Visualizations
@@ -514,9 +590,15 @@ private struct CapacityBar: View {
     }
 }
 
-/// Per-core load bars in performance and efficiency groups, each labelled under its own bars.
+/// Per-core load bars in performance and efficiency groups, labelled under their own bars.
 /// Every bar takes the overall CPU color: efficiency cores often run full, which is not an alarm.
-private struct CoreGroups: View {
+/// A group's bars can be narrower than its label (4 P-cores beside 6 E-cores, or 2 E-cores
+/// beside 8 P-cores), so the labels share one row instead of each column's width: the first
+/// starts at the leading edge and the last ends at the trailing edge, under its own bars.
+struct CoreGroups: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     let fractions: [Double]
     let kinds: [CPUCoreKind]
     let coreCount: Int?
@@ -525,14 +607,15 @@ private struct CoreGroups: View {
     let palette: PanelPalette
 
     private static let groupGap: CGFloat = 6
+    static let labelFontSize: CGFloat = 11
 
-    private struct CoreGroup: Identifiable {
+    struct CoreGroup: Identifiable {
         var id: String { title }
         var title: String
         var loads: [Double]
     }
 
-    private var groups: [CoreGroup] {
+    var groups: [CoreGroup] {
         let placeholderCount = coreCount ?? (kinds.isEmpty ? ProcessInfo.processInfo.activeProcessorCount : kinds.count)
         let loads = fractions.isEmpty ? Array(repeating: 0, count: placeholderCount) : fractions
         guard kinds.count == loads.count, Set(kinds.map { $0 == .performance }).count > 1 else {
@@ -541,8 +624,8 @@ private struct CoreGroups: View {
         let performance = zip(kinds, loads).filter { $0.0 == .performance }.map(\.1)
         let efficiency = zip(kinds, loads).filter { $0.0 == .efficiency }.map(\.1)
         return [
-            CoreGroup(title: fanBarFormat("性能核 ×%d", "Performance ×%d", performance.count), loads: performance),
-            CoreGroup(title: fanBarFormat("能效核 ×%d", "Efficiency ×%d", efficiency.count), loads: efficiency)
+            CoreGroup(title: fanBarFormat("性能核 ×%d", "P-cores ×%d", performance.count), loads: performance),
+            CoreGroup(title: fanBarFormat("能效核 ×%d", "E-cores ×%d", efficiency.count), loads: efficiency)
         ]
     }
 
@@ -551,11 +634,11 @@ private struct CoreGroups: View {
         let total = max(groups.reduce(0) { $0 + $1.loads.count }, 1)
         // Mac Pro and Ultra chips have 24+ cores; tighter gaps keep each bar readable.
         let barSpacing: CGFloat = total > 16 ? 1 : 2
-        GeometryReader { proxy in
-            let available = proxy.size.width - CGFloat(groups.count - 1) * Self.groupGap
-            HStack(alignment: .top, spacing: Self.groupGap) {
-                ForEach(groups) { group in
-                    VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { proxy in
+                let available = proxy.size.width - CGFloat(groups.count - 1) * Self.groupGap
+                HStack(alignment: .top, spacing: Self.groupGap) {
+                    ForEach(groups) { group in
                         HStack(spacing: barSpacing) {
                             ForEach(Array(group.loads.enumerated()), id: \.offset) { _, load in
                                 ZStack(alignment: .bottom) {
@@ -567,19 +650,25 @@ private struct CoreGroups: View {
                                 .frame(height: barHeight)
                             }
                         }
-                        Text(group.title)
-                            .font(.system(size: 11))
-                            .foregroundColor(palette.secondaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                        .frame(width: available * CGFloat(group.loads.count) / CGFloat(total))
                     }
-                    .frame(width: available * CGFloat(group.loads.count) / CGFloat(total), alignment: .leading)
                 }
             }
+            .frame(height: barHeight)
+            HStack(spacing: Self.groupGap) {
+                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                    if index > 0 { Spacer(minLength: 0) }
+                    Text(group.title)
+                        .font(.system(size: Self.labelFontSize))
+                        .foregroundColor(palette.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+            .frame(height: 14)
         }
-        .frame(height: barHeight + 6 + 14)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fanBarText("每核 CPU 使用率", "CPU usage per core"))
         .accessibilityValue(fractions.map { "\(Int(($0 * 100).rounded()))%" }.joined(separator: ", "))
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 }

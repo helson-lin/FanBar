@@ -8,13 +8,14 @@ import AppKit
 /// even when the fans are stopped, and a failed switch flashes it via
 /// `flashFailure()`.
 ///
-/// Every frame swap makes AppKit re-snapshot the status item for each
-/// display's menu bar, so frames are quantized and only swapped on change.
-/// Swaps dominate the cost: on a Mac mini M4 with two displays, a 30 Hz
-/// timer and 15° frames cost about 6% CPU while spinning, a 10 Hz timer and
-/// 30° frames about 3%, against 1.6% with the icon still. Rotating a layer
-/// with Core Animation is nearly free but only animates the main display's
-/// menu bar; the others keep a still snapshot.
+/// On Apple silicon the spin is a Core Animation rotation (`MenuBarIconRotor`):
+/// nearly free, but only the menu bar hosting the live item turns. Elsewhere,
+/// and for the failure blink, frames are swapped on the button instead. Every
+/// swap makes AppKit re-snapshot the status item for each display's menu bar,
+/// roughly 0.85% of a core per frame per second on a Mac mini M4 with two
+/// displays, so frames are quantized, only swapped on change, and capped at
+/// `maximumFramesPerSecond`. Uncapped, a 3,000 RPM fan swapped about 7 frames
+/// a second and cost 10% CPU.
 ///
 /// The status item is pure AppKit (macOS 11 target), so SF Symbol effects are
 /// unavailable; rotation is produced by pre-rendering quantized frames of the
@@ -45,6 +46,7 @@ final class MenuBarIconAnimator {
     private var blinkRemaining = 0
     private var frameCache: [String: NSImage] = [:]
     private var lastRPM = 0.0
+    private var lastDelta = 0.0
     private var burstEndsAt = Date.distantPast
 
     /// How long a switch burst spins before coasting to rest when the fans
@@ -54,7 +56,12 @@ final class MenuBarIconAnimator {
     /// when the fans are slow or stopped.
     private static let minimumBurstVelocity = 0.18 * 360
 
-    private let frameQuantum = 30.0 // 12 cached frames per full turn
+    /// 12 cached frames per full turn. Keep it under half the smallest blade
+    /// spacing (60° for six blades), or a turn can read as running backwards.
+    static let frameQuantum = 30.0
+    /// The icon turns at most this many frames a second, 120° a second at 30°
+    /// frames, reached near 1,670 RPM; faster fans look no faster and cost no more.
+    static let maximumFramesPerSecond = 4.0
     private let blinkInterval = 0.12
     /// Degrees per second squared used when the fans stop, so the icon slows
     /// down like a rotor spinning down instead of freezing in place.
@@ -67,6 +74,9 @@ final class MenuBarIconAnimator {
     }
 
     private let reduceMotionSetting: () -> Bool
+    /// Nil where the rotor cannot hide the still icon (Intel) and in tests
+    /// that count frame swaps.
+    private let rotor: MenuBarIconRotor?
 
     private var reduceMotion: Bool {
         reduceMotionSetting()
@@ -74,8 +84,12 @@ final class MenuBarIconAnimator {
 
     /// `reduceMotion` reads the system setting; tests pass a fixed value so
     /// the host's accessibility settings cannot skip them.
-    init(reduceMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }) {
+    init(
+        reduceMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+        rotor: MenuBarIconRotor? = MenuBarIconRotor.isSupported ? MenuBarIconRotor() : nil
+    ) {
         reduceMotionSetting = reduceMotion
+        self.rotor = rotor
     }
 
     /// Follows the live fan reading: spins while the fans run, coasts to a
@@ -97,7 +111,7 @@ final class MenuBarIconAnimator {
 
         // Running fans keep the icon spinning (and revive a coast) for as long
         // as they run. Stopped fans let `tick` coast once any burst has ended.
-        let target = Self.perceptualVelocity(forRPM: rpm)
+        let target = Self.perceptualVelocity(forRPM: rpm, capped: rotor == nil)
         guard target > 0, phase != .blinking else { return }
         targetVelocity = target
         if phase == .idle {
@@ -111,7 +125,7 @@ final class MenuBarIconAnimator {
     /// Spins briefly to acknowledge a mode switch, then coasts to rest.
     func playSwitchBurst() {
         guard !reduceMotion, button != nil else { return }
-        startBurst(velocity: max(Self.perceptualVelocity(forRPM: lastRPM), Self.minimumBurstVelocity))
+        startBurst(velocity: max(Self.perceptualVelocity(forRPM: lastRPM, capped: rotor == nil), Self.minimumBurstVelocity))
     }
 
     /// Starts or extends a burst. A running blink keeps the icon until it ends.
@@ -131,6 +145,8 @@ final class MenuBarIconAnimator {
     /// that matches the live fan readings.
     func flashFailure() {
         guard !reduceMotion else { return }
+        // The blink dims the icon on every menu bar, so it swaps frames.
+        rotor?.detach()
         phase = .blinking
         blinkAccumulator = 0
         blinkRemaining = 4 // two dim/bright cycles
@@ -144,6 +160,7 @@ final class MenuBarIconAnimator {
         phase = .idle
         timer?.invalidate()
         timer = nil
+        rotor?.detach()
         onFinish?()
     }
 
@@ -166,6 +183,7 @@ final class MenuBarIconAnimator {
         // the bound sits above the 10 Hz tick so on-time frames are not slowed.
         let delta = min(max(now.timeIntervalSince(lastTick), 0), 0.25)
         lastTick = now
+        lastDelta = delta
 
         switch phase {
         case .idle:
@@ -175,21 +193,19 @@ final class MenuBarIconAnimator {
                 stop()
                 return
             }
-            if now >= burstEndsAt, Self.perceptualVelocity(forRPM: lastRPM) <= 0 {
+            if now >= burstEndsAt, Self.perceptualVelocity(forRPM: lastRPM, capped: false) <= 0 {
                 phase = .coasting
             }
             let smoothing = min(delta * velocitySmoothing, 1)
             angularVelocity += (targetVelocity - angularVelocity) * smoothing
-            angle = (angle + angularVelocity * delta).truncatingRemainder(dividingBy: 360)
-            show(frame(at: angle, alpha: 1), on: button)
+            spin(on: button)
         case .coasting:
             angularVelocity = max(angularVelocity - spinDownDeceleration * delta, 0)
             guard angularVelocity > 0 else {
                 stop()
                 return
             }
-            angle = (angle + angularVelocity * delta).truncatingRemainder(dividingBy: 360)
-            show(frame(at: angle, alpha: 1), on: button)
+            spin(on: button)
         case .blinking:
             blinkAccumulator += delta
             guard blinkAccumulator >= blinkInterval else { return }
@@ -204,6 +220,21 @@ final class MenuBarIconAnimator {
         }
     }
 
+    /// Turns the icon at `angularVelocity`: the rotor when there is one, else
+    /// the next quantized frame. The rotor keeps the button's still icon, which
+    /// is what the other displays' menu bars show.
+    private func spin(on button: NSButton) {
+        if let rotor, let cell = button.cell as? NSButtonCell {
+            let still = frame(at: 0, alpha: 1)
+            show(still, on: button)
+            rotor.show(still, in: cell.imageRect(forBounds: button.bounds), on: button)
+            rotor.setTurnsPerSecond(angularVelocity / 360)
+            return
+        }
+        angle = (angle + angularVelocity * lastDelta).truncatingRemainder(dividingBy: 360)
+        show(frame(at: angle, alpha: 1), on: button)
+    }
+
     /// Frames are quantized, so most ticks resolve to the image already shown.
     /// Every assignment makes AppKit re-snapshot the status item for each
     /// menu bar replicant, so only swap when the frame actually changes.
@@ -212,12 +243,14 @@ final class MenuBarIconAnimator {
         button.image = image
     }
 
-    /// Real fan RPM is too fast to render directly without aliasing. Reuses
-    /// the perceptual scale from FanRotorView so the menu bar and the panel
-    /// rotor feel like the same machine.
-    private static func perceptualVelocity(forRPM rpm: Double) -> Double {
+    /// Real fan RPM is too fast to render directly without aliasing, so the
+    /// icon turns on a perceptual scale: degrees per second, clamped so idle
+    /// fans still visibly turn and fast ones never strobe. Swapped frames are
+    /// also `capped` at their frame rate; the rotor is not.
+    static func perceptualVelocity(forRPM rpm: Double, capped: Bool) -> Double {
         guard rpm > 1 else { return 0 }
-        return min(max(rpm / 5_000, 0.18), 1.15) * 360
+        let velocity = min(max(rpm / 5_000, 0.18), 1.15) * 360
+        return capped ? min(velocity, frameQuantum * maximumFramesPerSecond) : velocity
     }
 
     /// Returns the un-rotated, full-opacity icon image — intended for the
@@ -231,8 +264,12 @@ final class MenuBarIconAnimator {
 
     /// Returns a cached template frame for the quantized angle and alpha.
     private func frame(at angle: Double, alpha: CGFloat) -> NSImage {
-        let quantized = (angle / frameQuantum).rounded() * frameQuantum
-        let key = "\(Int(quantized))-\(Int(alpha * 100))"
+        // 360° and 0° are the same picture; wrapping the index keeps a full
+        // turn from costing one extra, invisible frame swap.
+        let framesPerTurn = Int(360 / Self.frameQuantum)
+        let index = Int((angle / Self.frameQuantum).rounded()) % framesPerTurn
+        let quantized = Double(index) * Self.frameQuantum
+        let key = "\(index)-\(Int(alpha * 100))"
         if let cached = frameCache[key] { return cached }
         let rendered = style.image(isManual: isManual, degrees: quantized, alpha: alpha)
         frameCache[key] = rendered

@@ -1,3 +1,2 @@
-# Local development only. Generate random values; never reuse them in production.
+# Local development only. Generate a random value; never reuse it in production.
 LIMIT_SALT=replace-with-a-random-local-secret
-ADMIN_TOKEN=replace-with-a-random-local-secret

@@ -81,12 +81,6 @@ extension FanCoolingPreset {
         }
     }
 
-    /// Peak of the factory curve (menu hint before live output is available).
-    var percentageText: String {
-        let peak = factoryCurve.peakFraction
-        return fanBarFormat("最高 %d%%", "Max %d%%", Int((peak * 100).rounded()))
-    }
-
     var systemImage: String {
         switch self {
         case .silent: "speaker.slash.fill"

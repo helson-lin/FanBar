@@ -4,6 +4,8 @@ struct CompatibilityControlHistory: Codable {
     let device: CompatibilityDevice
     let manual: CompatibilityControlEvidence
     let curve: CompatibilityControlEvidence
+    var manualFailure: CompatibilityControlFailure?
+    var curveFailure: CompatibilityControlFailure?
     let recordedAt: Date
 }
 
@@ -25,6 +27,8 @@ struct CompatibilityControlHistoryStore {
     static func recover(from receipts: [CompatibilitySavedReceipt], for device: CompatibilityDevice) -> CompatibilityControlHistory? {
         var manual: CompatibilityControlEvidence = .unverified
         var curve: CompatibilityControlEvidence = .unverified
+        var manualFailure: CompatibilityControlFailure?
+        var curveFailure: CompatibilityControlFailure?
         var recordedAt: Date?
         for receipt in receipts.sorted(by: { $0.createdAt > $1.createdAt }) {
             guard let report = try? JSONDecoder().decode(CompatibilityReport.self, from: receipt.reportData),
@@ -34,17 +38,20 @@ struct CompatibilityControlHistoryStore {
                     evidence != .unverified else { continue }
                 if result.capability == .manualControl, manual == .unverified {
                     manual = evidence
+                    manualFailure = result.failure
                     recordedAt = recordedAt ?? receipt.createdAt
                 }
                 if result.capability == .smartCooling, curve == .unverified {
                     curve = evidence
+                    curveFailure = result.failure
                     recordedAt = recordedAt ?? receipt.createdAt
                 }
             }
             if manual != .unverified, curve != .unverified { break }
         }
         guard let recordedAt else { return nil }
-        return CompatibilityControlHistory(device: device, manual: manual, curve: curve, recordedAt: recordedAt)
+        return CompatibilityControlHistory(device: device, manual: manual, curve: curve,
+            manualFailure: manualFailure, curveFailure: curveFailure, recordedAt: recordedAt)
     }
 
     func needsRecovery(for device: CompatibilityDevice) -> Bool {

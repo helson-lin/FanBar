@@ -22,8 +22,11 @@ final class FanCurveSensorDisplayTests: XCTestCase {
 
     func testDescriptionNamesTheSelectedTemperatureSource() {
         let reading = ThermalReading(
-            sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 70, ssdCelsius: 40, cpuHottestCelsius: 99
+            sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 70, ssdCelsius: 40, batteryCelsius: 33.6,
+            cpuHottestCelsius: 99
         )
+        XCTAssertEqual(FanCurveSensor.battery.temperature(in: reading), 33.6)
+        XCTAssertEqual(FanCurveSensor.battery.controlDescription(for: reading), "Following Battery at 34°")
         XCTAssertEqual(FanCurveSensor.cpu.controlDescription(for: reading), "Following CPU average at 55°")
         XCTAssertEqual(FanCurveSensor.gpu.controlDescription(for: reading), "Following GPU at 70°")
         XCTAssertEqual(FanCurveSensor.ssd.controlDescription(for: reading), "Following SSD at 40°")
@@ -36,6 +39,8 @@ final class FanCurveSensorDisplayTests: XCTestCase {
         XCTAssertEqual(FanCurveSensor.gpu.controlDescription(for: reading), "Following CPU (GPU unavailable) at 55°")
         XCTAssertNil(FanCurveSensor.ssd.temperature(in: reading))
         XCTAssertEqual(FanCurveSensor.ssd.controlDescription(for: reading), "Following SSD at —")
+        XCTAssertNil(FanCurveSensor.battery.temperature(in: reading))
+        XCTAssertEqual(FanCurveSensor.battery.controlDescription(for: reading), "Following Battery at —")
     }
 
     @MainActor
@@ -79,5 +84,28 @@ final class FanCurveSensorDisplayTests: XCTestCase {
             FanMenu.modeDescription(for: .fixed(3500), sensor: .ssd, reading: reading, fanCount: 2),
             "Fans hold the same speed"
         )
+    }
+
+    func testBatteryIsOfferedOnlyWhenThisMacHasOne() {
+        // `installed` mirrors ThermalReading.hasBuiltInBattery, where nil means unknown.
+        // swiftlint:disable:next discouraged_optional_boolean
+        func reading(battery: Double?, installed: Bool?) -> ThermalReading {
+            ThermalReading(sampledAt: Date(), cpuCelsius: 55, gpuCelsius: 60, ssdCelsius: 40,
+                           batteryCelsius: battery, hasBuiltInBattery: installed)
+        }
+        let withoutBattery: [FanCurveSensor] = [.maxChip, .cpu, .gpu, .ssd]
+        // Desktop Macs have no battery service at all, so the flag is unknown rather than false.
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: nil), current: .maxChip),
+                       withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: false), current: .cpu),
+                       withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: nil, current: .maxChip), withoutBattery)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: true), current: .maxChip),
+                       FanCurveSensor.allCases)
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: 31, installed: nil), current: .maxChip),
+                       FanCurveSensor.allCases)
+        // A profile that already follows the battery keeps it selectable.
+        XCTAssertEqual(FanCurveSensor.selectable(reading: reading(battery: nil, installed: nil), current: .battery),
+                       FanCurveSensor.allCases)
     }
 }

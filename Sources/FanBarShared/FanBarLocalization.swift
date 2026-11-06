@@ -73,8 +73,16 @@ public enum FanBarLanguage: String, CaseIterable, Identifiable, Codable, Sendabl
     }
 
     public var isEnglish: Bool { self == .english }
+
+    public var locale: Locale {
+        let language = self == .system ? Self.current : self
+        return Locale(identifier: language.localizationIdentifier)
+    }
 }
 
+/// Reads the current preference at lookup time. SwiftUI callers must also
+/// observe `FanBarLanguage.preferenceKey` with AppStorage and read it in body;
+/// a parent's redraw alone does not invalidate an unchanged child view.
 @inline(__always)
 public func fanBarText(_ chinese: String, _ english: String) -> String {
     localized(chinese, english, for: FanBarLanguage.current)

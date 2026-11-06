@@ -1,6 +1,7 @@
-@source "../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 @import "@cloudflare/kumo/styles";
 @import "tailwindcss";
+
+@source "../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
 /*
  * FanBar theme: components stay stock Kumo; only the semantic token values change.
@@ -8,12 +9,12 @@
  */
 [data-theme="fanbar"] {
   --color-kumo-canvas: light-dark(#f7f7f8, #08090a);
-  --color-kumo-base: light-dark(#ffffff, #111214);
+  --color-kumo-base: light-dark(#fff, #111214);
   --color-kumo-elevated: light-dark(#fafafa, #141518);
   --color-kumo-recessed: light-dark(#f2f2f4, #0c0d0f);
   --color-kumo-tint: light-dark(#f4f4f6, #18191c);
-  --color-kumo-overlay: light-dark(#ffffff, #18191c);
-  --color-kumo-control: light-dark(#ffffff, #141518);
+  --color-kumo-overlay: light-dark(#fff, #18191c);
+  --color-kumo-control: light-dark(#fff, #141518);
   --color-kumo-fill: light-dark(#ebebee, #222327);
   --color-kumo-fill-hover: light-dark(#f3f3f5, #26282c);
   --color-kumo-interact: light-dark(#d6d7dc, #34363b);
@@ -31,9 +32,8 @@
   --color-kumo-success-tint: light-dark(#e9f6ef, #10241a);
   --color-kumo-warning-tint: light-dark(#fdf6e6, #2a2410);
   --color-kumo-danger-tint: light-dark(#fdeeec, #2c1414);
-
   --text-color-kumo-default: light-dark(#1b1c1f, #f7f8f8);
-  --text-color-kumo-strong: light-dark(#0f1012, #ffffff);
+  --text-color-kumo-strong: light-dark(#0f1012, #fff);
   --text-color-kumo-subtle: light-dark(#5f636b, #a1a6af);
   --text-color-kumo-placeholder: light-dark(#8a8e96, #6c7078);
   --text-color-kumo-link: light-dark(#5e6ad2, #8f8cff);
@@ -47,6 +47,13 @@
 @theme {
   --color-fanbar-mixed: light-dark(#b23f8b, #e872c0);
   --color-fanbar-mixed-tint: light-dark(#fbeef6, #2a1424);
+
+  /* Update statistics: one indigo ramp for versions, darkest for the newest; grey for the rest. */
+  --color-fanbar-v1: light-dark(#5e6ad2, #7c86e6);
+  --color-fanbar-v2: light-dark(#8f97e0, #5a63b8);
+  --color-fanbar-v3: light-dark(#bcc1ee, #3f4690);
+  --color-fanbar-v4: light-dark(#dcdff7, #2d3266);
+  --color-fanbar-v-other: light-dark(#cfd1d6, #3a3c42);
 }
 
 /*

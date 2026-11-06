@@ -149,6 +149,60 @@
           "userConfirmedWorking": {
             "type": "boolean",
             "const": true
+          },
+          "failure": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "SMC_CONNECTION_FAILED",
+                  "SMC_OPERATION_FAILED",
+                  "SMC_INVALID_VALUE",
+                  "UNLOCK_TIMEOUT",
+                  "MODE_KEY_MISSING",
+                  "INVALID_REQUEST",
+                  "HELPER_TIMEOUT",
+                  "HELPER_CONNECTION_FAILED",
+                  "READBACK_NOT_MANUAL",
+                  "HELPER_ERROR_UNCLASSIFIED"
+                ]
+              },
+              "smcKey": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9! ]{4}$"
+              },
+              "resultCode": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              },
+              "fanIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              "durationMS": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 600000
+              },
+              "readbackManual": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "boolean"
+                }
+              },
+              "restoredAutomatic": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

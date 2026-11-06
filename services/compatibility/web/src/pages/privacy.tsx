@@ -24,7 +24,7 @@ function PrivacyPage() {
         links={[{ href: '/report-schema.json', label: '完整字段' }, { href: '/withdraw.html', label: '撤回报告' }]}
       />
       <Page width="prose">
-        <p className="mb-2 font-mono text-xs tracking-wide text-kumo-subtle">POLICY / 2026-10-13</p>
+        <p className="mb-2 font-mono text-xs tracking-wide text-kumo-subtle">POLICY / 2026-10-21</p>
         <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">{t('你能检查我们收集的每个字段。')}</h1>
         <div className="mt-4">
           <P>{t('本机检测不需要上报。只有你预览并确认提交时，报告才会发送到当前 FanBar 报告服务。服务由 FanBar 项目维护者运营，使用 Cloudflare Workers 与 D1。')}</P>
@@ -36,6 +36,7 @@ function PrivacyPage() {
             <li>{t('硬件接口报告的风扇数量（如可获取）、所选温度来源。')}</li>
             <li>{t('七项能力状态与标准原因码、每次报告随机生成的编号。')}</li>
             <li>{t('可选的手动调速、智能温控本机实测确认，由用户主动勾选；不替代自动检测或开发者验证。')}</li>
+            <li>{t('控制请求失败时附带固定失败码和有限的数值证据：SMC 键名、返回码、风扇序号、耗时、回读是否为手动模式、是否已恢复系统控制。不上传错误描述文本。')}</li>
             <li>{t('你是否同意公开单份报告、确认的规则版本。服务器记录接收时间、到期时间和审核状态。')}</li>
           </ul>
           <P>
@@ -62,7 +63,7 @@ function PrivacyPage() {
 
         <Section title="网络元数据与安全">
           <P>{t('Cloudflare 为传输和保护服务会处理网络地址等元数据。应用数据库不保存原始 IP；服务只将带密钥且每日变化的网络地址摘要送入短期限流计数器，不用于设备追踪。服务日志不记录报告内容、撤回凭证、请求 URL 或网络地址。Cloudflare 自身的基础设施处理不等于不存在。')}</P>
-          <P>{t('管理员接口要求独立访问密钥，或验证已配置的 Cloudflare Access 身份。管理密钥仅保存在后台页面内存中，刷新后需重新输入。撤回凭证每份报告独立生成，通过请求头发送；数据库只存其 SHA-256 哈希。凭证不进入公开数据或网址。所有生产请求使用 HTTPS。')}</P>
+          <P>{t('管理员接口只能通过 Cloudflare Access 进入，服务端会验证 Access 身份；没有管理密钥。撤回凭证每份报告独立生成，通过请求头发送；数据库只存其 SHA-256 哈希。凭证不进入公开数据或网址。所有生产请求使用 HTTPS。')}</P>
         </Section>
 
         <Section title="保存多久，如何删除">
@@ -77,10 +78,10 @@ function PrivacyPage() {
 
         <Section title="源码与变更">
           <P>
-            {t('规则版本为 2026-10-13。规则变化后，旧确认不能直接用于新提交。')}
+            {t('规则版本为 2026-10-21，新增控制失败证据。FanBar 0.7.0 及更早版本仍按 2026-10-13 规则提交，不包含这些字段。规则变化后，旧确认不能直接用于新提交。')}
             <TextLink href={source} label="服务端源码" />
             {t('与')}
-            <TextLink href="/api/policy" label="机器可读处理规则" />
+            <TextLink href="/api/policy?version=2026-10-21" label="机器可读处理规则" />
             {t('公开；问题可在')}
             <TextLink href="https://github.com/helson-lin/FanBar/issues" label="FanBar 仓库" />
             {t('反馈，请勿在公开反馈中填写撤回凭证。')}

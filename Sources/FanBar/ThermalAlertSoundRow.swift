@@ -4,6 +4,9 @@ import SwiftUI
 /// Mirrors the system alert-sound picker: choosing a sound plays it, and
 /// the speaker button replays it without reopening the menu.
 struct ThermalAlertSoundRow: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
 
     var body: some View {
@@ -39,10 +42,12 @@ struct ThermalAlertSoundRow: View {
                 }
             }
             .labelsHidden()
+            .id(languageRawValue)
             .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
         .disabled(!controller.highTemperatureNotificationsEnabled)
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 }

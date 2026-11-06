@@ -3,7 +3,7 @@
 /// ServiceContractTests fails when either side changes alone.
 public enum ServiceContract {
     public enum Compatibility {
-        public static let policyVersion = "2026-10-13"
+        public static let policyVersion = "2026-10-21"
         public static let retentionDays = 90
         public static let maximumReportBytes = 16384
     }

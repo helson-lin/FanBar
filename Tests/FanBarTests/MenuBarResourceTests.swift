@@ -19,6 +19,14 @@ final class MenuBarResourceTests: XCTestCase {
         XCTAssertNotEqual(MenuBarResource.cpu.stylePreferenceKey, MenuBarResource.gpu.stylePreferenceKey)
     }
 
+    func testFocusedResourceAppearsWithoutChangingConfiguredModules() {
+        let configured: [PanelMonitorModule] = [.cpu, .disk]
+        XCTAssertEqual(PanelMonitorPreferences.presentedModules(configured, focusing: .gpu), [.cpu, .disk, .gpu])
+        XCTAssertEqual(PanelMonitorPreferences.presentedModules(configured, focusing: .cpu), configured)
+        XCTAssertEqual(PanelMonitorPreferences.presentedModules([], focusing: .memory), [.memory])
+        XCTAssertEqual(configured, [.cpu, .disk])
+    }
+
     func testPercentagesRoundAndStayWithinDisplayRange() {
         var usage = SystemUsage()
         usage.cpuFraction = 0.246

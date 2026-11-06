@@ -7,6 +7,7 @@ import SwiftUI
 final class CompatibilityWindowPresenter: NSObject, NSWindowDelegate {
     static let shared = CompatibilityWindowPresenter()
     private var windowController: NSWindowController?
+    private var localizedTitle: LocalizedWindowTitle?
     private var hostingView: NSHostingView<DeviceCompatibilityView>?
     private weak var controller: FanController?
 
@@ -47,6 +48,7 @@ final class CompatibilityWindowPresenter: NSObject, NSWindowDelegate {
             window.isRestorable = false
             window.delegate = self
             windowController = NSWindowController(window: window)
+            localizedTitle = LocalizedWindowTitle(window: window, chinese: "设备兼容性", english: "Device Compatibility")
             window.setFrameOrigin(NSPoint(x: visible.midX - window.frame.width / 2, y: visible.midY - window.frame.height / 2))
         }
         window.title = fanBarText("设备兼容性", "Device Compatibility")
@@ -63,6 +65,7 @@ final class CompatibilityWindowPresenter: NSObject, NSWindowDelegate {
         controller?.cancelCompatibilityControlTest()
         hostingView = nil
         windowController = nil
+        localizedTitle = nil
         controller = nil
     }
 

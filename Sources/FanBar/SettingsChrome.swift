@@ -93,16 +93,6 @@ enum SettingsChrome {
             .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
     }
 
-    /// Standard leading-aligned content row padding.
-    static func rowPadding<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        content()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, rowHorizontalPadding)
-            .padding(.vertical, rowVerticalPadding)
-    }
-
     /// Request the settings window to re-fit after disclosure or content height changes.
     @MainActor
     static func requestWindowRefit() {

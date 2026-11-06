@@ -4,6 +4,9 @@ import SwiftUI
 
 /// Keeps the current icon visible; alternative appearances live in a native popover.
 struct AppIconPickerRow: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @AppStorage(AppIconChoice.preferenceKey)
     private var selectedRawValue = AppIconChoice.classic.rawValue
     @State private var isShowingPicker = false
@@ -22,6 +25,7 @@ struct AppIconPickerRow: View {
         }
         .settingsRow()
         .onDisappear { isShowingPicker = false }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private var iconButton: some View {
@@ -59,6 +63,9 @@ private enum AppIconPickerLayout {
 }
 
 private struct AppIconPicker: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     let selection: AppIconChoice
     let onSelect: (AppIconChoice) -> Void
 
@@ -76,6 +83,7 @@ private struct AppIconPicker: View {
         .padding(AppIconPickerLayout.padding)
         .fixedSize()
         .accessibilityElement(children: .contain)
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func iconGroup(title: String, choices: [AppIconChoice]) -> some View {
@@ -121,6 +129,9 @@ private struct AppIconPreview: View {
 
 /// Selection is named by VoiceOver and a checkmark as well as the accent outline.
 private struct AppIconOption: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     let choice: AppIconChoice
     let isSelected: Bool
     let onSelect: () -> Void
@@ -163,5 +174,6 @@ private struct AppIconOption: View {
         .buttonStyle(.plain)
         .accessibilityLabel(choice.title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 }

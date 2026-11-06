@@ -6,6 +6,9 @@ import SwiftUI
 
 @MainActor
 struct DiagnosticUploadView: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @Environment(\.presentationMode) private var presentationMode
     @StateObject private var model: DiagnosticUploadCoordinator
     @State private var preparationTask: Task<Void, Never>?
@@ -129,6 +132,7 @@ struct DiagnosticUploadView: View {
             preparationTask?.cancel()
             preparationTask = nil
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     private func export() {

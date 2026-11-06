@@ -7,6 +7,9 @@ import SwiftUI
 /// Smart-cooling editor: one card with the curve, an inspector for the
 /// selected control point, and behavior tuning behind a disclosure.
 struct FanCurveEditorView: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @ObservedObject var controller: FanController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
@@ -92,6 +95,7 @@ struct FanCurveEditorView: View {
         .onChange(of: showAdvanced) { _ in
             SettingsChrome.requestWindowRefit()
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     // MARK: - Header
@@ -116,11 +120,15 @@ struct FanCurveEditorView: View {
                     set: { controller.setCurveSensor($0) }
                 )
             ) {
-                ForEach(FanCurveSensor.allCases) { sensor in
+                ForEach(FanCurveSensor.selectable(
+                    reading: controller.temperatureHistory.last,
+                    current: profile.sensor
+                )) { sensor in
                     Text(sensor.title).tag(sensor)
                 }
             }
             .labelsHidden()
+            .id(languageRawValue)
             .fixedSize()
 
             // Custom presets have no factory curve; their management actions
@@ -404,6 +412,9 @@ struct FanCurveEditorView: View {
 /// Interactive temperature → fraction chart. Drag control points to reshape
 /// the curve; pressing a point also selects it for the inspector.
 struct FanCurveCanvas: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     @Environment(\.colorScheme) private var colorScheme
     private var alertPalette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
     let profile: FanCurveProfile
@@ -599,6 +610,7 @@ struct FanCurveCanvas: View {
             "拖动控制点调整温度与转速；也可用下方步进器微调所选控制点",
             "Drag control points to set temperature and speed; use the steppers below for the selected point"
         ))
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     /// Vertical guide, dot and label for the live temperature and its output.

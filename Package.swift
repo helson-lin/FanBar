@@ -7,7 +7,10 @@ let package = Package(
     products: [
         .executable(name: "FanBar", targets: ["FanBar"]),
         .executable(name: "FanBarHelper", targets: ["FanBarHelper"]),
-        .executable(name: "FanBarDiagnostics", targets: ["FanBarDiagnostics"])
+        .executable(name: "FanBarDiagnostics", targets: ["FanBarDiagnostics"]),
+        // Shipped as FanBar.app/Contents/Helpers/fanbar. The product keeps a
+        // distinct name: `fanbar` and `FanBar` collide on case-insensitive volumes.
+        .executable(name: "FanBarCLI", targets: ["FanBarCLI"])
     ],
     dependencies: [
         // Pin release tooling and the embedded updater to the same audited build.
@@ -46,6 +49,7 @@ let package = Package(
             resources: [.process("Resources")]
         ),
         .executableTarget(name: "FanBarDiagnostics", dependencies: ["FanBarShared"], path: "Sources/FanBarDiagnostics"),
+        .executableTarget(name: "FanBarCLI", dependencies: ["FanBarShared"], path: "Sources/FanBarCLI"),
         .executableTarget(
             name: "FanBarWidget",
             dependencies: ["FanBarShared", "FanBarUI"],
@@ -55,6 +59,11 @@ let package = Package(
             name: "FanBarHelperTests",
             dependencies: ["FanBarHelper", "AppleSMC", "FanBarShared"],
             path: "Tests/FanBarHelperTests"
+        ),
+        .testTarget(
+            name: "FanBarCLITests",
+            dependencies: ["FanBarCLI", "FanBarShared"],
+            path: "Tests/FanBarCLITests"
         ),
         .testTarget(
             name: "FanBarTests",

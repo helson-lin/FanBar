@@ -26,5 +26,6 @@ jobs:
           cache-dependency-path: services/compatibility/package-lock.json
       - run: npm ci
       - run: npm run check
+      - run: npm run lint:css
       - run: npm test
       - run: npm run dry-run

@@ -1,5 +1,5 @@
 import { canonical, HttpError, json, reportToken, sameHash, sha256, withdrawalKey } from './http.ts';
-import { POLICY_VERSION, RETENTION_DAYS } from './policy.ts';
+import { ACCEPTED_POLICY_VERSIONS, POLICY_VERSION, RETENTION_DAYS } from './policy.ts';
 import { reportSchema, validEvidence } from './schema.ts';
 
 export interface ReportRow {
@@ -12,16 +12,21 @@ export async function findReport(env: Env, id: string): Promise<ReportRow | null
     .bind(id.toLowerCase(), new Date().toISOString()).first<ReportRow>();
 }
 export async function submitReport(request: Request, env: Env, body: unknown): Promise<Response> {
-  if (request.headers.get('X-FanBar-Policy-Version') !== POLICY_VERSION) throw new HttpError(409, 'POLICY_CHANGED');
+  const policyVersion = request.headers.get('X-FanBar-Policy-Version') ?? '';
+  if (!ACCEPTED_POLICY_VERSIONS.includes(policyVersion)) throw new HttpError(409, 'POLICY_CHANGED');
   const visibility = request.headers.get('X-FanBar-Publish-Report');
   if (visibility !== '0' && visibility !== '1') throw new HttpError(400, 'PUBLICATION_CHOICE_REQUIRED');
   const parsed = reportSchema.safeParse(body);
   if (!parsed.success || !validEvidence(parsed.data)) throw new HttpError(400, 'INVALID_REPORT');
+  // Failure details were not part of the rules a legacy-version submitter agreed to.
+  if (policyVersion !== POLICY_VERSION && parsed.data.capabilities.some(row => row.failure)) {
+    throw new HttpError(400, 'INVALID_REPORT');
+  }
   const payload = parsed.data;
   payload.reportID = payload.reportID.toLowerCase();
   const id = payload.reportID;
   const text = canonical(payload);
-  const hash = await sha256(canonical({ report: payload, publishReport: visibility === '1', policyVersion: POLICY_VERSION }));
+  const hash = await sha256(canonical({ report: payload, publishReport: visibility === '1', policyVersion }));
   const tokenHash = await sha256(reportToken(request));
   const now = new Date();
   const expiry = new Date(now.getTime() + RETENTION_DAYS * 86400000).toISOString();
@@ -34,7 +39,7 @@ export async function submitReport(request: Request, env: Env, body: unknown): P
     WHERE NOT EXISTS (SELECT 1 FROM withdrawals WHERE report_id_hash = ? AND expires_at > ?)
     ON CONFLICT(id) DO NOTHING`)
     .bind(id, text, hash, tokenHash, device.modelIdentifier, device.macOSVersion, device.appVersion,
-      device.helperVersion, visibility === '1' ? 1 : 0, POLICY_VERSION, now.toISOString(), expiry, idHash, now.toISOString()).run();
+      device.helperVersion, visibility === '1' ? 1 : 0, policyVersion, now.toISOString(), expiry, idHash, now.toISOString()).run();
   const row = await findReport(env, id);
   if (!row) throw new HttpError(409, 'REPORT_WITHDRAWN');
   if (!sameHash(row.deletion_token_hash, tokenHash) || !sameHash(row.payload_hash, hash)) {

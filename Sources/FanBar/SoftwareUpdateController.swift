@@ -11,10 +11,16 @@ final class SoftwareUpdateController {
 
     private init() {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
+            startingUpdater: false,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+    }
+
+    /// Only app launch starts background checks. Rendering Settings in a test
+    /// or preview must not start Sparkle against the test runner's bundle.
+    func start() {
+        updaterController.startUpdater()
     }
 
     var automaticallyChecksForUpdates: Bool {

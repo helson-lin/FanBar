@@ -1,0 +1,3 @@
+#!/bin/sh
+# Tracked hook entry point; scripts/install-git-hooks.sh points core.hooksPath here.
+exec "$(git rev-parse --show-toplevel)/scripts/pre-commit.sh" "$@"

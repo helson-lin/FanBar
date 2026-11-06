@@ -22,6 +22,20 @@ final class RuntimeDiagnosticsTests: XCTestCase {
         XCTAssertEqual(permissions, 0o600)
     }
 
+    func testServiceStatusSurvivesARunOfFailedWrites() {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("runtime.json")
+        let journal = RuntimeDiagnostics(url: url)
+        journal.record(.service, .status, .enabled)
+        // Issue 114: 110 failed curve writes pushed the one status event out of the ring.
+        for _ in 0..<300 {
+            journal.record(.control, .curve, .failed, code: 1)
+        }
+        let status = RuntimeDiagnostics(url: url).snapshot().last { $0.component == .service && $0.action == .status }
+        XCTAssertEqual(status?.outcome, .enabled)
+    }
+
     func testNormalShutdownIsNotReportedAsUnknownExitAndRequestIDsSurvive() {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

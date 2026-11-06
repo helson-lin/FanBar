@@ -113,7 +113,11 @@ final class CompatibilityReportService: CompatibilityReportServing {
     deinit { session.invalidateAndCancel() }
 
     func policy() async throws -> CompatibilityServicePolicy {
-        let data = try await perform(URLRequest(url: configuration.url(path: "api/policy")))
+        // Without a version the service answers with the rules older clients require.
+        var components = URLComponents(url: configuration.url(path: "api/policy"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "version", value: CompatibilityServicePolicy.supportedVersion)]
+        guard let url = components?.url else { throw CompatibilityServiceError.notConfigured }
+        let data = try await perform(URLRequest(url: url))
         let policy = try JSONDecoder().decode(CompatibilityServicePolicy.self, from: data)
         try policy.validate(for: configuration)
         return policy

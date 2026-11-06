@@ -51,7 +51,6 @@ final class SystemUsageReaderTests: XCTestCase {
         XCTAssertEqual(memory.cachedBytes, 2_500)
         XCTAssertEqual(memory.compressedBytes, 500)
         XCTAssertEqual(memory.usedBytes, 7_500)
-        XCTAssertEqual(memory.availableBytes, 12_500)
         XCTAssertEqual(memory.freeBytes, 10_000)
         XCTAssertEqual(SystemUsage(memory: memory).memoryFraction ?? -1, 0.375, accuracy: 1e-9)
     }

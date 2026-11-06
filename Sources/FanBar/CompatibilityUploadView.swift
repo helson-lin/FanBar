@@ -23,18 +23,25 @@ extension CompatibilityServiceError {
 }
 
 struct CompatibilityReportPreview: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     let data: Data
     private let preparesSubmission: Bool
     @Environment(\.presentationMode) private var presentationMode
     @StateObject private var upload: CompatibilityUploadCoordinator
-    @State private var saveError: String?
+    @State private var saveFailed = false
     @State private var consent = false
     @State private var publishReport = false
 
-    init(data: Data, preparesSubmission: Bool = false, coordinator: CompatibilityUploadCoordinator? = nil) {
+    init(
+        data: Data, preparesSubmission: Bool = false, coordinator: CompatibilityUploadCoordinator? = nil,
+        collectDiagnostic: (@MainActor () async -> DiagnosticReport)? = nil
+    ) {
         self.data = data
         self.preparesSubmission = preparesSubmission
-        _upload = StateObject(wrappedValue: coordinator ?? CompatibilityUploadCoordinator(data: data))
+        _upload = StateObject(wrappedValue: coordinator
+            ?? CompatibilityUploadCoordinator(data: data, collectDiagnostic: collectDiagnostic))
         _publishReport = State(initialValue: coordinator?.receipt?.publishReport ?? false)
     }
 
@@ -44,15 +51,20 @@ struct CompatibilityReportPreview: View {
                 .font(.headline).padding(.bottom, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    // swiftlint:disable line_length
                     Text(fanBarText(
-                        "仅包含机型、处理器、系统与软件版本、能力状态和随机报告编号。不包含序列号、设备唯一标识、用户名、文件路径、进程列表或温度历史。",
-                        "Only model, chip, versions, capability states and report ID. No personal identifiers, logs or temperatures."
+                        "仅包含机型、处理器、系统与软件版本、能力状态、控制失败时的失败码和随机报告编号。不包含序列号、设备唯一标识、用户名、文件路径、进程列表、温度历史或错误描述文本。",
+                        "Only model, chip, versions, capability states, failure codes for failed controls, and report ID. No personal identifiers, logs, temperatures or error text."
                     ))
+                    // swiftlint:enable line_length
                     .font(.caption).foregroundColor(.secondary)
                     reportSummary
                     uploadOptions
                     if let error = upload.error { Text(error.message).font(.caption).foregroundColor(.orange) }
-                    if let saveError { Text(saveError).font(.caption).foregroundColor(.orange) }
+                    if saveFailed {
+                        Text(fanBarText("无法保存报告，请选择其他位置后重试。", "Unable to save. Choose another location and retry."))
+                            .font(.caption).foregroundColor(.orange)
+                    }
                 }
             }
             Divider().padding(.vertical, 14)
@@ -77,6 +89,7 @@ struct CompatibilityReportPreview: View {
                 Task { await upload.loadPolicy() }
             }
         }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     @ViewBuilder
@@ -91,14 +104,21 @@ struct CompatibilityReportPreview: View {
                         .font(.caption).foregroundColor(.secondary)
                     Divider()
                     ForEach(report.capabilities) { result in
-                        HStack {
+                        HStack(alignment: .firstTextBaseline) {
                             Text(result.capability.title).font(.caption)
                             Spacer()
-                            Text(result.userConfirmedWorking == true
-                                ? fanBarText("本机实测可用（用户确认）", "Works on this Mac (user confirmed)")
-                                : result.status.title)
-                                .font(.caption)
-                                .foregroundColor(result.userConfirmedWorking == true ? .green : result.status.tint)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(result.userConfirmedWorking == true
+                                    ? fanBarText("本机实测可用（用户确认）", "Works on this Mac (user confirmed)")
+                                    : result.status.title)
+                                    .font(.caption)
+                                    .foregroundColor(result.userConfirmedWorking == true ? .green : result.status.tint)
+                                if let failure = result.failure {
+                                    // Exactly what is uploaded: a fixed code, not the error text.
+                                    Text(failure.code.rawValue)
+                                        .font(.system(size: 10, design: .monospaced)).foregroundColor(.secondary)
+                                }
+                            }
                         }
                     }
                 }.padding(14)
@@ -188,6 +208,7 @@ struct CompatibilityReportPreview: View {
                             Divider()
                             Toggle(fanBarText("同时公开这份报告，审核后供其他用户查阅", "Also publish this report after review"), isOn: $publishReport)
                                 .font(.caption).disabled(upload.isSending || upload.receipt != nil)
+                            if upload.canAttachDiagnostic { diagnosticOption }
                             Toggle(fanBarText("我同意按以上规则提交本次报告", "I agree to submit this report under these rules"), isOn: $consent)
                                 .font(.caption).disabled(upload.isSending)
                         }.padding(14)
@@ -208,6 +229,33 @@ struct CompatibilityReportPreview: View {
         } else {
             Text(CompatibilityServiceError.notConfigured.message).font(.caption).foregroundColor(.secondary)
         }
+        if let diagnostic = upload.diagnosticUpload {
+            AttachedDiagnosticStatus(model: diagnostic) { Task { await upload.submitAttachedDiagnostic() } }
+        }
+    }
+
+    private var hasFailedControl: Bool {
+        (try? JSONDecoder().decode(CompatibilityReport.self, from: upload.data))?
+            .capabilities.contains { $0.status == .requestFailed } == true
+    }
+
+    private var diagnosticOption: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(fanBarText("同时上传诊断日志，仅管理员可见", "Also upload diagnostic logs (administrators only)"),
+                isOn: $upload.attachDiagnostic)
+                .font(.caption).disabled(upload.isSending || upload.receipt != nil)
+            // swiftlint:disable line_length
+            Text(fanBarText(
+                "诊断日志按其单独的规则处理：包含传感器探测、最近的控制事件和错误码，使用与本报告相同的编号以便对照，不公开、不计入统计，可单独撤回。",
+                "Diagnostic logs follow their own rules: sensor probes, recent control events and error codes, filed under this report’s ID so both can be read together. Never published or counted; withdraw them separately."
+            ))
+            // swiftlint:enable line_length
+                .font(.caption2).foregroundColor(.secondary)
+            if hasFailedControl {
+                Text(fanBarText("控制测试失败，附带诊断日志能帮助定位原因。", "A control check failed. Attaching diagnostic logs helps find the cause."))
+                    .font(.caption2).foregroundColor(.orange)
+            }
+        }
     }
 
     private func saveLocally() {
@@ -219,8 +267,33 @@ struct CompatibilityReportPreview: View {
             do {
                 try upload.data.write(to: url, options: .atomic)
             } catch {
-                saveError = fanBarText("无法保存报告，请选择其他位置后重试。", "Unable to save. Choose another location and retry.")
+                saveFailed = true
             }
         }
+    }
+}
+
+/// Progress of the diagnostic sent along with a compatibility report.
+struct AttachedDiagnosticStatus: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
+    @ObservedObject var model: DiagnosticUploadCoordinator
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if model.receipt?.response != nil {
+                Label(fanBarText("诊断日志已上传。", "Diagnostic logs uploaded."), systemImage: "checkmark.circle")
+                    .foregroundColor(.green)
+            } else if model.busy || (model.error == nil && model.receipt == nil) {
+                ProgressView(fanBarText("正在上传诊断日志…", "Uploading diagnostic logs…")).controlSize(.small)
+            } else {
+                if let error = model.error { Text(error).foregroundColor(.orange) }
+                Button(fanBarText("重试上传诊断日志", "Retry diagnostic upload"), action: retry)
+            }
+        }
+        .font(.caption)
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 }

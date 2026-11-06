@@ -22,7 +22,21 @@ final class DiagnosticUploadCoordinator: ObservableObject {
     @Published private(set) var history: [CompatibilitySavedReceipt] = []
     @Published var consent = false
     @Published private(set) var busy = false
-    @Published private(set) var error: String?
+    @Published private var failure: Failure?
+
+    var error: String? { failure?.message }
+
+    private enum Failure {
+        case service(CompatibilityServiceError)
+        case export
+
+        var message: String {
+            switch self {
+            case .service(let error): error.message
+            case .export: fanBarText("无法保存报告，请选择其他位置后重试。", "Unable to save. Choose another location and retry.")
+            }
+        }
+    }
 
     private let collect: @MainActor () async -> DiagnosticReport
     private let makeService: @MainActor (URL?) throws -> any DiagnosticUploadServing
@@ -69,8 +83,8 @@ final class DiagnosticUploadCoordinator: ObservableObject {
     func loadPolicy() async {
         do {
             policy = try await makeService(nil).diagnosticPolicy()
-            error = nil
-        } catch { self.error = Self.message(for: error, fallback: .network) }
+            failure = nil
+        } catch { self.failure = .service(Self.serviceError(for: error, fallback: .network)) }
     }
 
     func submit() async {
@@ -88,7 +102,7 @@ final class DiagnosticUploadCoordinator: ObservableObject {
                 history = try store.receipts()
             }
             if let receipt { await send(receipt) }
-        } catch { self.error = Self.message(for: error, fallback: .invalidReport) }
+        } catch { self.failure = .service(Self.serviceError(for: error, fallback: .invalidReport)) }
     }
 
     func send(_ item: CompatibilitySavedReceipt) async {
@@ -103,8 +117,8 @@ final class DiagnosticUploadCoordinator: ObservableObject {
             try store.save(updated)
             if receipt?.reportID == item.reportID { receipt = updated }
             history = try store.receipts()
-            error = nil
-        } catch { self.error = Self.message(for: error, fallback: .network) }
+            failure = nil
+        } catch { self.failure = .service(Self.serviceError(for: error, fallback: .network)) }
     }
 
     func withdraw(_ item: CompatibilitySavedReceipt) async {
@@ -122,19 +136,19 @@ final class DiagnosticUploadCoordinator: ObservableObject {
                 consent = false
                 report = await collect()
             }
-            error = nil
-        } catch { self.error = Self.message(for: error, fallback: .network) }
+            failure = nil
+        } catch { self.failure = .service(Self.serviceError(for: error, fallback: .network)) }
     }
 
     func exportFailed() {
-        error = fanBarText("无法保存报告，请选择其他位置后重试。", "Unable to save. Choose another location and retry.")
+        failure = .export
     }
 
     private func loadHistory() {
-        do { history = try store.receipts() } catch { self.error = CompatibilityServiceError.credentialStorage.message }
+        do { history = try store.receipts() } catch { self.failure = .service(.credentialStorage) }
     }
 
-    private static func message(for error: Error, fallback: CompatibilityServiceError) -> String {
-        (error as? CompatibilityServiceError ?? fallback).message
+    private static func serviceError(for error: Error, fallback: CompatibilityServiceError) -> CompatibilityServiceError {
+        error as? CompatibilityServiceError ?? fallback
     }
 }

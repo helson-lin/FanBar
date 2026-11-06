@@ -9,6 +9,8 @@ extension FanController {
             helperState: helperState,
             manualEvidence: manualControlEvidence,
             curveEvidence: curveControlEvidence,
+            manualFailure: manualControlFailure,
+            curveFailure: curveControlFailure,
             curveSensor: curveProfile.sensor
         )
     }

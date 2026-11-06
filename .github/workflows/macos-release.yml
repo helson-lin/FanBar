@@ -194,25 +194,43 @@ jobs:
 
       - name: Verify signed release
         run: |
-          for app_path in dist/FanBar.app dist/FanBar-arm64.app dist/FanBar-x86_64.app; do
-            codesign --verify --deep --strict --verbose=2 "${app_path}"
-            lipo -archs "${app_path}/Contents/MacOS/FanBar"
-            lipo -archs "${app_path}/Contents/Library/LaunchServices/local.fanbar.helper"
-            lipo -archs "${app_path}/Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget"
+          # The default zsh shell does not stop on errors, so only the last
+          # command would count. Every app must verify and hold its expected slices.
+          for app_path expected_archs in \
+            dist/FanBar.app "arm64 x86_64" \
+            dist/FanBar-arm64.app "arm64" \
+            dist/FanBar-x86_64.app "x86_64"; do
+            codesign --verify --deep --strict --verbose=2 "${app_path}" || exit 1
+            for binary_path in \
+              Contents/MacOS/FanBar \
+              Contents/Library/LaunchServices/local.fanbar.helper \
+              Contents/PlugIns/FanBarWidget.appex/Contents/MacOS/FanBarWidget; do
+              archs="$(lipo -archs "${app_path}/${binary_path}")" || exit 1
+              # Sort the slices so the order lipo prints them in does not matter.
+              archs="${(j: :)${(@o)${(@z)archs}}}"
+              if [[ "${archs}" != "${expected_archs}" ]]; then
+                print -u2 "${app_path}/${binary_path}: expected ${expected_archs}, got ${archs}"
+                exit 1
+              fi
+            done
           done
           codesign --verify --verbose=2 dist/FanBar-*.dmg
 
       - name: Notarize and staple
         run: |
+          # The default zsh shell does not stop on errors, so a loop would
+          # report only the last DMG. Every DMG must be stapled before release.
           for dmg_path in dist/FanBar-*.dmg; do
-            zsh scripts/notarize-dmg.sh "${dmg_path}"
+            zsh scripts/notarize-dmg.sh "${dmg_path}" || exit 1
           done
 
       - name: Create checksums
         run: |
+          # The default zsh shell does not stop on errors, so a loop would
+          # report only the last DMG. Every DMG must get its checksum.
           for dmg_path in dist/FanBar-*.dmg; do
             dmg_name="$(basename "${dmg_path}")"
-            (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256")
+            (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256") || exit 1
           done
 
       - name: Generate signed Sparkle appcast
@@ -276,3 +294,112 @@ jobs:
           if [[ -n "${FANBAR_CI_KEYCHAIN:-}" && -f "${FANBAR_CI_KEYCHAIN}" ]]; then
             security delete-keychain "${FANBAR_CI_KEYCHAIN}"
           fi
+
+  homebrew:
+    name: Open Homebrew cask pull request
+    # Releases never touch Casks/fanbar.rb, so brew kept installing an old
+    # version until someone remembered to run scripts/update-homebrew-cask.py.
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # Pushes and pull requests made with GITHUB_TOKEN start no workflows, so
+      # the required checks are dispatched on the branch explicitly.
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pin the cask to this release
+        id: cask
+        shell: bash
+        run: |
+          python3 scripts/update-homebrew-cask.py "${GITHUB_REF_NAME}"
+          if git diff --quiet -- Casks/fanbar.rb; then
+            echo "Casks/fanbar.rb already points at ${GITHUB_REF_NAME}."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push branch and open pull request
+        if: steps.cask.outputs.changed == 'true'
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          branch="chore/homebrew-cask-${version}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${branch}"
+          git commit -m "Update Homebrew cask to ${version}" -- Casks/fanbar.rb
+          # A rerun replaces the branch from an earlier attempt.
+          git push --force origin "${branch}"
+
+          if [[ -z "$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[].number')" ]]; then
+            gh pr create --base main --head "${branch}" \
+              --title "Update Homebrew cask to ${version}" \
+              --body "Pins \`Casks/fanbar.rb\` to the ${GITHUB_REF_NAME} universal DMG. Opened by the release workflow; merge once the checks pass."
+          fi
+
+          # Required checks and the cask install test, run on the pushed commit.
+          gh workflow run quality.yml --ref "${branch}"
+          gh workflow run homebrew.yml --ref "${branch}"
+
+  geo:
+    name: Publish GEO release pages (dev)
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: fanbar-geo-dev
+      cancel-in-progress: false
+    steps:
+      - name: Check out the release notes
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check out the GEO automation
+        run: git clone --depth 1 https://github.com/helson-lin/fanbar-site.git .geo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build release pages and GEO files
+        working-directory: .geo
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/build-release.mjs --src "$GITHUB_WORKSPACE/docs/releases" --tag "$RELEASE_TAG"
+
+      - name: Validate generated output
+        working-directory: .geo
+        run: node scripts/validate-build.mjs --version "${GITHUB_REF_NAME#v}"
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .geo
+          wranglerVersion: "4.113.0"
+          command: deploy --config wrangler.dev.jsonc
+
+      - name: Verify the dev deployment
+        working-directory: .geo
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if node scripts/verify-deployment.mjs https://fanbar-site-dev.helson.workers.dev; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1

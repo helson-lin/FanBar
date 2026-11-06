@@ -367,6 +367,22 @@ final class CustomCoolingPresetTests: XCTestCase {
         try render(FanCurveEditorView(controller: controller).padding(SettingsChrome.horizontalPadding))
     }
 
+    @MainActor
+    func testPresetActionsDuplicateAndStartRename() throws {
+        let controller = makeController()
+        defer { PresetRenameCoordinator.shared.renaming = nil }
+
+        PresetActionsMenu(controller: controller, preset: .builtIn(.silent)).duplicate()
+        let first = try XCTUnwrap(controller.customPresets.first.map { CoolingPresetID.custom($0.id) })
+        PresetActionsMenu(controller: controller, preset: first).duplicate()
+        XCTAssertEqual(controller.customPresets.count, 2)
+
+        controller.selectCoolingCurvePreset(.builtIn(.silent))
+        PresetActionsMenu(controller: controller, preset: first).startRename()
+        XCTAssertEqual(PresetRenameCoordinator.shared.renaming, first)
+        XCTAssertEqual(controller.curveCoolingPreset, first)
+    }
+
     func testShortcutTogglingKeepsDisplayOrderAndLimit() {
         let custom = CoolingPresetID.custom(UUID())
         let order: [CoolingPresetID] = FanCoolingPreset.allCases.map { .builtIn($0) } + [custom]

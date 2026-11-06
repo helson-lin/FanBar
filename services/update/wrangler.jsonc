@@ -1,0 +1,67 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fanbar-update-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-13",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ENVIRONMENT": "development",
+    "APPCAST_URL": "https://github.com/helson-lin/FanBar/releases/latest/download/appcast.xml",
+    "FIRST_COHORT_WEEK": "2026-W46",
+    "STATS_ORIGIN": "https://getfanbar.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fanbar-update",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "COUNT_LIMIT",
+      "namespace_id": "81007",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+  // No cron: the account is at the Workers Free limit of 5. The first update check of
+  // each UTC day runs the daily task instead (src/daily.ts, runDailyTaskOncePerDay).
+  "triggers": { "crons": [] },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": { "enabled": true, "invocation_logs": false }
+  },
+  "secrets": { "required": ["LIMIT_SALT"] },
+  "env": {
+    "production": {
+      "name": "fanbar-update",
+      "routes": [{ "pattern": "update.getfanbar.com", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "APPCAST_URL": "https://github.com/helson-lin/FanBar/releases/latest/download/appcast.xml",
+        "FIRST_COHORT_WEEK": "2026-W46",
+        "STATS_ORIGIN": "https://getfanbar.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "fanbar-update",
+          // Its own database: a schema change or bad migration here cannot touch compatibility reports.
+          "database_id": "d962ab8e-7687-4c56-afb7-9a6160902e48",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "COUNT_LIMIT",
+          "namespace_id": "81008",
+          "simple": { "limit": 10, "period": 60 }
+        }
+      ],
+      "secrets": { "required": ["LIMIT_SALT"] }
+    }
+  }
+}

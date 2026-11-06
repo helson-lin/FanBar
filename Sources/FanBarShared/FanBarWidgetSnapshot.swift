@@ -197,10 +197,9 @@ public struct FanBarWidgetSnapshot: Codable, Equatable, Sendable {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return .missing
         }
-        guard let data = try? Data(contentsOf: url) else {
-            return .failure
-        }
-        guard let snapshot = try? JSONDecoder().decode(Self.self, from: data) else {
+        guard let data = try? Data(contentsOf: url),
+              let snapshot = try? JSONDecoder().decode(Self.self, from: data)
+        else {
             return .failure
         }
         return .success(snapshot)

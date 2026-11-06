@@ -41,6 +41,9 @@ enum FanSpeedBand {
 
 /// One fan: name and speed band, the RPM, and a read-only meter across its range.
 struct PanelFanReadout: View {
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
+
     let fan: FanReading
     var isSingleFan = false
     @Environment(\.colorScheme) private var scheme
@@ -118,6 +121,7 @@ struct PanelFanReadout: View {
             FanBarNumberFormatter.grouped(fan.minimumRPM),
             FanBarNumberFormatter.grouped(fan.maximumRPM)
         ))
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 }
 

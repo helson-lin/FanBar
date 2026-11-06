@@ -193,13 +193,26 @@ struct ThermalAlertMonitor {
     }
 }
 
-/// Keeps local notifications visible even when the menu-bar app is active.
+/// Keeps local notifications visible even when the menu-bar app is active,
+/// and hands notification buttons and clicks back to the controller.
 final class ThermalNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    /// Receives the action identifier and the notification request identifier.
+    var onResponse: ((String, String) -> Void)?
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        onResponse?(response.actionIdentifier, response.notification.request.identifier)
+        completionHandler()
     }
 }
