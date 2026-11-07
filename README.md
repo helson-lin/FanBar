@@ -40,6 +40,7 @@
 </p>
 
 <p align="center">
+  <a href="#-video-demo">Video demo</a> •
   <a href="#-screenshots">Screenshots</a> •
   <a href="#-highlights">Highlights</a> •
   <a href="#️-download">Download</a> •
@@ -53,6 +54,12 @@
 </div>
 
 FanBar supports macOS 11 Big Sur and later on compatible Apple Silicon and Intel Macs that expose readable AppleSMC fan data. It keeps everyday use safe and quiet with macOS automatic management, while making manual control available only after the signed control service is approved.
+
+## 🎬 Video demo
+
+https://github.com/user-attachments/assets/53fa39f1-c930-4860-9f5a-2cc6f0530faf
+
+11-second demo — real fan controls, preset switching, and temperature-based curve editing in the English interface. [Download the MP4](docs/videos/fanbar-demo-en.mp4?raw=true).
 
 ## FanBar at a glance
 
