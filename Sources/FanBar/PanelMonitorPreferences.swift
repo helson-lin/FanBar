@@ -45,6 +45,12 @@ enum PanelMonitorPreferences {
         }.filter { seen.insert($0).inserted }
     }
 
+    /// Reveal a menu-bar target for this presentation without changing saved preferences.
+    static func presentedModules(_ modules: [PanelMonitorModule], focusing: PanelMonitorModule?) -> [PanelMonitorModule] {
+        guard let focusing, !modules.contains(focusing) else { return modules }
+        return modules + [focusing]
+    }
+
     static func rawValue(for modules: [PanelMonitorModule]) -> String {
         modules.map(\.rawValue).joined(separator: ",")
     }

@@ -37,6 +37,14 @@
 - `testMissingStartupDiskDoesNotBorrowOtherVolumesCapacity`：覆盖无磁盘、仅外置卷及仅数据卷的情况。
 - `testFreeSpaceThresholdBoundaries`：覆盖临界值，防止边界判断回退。
 
+## 菜单栏设置的资源分组保留旧语言
+
+根因：资源行已监听界面语言，但外层 `MenuBarResourceSettings` 只观察控制器；读数不变时，分组标题和说明没有语言依赖，可能保留切换前的文本。仅重建行内 Picker 没有覆盖整个分组。
+
+修复：外层分组监听语言偏好，并以语言作为视图标识，切换时一并重建标题、说明和资源行，不依赖新读数触发刷新。
+
+回归测试：`MenuBarResourceLanguageTests.testResourceSectionRepaintsWithoutNewReadings` 在固定读数、外观、Locale 和资源偏好下，对比保留视图与同语言新视图，覆盖六种界面语言。修复前简体和繁体中文比较失败，修复后通过。原有 `SettingsLanguageRefreshTests` 继续检查全部设置页的语言切换。
+
 ## 后续约束
 
 - 刷新入口负责采样次数，重连不得再次进入刷新入口。

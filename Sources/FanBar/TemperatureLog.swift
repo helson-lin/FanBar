@@ -9,9 +9,19 @@ enum TemperatureLogPreferences {
     static let newLogPolicyKey = "fanbar.temperatureLog.newLogPolicy"
     static let logTemperaturesKey = "fanbar.temperatureLog.temperatures"
     static let logFanSpeedsKey = "fanbar.temperatureLog.fanSpeeds"
+    /// Days to keep FanBar's log files; 0 keeps them forever. Kept out of
+    /// `TemperatureLogSettings` so changing it never starts a new file.
+    static let retentionDaysKey = "fanbar.temperatureLog.retentionDays"
 
     static let intervalOptions = [2, 5, 10, 30, 60]
     static let defaultIntervalSeconds = 10
+    static let retentionOptions = [7, 30, 90, 0]
+    static let defaultRetentionDays = 30
+
+    static func retentionDays(defaults: UserDefaults = .standard) -> Int {
+        let stored = defaults.object(forKey: retentionDaysKey) as? Int
+        return retentionOptions.contains(stored ?? -1) ? stored ?? defaultRetentionDays : defaultRetentionDays
+    }
 
     enum NewLogPolicy: String, CaseIterable, Identifiable {
         case never
@@ -21,7 +31,8 @@ enum TemperatureLogPreferences {
         var id: String { rawValue }
     }
 
-    static let defaultPolicy = NewLogPolicy.onStartup
+    /// One file per day pairs with the day-based retention, so whole days expire.
+    static let defaultPolicy = NewLogPolicy.daily
 
     static var defaultDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -293,12 +304,48 @@ final class TemperatureLogRecorder {
     private let queue = DispatchQueue(label: "local.fanbar.temperature-log")
     private var lastSettings: TemperatureLogSettings?
     private var lastWrittenAt: Date?
+    private var failureGate = TemperatureLogFailureGate()
+    private var lastCleanupDay: Date?
+    private let trashExpiredFiles: @Sendable (URL, Date, Int, String?) -> Void
+
+    /// `trashExpiredFiles` is injectable so tests never touch the real Trash.
+    init(trashExpiredFiles: @escaping @Sendable (URL, Date, Int, String?) -> Void = { directory, now, days, current in
+        TemperatureLogRetention.moveExpiredToTrash(in: directory, now: now, retentionDays: days, keeping: current)
+    }) {
+        self.trashExpiredFiles = trashExpiredFiles
+    }
 
     var status: TemperatureLogWriter.Status { writer.status }
+
+    /// When a failed log tries again; nil unless the last write failed.
+    var retryAt: Date? { failureGate.retryAt }
+
+    /// "Retry" in Settings: the next due sample tries at once.
+    func retryNow() {
+        failureGate.requestRetry()
+    }
+
+    /// Runs the retention cleanup again on the next write, e.g. after the
+    /// retention setting changed.
+    func requestCleanup() {
+        lastCleanupDay = nil
+    }
 
     /// Blocks until queued file writes finish, so tests can read the file back.
     func waitForPendingWrites() {
         queue.sync {}
+    }
+
+    private func cleanUpOncePerDay(now: Date, directory: URL) {
+        let day = Calendar.current.startOfDay(for: now)
+        guard day != lastCleanupDay else { return }
+        lastCleanupDay = day
+        let retentionDays = TemperatureLogPreferences.retentionDays()
+        queue.async { [writer, trashExpiredFiles] in
+            var current: String?
+            if case .recording(let fileName) = writer.status { current = fileName }
+            trashExpiredFiles(directory, now, retentionDays, current)
+        }
     }
 
     func record(thermal: ThermalReading, fans: [FanReading], mode: FanController.Mode) {
@@ -307,6 +354,8 @@ final class TemperatureLogRecorder {
             // Any preference change starts a fresh session so the header always matches the file.
             lastSettings = settings
             lastWrittenAt = nil
+            failureGate.reset()
+            lastCleanupDay = nil
             queue.async { [writer] in writer.reset() }
         }
         // A tick that read nothing would only add an empty row and use up the interval.
@@ -314,11 +363,13 @@ final class TemperatureLogRecorder {
             || [thermal.cpuCelsius, thermal.gpuCelsius, thermal.ssdCelsius, thermal.batteryCelsius].contains { $0 != nil }
         guard settings.enabled,
               hasReading,
-              writer.status != .failed,
               TemperatureLogSchedule.shouldWrite(
                   now: thermal.sampledAt, lastWrittenAt: lastWrittenAt, intervalSeconds: settings.intervalSeconds
-              ) else { return }
+              ),
+              failureGate.allowsWrite(writerFailed: writer.status == .failed, now: thermal.sampledAt)
+        else { return }
         lastWrittenAt = thermal.sampledAt
+        cleanUpOncePerDay(now: thermal.sampledAt, directory: settings.directory)
 
         let threshold = ThermalAlertSettings.thresholdCelsius
         let hotSensors = ThermalSensor.allCases
