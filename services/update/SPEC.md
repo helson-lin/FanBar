@@ -37,15 +37,31 @@
 
 - 返回最近 180 天的 `checksDaily`（每行 `{day, version, n}`），以及最近 26 周的 `cohorts`、`models`、`os`、`arch`、`countries`（每行 `{week, value, n}`）。
 - 任何一行 `n < 5` 都不返回，响应中带 `"minimumGroupSize": 5`。
-- 带 `Access-Control-Allow-Origin: <STATS_ORIGIN>` 和 `Cache-Control: public, max-age=3600`。
+- 带 `Access-Control-Allow-Origin: <STATS_ORIGIN>` 和 `Cache-Control: public, max-age=3600`。生产环境用 Cache API 在边缘缓存 1 小时（缓存键忽略查询参数），不会每次访问都查询 D1。
+- 数据库出错时返回 `503`（`no-store`，仍带 CORS 头）。
+
+### `GET /`
+
+一页静态说明：这个地址是什么、一次检查更新的路径、统计和不保存哪些内容、全部接口，并链接到 `/api/stats` 和源码。默认英文，`?lang=zh` 显示中文（页脚有切换链接），带 `Content-Language`。不含脚本、外部字体或图片。不计数，`Cache-Control: public, max-age=86400`，CSP 为 `default-src 'none'; style-src 'unsafe-inline'`。
 
 ### 其他路径
 
 一律返回 `404`。
 
-### 定时任务（每天 UTC 04:23）
+### 管理员入口 `UpdateAdmin.stats(range)`（Service Binding RPC，没有 URL）
 
-1. 从 GitHub Releases API（最近 100 个）同步已发布的版本号到 `releases` 表：去掉 tag 前面的 `v`，只接受 `数字.数字[.数字]`，只增不删。同步失败时保留旧列表。
+`src/index.ts` 导出的命名入口 `UpdateAdmin`，只供兼容性服务（`report.getfanbar.com`）通过 `UPDATE_SERVICE` 绑定调用。调用方已经验证了 Cloudflare Access，本服务不再做身份验证，所以这个入口不能映射到任何路由。
+
+- `range` 只能是 7、30、90，其他值抛出 `RangeError`。
+- 返回完整数据，**包括** `n < 5` 的分组（公开接口隐藏它们），并带 `publicMinimumGroupSize` 供后台标注“未公开”。
+- `days`：最近 `range` 个 UTC 日；`daily`：最近 `max(2 × range, 14)` 天的全部版本计数，供后台和前一个周期对比；`weeks` / `weekly`：最近 8 个 ISO 周的各维度计数；`currentWeek`：本周检查数和开启统计的检查数；`releases`：已发布版本，新版本在前；`dailyTaskDay`：每日任务最后运行的日期。
+- 兼容性服务对外的接口是 `GET /api/admin/updates?range=`；这里出错时它返回 `503 UPDATE_SERVICE_UNAVAILABLE`，不影响兼容性后台的其他部分。
+
+### 每日任务（每个 UTC 日第一次更新检查时运行）
+
+账号的 Workers Free 定时任务（cron）名额已满，因此每日任务改由每个 UTC 日第一次 `/appcast.xml` 请求在 `waitUntil` 中触发：`task_runs` 表里的条件 `UPDATE` 保证当天只有一个请求认领并运行。失败的步骤等到第二天再试，与错过一次 cron 相同；跳转不受影响。`scheduled` 处理函数保留，以后有 cron 名额时可直接恢复。
+
+1. 从 GitHub Releases API（最近 100 个）同步已发布的版本号到 `releases` 表：去掉 tag 前面的 `v`，只接受 `数字.数字[.数字]`，可带预发布后缀（如 `0.9.0-beta.1`、`0.9.0b1`），只增不删。同步失败时保留旧列表。
 2. 删除超过 730 天的计数行。
 
 ## 3. 客户端约定（供 Swift 端规格引用）
@@ -54,12 +70,12 @@
 - 升级上来的老用户，`fb_cohort=legacy`。新安装的用户，取首次启动所在的 UTC ISO 周（只存在本机）。
 - 未开启统计时，不附带任何 `fb_` 参数。
 
-## 4. 存储（D1 `fanbar-usage`）
+## 4. 存储（独立的 D1 数据库 `fanbar-update`）
 
 ```sql
 releases(version TEXT PRIMARY KEY)
 checks_daily(day TEXT, version TEXT, n INTEGER, PRIMARY KEY(day, version))
-cohort_weekly(week TEXT, cohort TEXT, n INTEGER, PRIMARY KEY(week, cohort))
+cohort_weekly(week TEXT, value TEXT, n INTEGER, PRIMARY KEY(week, value))
 model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n INTEGER, PRIMARY KEY(week, value))
 ```
 
@@ -74,7 +90,7 @@ model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n
 
 ## 6. 要测试的行为（按优先级，逐条 TDD）
 
-测试都通过 `SELF.fetch` 和 `/api/stats` 这两个公开接口来验证，不直接查询数据库表。
+测试都通过 `SELF.fetch`、`/api/stats` 和 `UpdateAdmin` 入口来验证，不直接查询数据库表。
 
 1. `/appcast.xml` 返回 302，跳转到 `APPCAST_URL`，带 `no-store`，不带查询参数。
 2. 合法的 Sparkle User-Agent 会让当天对应版本的计数 +1，可以在 `/api/stats` 里看到。
@@ -87,8 +103,9 @@ model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n
 9. `fb_cohort` 的边界：`legacy`、首周、当前周合法；早于首周、晚于当前周、格式错误的都不合法。
 10. 周的计算：周日 23:59 UTC 和周一 00:00 UTC 属于不同的 ISO 周，包括跨年的情况（如 2026-12-31 属于 2026-W53）。
 11. 不带 `fb_cohort` 时，其他 `fb_` 参数和国家都不计数。
-12. 定时任务：同步版本列表（mock GitHub API）、同步失败时保留旧列表、删除 730 天前的数据。
-13. 其他路径返回 404。
+12. 每日任务：每个 UTC 日只由第一次检查触发一次；同步版本列表（mock GitHub API）、同步失败时保留旧列表、删除 730 天前的数据。
+13. `/` 返回说明页且不计数；其他路径返回 404。
+14. `UpdateAdmin.stats`：包含少于 5 的分组；版本按新到旧排序，正式版排在它的预发布版之前；`daily` 覆盖对比所需的天数；非法 `range` 抛错。
 
 ## 7. 上线前的运维事项（不写测试）
 

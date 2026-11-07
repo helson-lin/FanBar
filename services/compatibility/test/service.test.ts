@@ -5,6 +5,7 @@ import worker from '../src/index.ts';
 import { cleanup } from '../src/reports.ts';
 import { reportSchema, type Report } from '../src/schema.ts';
 import { LEGACY_POLICY_VERSION, POLICY_VERSION } from '../src/policy.ts';
+import { accessToken, adminHeaders } from './access.ts';
 const token = 'A'.repeat(43);
 function fixture(): Report {
   return {
@@ -32,10 +33,9 @@ function submit(report: Report, publish = false, credential = token, policyVersi
     'X-FanBar-Publish-Report': publish ? '1' : '0',
   }));
 }
-function review(id: string, status = 'approved', origin = 'http://localhost') {
-  return SELF.fetch(request('/api/admin/reports/' + id + '/review', 'PUT', { status, reason: 'reviewed' }, {
-    Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: origin,
-  }));
+async function review(id: string, status = 'approved', origin = 'http://localhost') {
+  return SELF.fetch(request('/api/admin/reports/' + id + '/review', 'PUT', { status, reason: 'reviewed' },
+    await adminHeaders({ 'X-FanBar-Admin': '1', Origin: origin })));
 }
 async function matrix() {
   const response = await SELF.fetch(request('/api/compatibility'));
@@ -70,7 +70,7 @@ describe('consent and closed schema', () => {
   });
   it('serves every administrator entry without canonical redirect loops', async () => {
     for (const path of ['/admin', '/admin/', '/admin.html']) {
-      const response = await SELF.fetch(request(path));
+      const response = await SELF.fetch(request(path, 'GET', undefined, await adminHeaders()));
       expect(response.status).toBe(200);
       expect(response.headers.get('location')).toBeNull();
       expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -171,7 +171,7 @@ describe('publication and withdrawal', () => {
     expect((await submit(report)).status).toBe(409);
   });
   it('keeps the audit of a published verification while expiring report audits', async () => {
-    const headers = { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' };
+    const headers = await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' });
     const created = await SELF.fetch(request('/api/admin/verifications', 'POST', {
       modelIdentifier: 'Mac14,13', macOSVersion: '15.0.0', appVersion: '1.0', helperVersion: '10',
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent controlled test',
@@ -204,12 +204,69 @@ describe('publication and withdrawal', () => {
   });
 });
 describe('admin boundaries', () => {
-  it('fails closed without configured production authentication', async () => {
-    expect((await SELF.fetch(request('/api/admin/reports'))).status).toBe(403);
-    const response = await worker.fetch(request('/api/admin/reports', 'GET', undefined, {
-      Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-    }), { ...env, ENVIRONMENT: 'production', ADMIN_TOKEN: '' });
-    expect(response.status).toBe(403);
+  const code = async (response: Response) => (await response.json<{ error: { code: string } }>()).error.code;
+  it('accepts only a valid Cloudflare Access token', async () => {
+    const rejected = async (headers: Record<string, string>) => {
+      const response = await SELF.fetch(request('/api/admin/reports', 'GET', undefined, headers));
+      expect(response.status).toBe(403);
+      expect(await code(response)).toBe('ADMIN_AUTHENTICATION_REQUIRED');
+    };
+    await rejected({});
+    await rejected({ Authorization: 'Bearer ' + 'Z'.repeat(43) }); // There is no administrator key any more.
+    await rejected({ 'Cf-Access-Jwt-Assertion': 'not-a-token' });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { audience: 'another-application' }) });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { issuer: 'https://other.cloudflareaccess.com' }) });
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { expiresIn: Math.floor(Date.now() / 1000) - 60 }) });
+    const forged = await crypto.subtle.generateKey(
+      { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'],
+    ) as CryptoKeyPair;
+    await rejected({ 'Cf-Access-Jwt-Assertion': await accessToken({}, { key: forged.privateKey }) });
+    expect((await SELF.fetch(request('/api/admin/reports', 'GET', undefined, await adminHeaders()))).status).toBe(200);
+  });
+  it('fails closed when Access is not configured, except for local development', async () => {
+    const unconfigured = { ...env, ACCESS_TEAM_DOMAIN: '', ACCESS_AUD: '' };
+    const production = await worker.fetch(request('/api/admin/session'), { ...unconfigured, ENVIRONMENT: 'production' });
+    expect(production.status).toBe(403);
+    expect(await code(production)).toBe('ADMIN_ACCESS_NOT_CONFIGURED');
+    const remote = await worker.fetch(new Request('https://report.example.com/api/admin/session'), unconfigured);
+    expect(await code(remote)).toBe('ADMIN_ACCESS_NOT_CONFIGURED');
+    const local = await worker.fetch(request('/api/admin/session'), unconfigured);
+    expect(await local.json()).toEqual({ actor: 'local-development', kind: 'localDevelopment', email: null, expiresAt: null });
+  });
+  it('describes the signed-in administrator and signs reviews with the Access email', async () => {
+    const session = await (await SELF.fetch(request('/api/admin/session', 'GET', undefined, await adminHeaders()))).json<any>();
+    expect(session).toMatchObject({ actor: 'maintainer@example.com', kind: 'access', email: 'maintainer@example.com' });
+    expect(Date.parse(session.expiresAt)).toBeGreaterThan(Date.now());
+    const report = fixture(); await submit(report); await review(report.reportID);
+    expect(await env.DB.prepare('SELECT actor FROM reviews').first('actor')).toBe('maintainer@example.com');
+    const noEmail = await SELF.fetch(request('/api/admin/session', 'GET', undefined, {
+      'Cf-Access-Jwt-Assertion': await accessToken({ email: undefined }),
+    }));
+    expect((await noEmail.json<any>()).actor).toBe('7f1c2b54-0000-4000-8000-000000000001');
+  });
+  it('keeps the admin page closed without Access', async () => {
+    const closed = await SELF.fetch(request('/admin/'));
+    expect(closed.status).toBe(403);
+    const body = await closed.text();
+    expect(body).toContain('ADMIN_AUTHENTICATION_REQUIRED');
+    expect(body).not.toMatch(/assets\/admin-/);
+    const page = await SELF.fetch(request('/admin/', 'GET', undefined, await adminHeaders()));
+    expect(page.status).toBe(200);
+    expect(page.headers.get('Cache-Control')).toBe('no-store');
+  });
+  it('reads update statistics through the update service binding', async () => {
+    const calls: number[] = [];
+    const UPDATE_SERVICE = { stats: async (range: number) => { calls.push(range); return { range, days: [] }; } };
+    const call = async (path: string, service: unknown = UPDATE_SERVICE) =>
+      worker.fetch(request(path, 'GET', undefined, await adminHeaders()), { ...env, UPDATE_SERVICE: service } as unknown as Env);
+    expect((await SELF.fetch(request('/api/admin/updates'))).status).toBe(403);
+    expect(await (await call('/api/admin/updates?range=7')).json()).toEqual({ range: 7, days: [] });
+    await call('/api/admin/updates');
+    expect(calls).toEqual([7, 30]);
+    expect((await call('/api/admin/updates?range=365')).status).toBe(400);
+    const failing = await call('/api/admin/updates', { stats: async () => { throw new Error('down'); } });
+    expect(failing.status).toBe(503);
+    expect(await code(failing)).toBe('UPDATE_SERVICE_UNAVAILABLE');
   });
   it('rejects cross-origin admin mutations', async () => {
     const report = fixture(); await submit(report);
@@ -218,9 +275,7 @@ describe('admin boundaries', () => {
   });
   it('does not leak internal columns in admin details', async () => {
     const report = fixture(); await submit(report);
-    const response = await SELF.fetch(request('/api/admin/reports/' + report.reportID, 'GET', undefined, {
-      Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-    }));
+    const response = await SELF.fetch(request('/api/admin/reports/' + report.reportID, 'GET', undefined, await adminHeaders()));
     expect(response.status).toBe(200); const text = await response.text();
     expect(text).not.toContain('payload_hash'); expect(text).not.toContain('deletion_token_hash'); expect(text).not.toContain(token);
   });
@@ -229,16 +284,14 @@ describe('admin boundaries', () => {
       modelIdentifier: 'Mac14,13', macOSVersion: '15.0.0', appVersion: '1.0', helperVersion: '10',
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent controlled test',
       sourceURL: 'https://github.com/helson-lin/FanBar', verifiedOn: new Date().toISOString().slice(0, 10),
-    }, { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' }));
+    }, await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' })));
     expect(response.status).toBe(201); const data = await matrix();
     expect(data.groups[0].community).toEqual([]); expect(data.groups[0].developerVerifications).toHaveLength(1);
   });
 });
 
 describe('admin insights', () => {
-  const adminGet = (path: string) => SELF.fetch(request(path, 'GET', undefined, {
-    Authorization: 'Bearer ' + env.ADMIN_TOKEN,
-  }));
+  const adminGet = async (path: string) => SELF.fetch(request(path, 'GET', undefined, await adminHeaders()));
 
   it('protects all insight endpoints and handles an empty database', async () => {
     for (const path of ['/api/admin/overview', '/api/admin/audit', '/api/admin/verifications']) {
@@ -308,7 +361,7 @@ describe('admin insights', () => {
       capability: 'manualControl', status: 'verifiedAvailable', notes: 'Independent test',
       sourceURL: 'https://github.com/helson-lin/FanBar', verifiedOn: new Date().toISOString().slice(0, 10),
     };
-    const headers = { Authorization: 'Bearer ' + env.ADMIN_TOKEN, 'X-FanBar-Admin': '1', Origin: 'http://localhost' };
+    const headers = await adminHeaders({ 'X-FanBar-Admin': '1', Origin: 'http://localhost' });
     expect((await SELF.fetch(request('/api/admin/verifications', 'POST', {
       ...verification, verifiedOn: '2025-02-30',
     }, headers))).status).toBe(400);

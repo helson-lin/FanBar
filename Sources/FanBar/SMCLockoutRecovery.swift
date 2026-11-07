@@ -1,3 +1,4 @@
+import FanBarShared
 import Foundation
 
 /// After a run of refused curve writes FanBar hands the fans to macOS, then
@@ -13,7 +14,13 @@ struct SMCLockoutRecovery: Equatable {
     let mode: ResumableMode
     let duration: FanController.AutomaticRestoreDuration
     let startedAt: Date
+    /// Attempts so far, written or skipped; they set the wait before the next.
     var attempts = 0
+    /// Writes the SMC actually turned down. Skipped attempts and lost
+    /// connections are not refusals, so they never count here.
+    var refusedWrites = 0
+    /// Writes the helper never answered: the connection dropped or timed out.
+    var unansweredWrites = 0
 
     /// Seconds until the next attempt, or nil when it would land after the window.
     func nextDelay(at now: Date) -> TimeInterval? {
@@ -24,6 +31,35 @@ struct SMCLockoutRecovery: Equatable {
 
     mutating func recordAttempt() {
         attempts += 1
+    }
+
+    mutating func recordFailedWrite(_ error: Error) {
+        if Self.isRefusal(error) {
+            refusedWrites += 1
+        } else {
+            unansweredWrites += 1
+        }
+    }
+
+    /// Why the window closed without the mode coming back.
+    enum GiveUp: Equatable {
+        /// At least one write reached the SMC and it said no.
+        case stillRefused
+        /// Writes went out but the helper never answered any of them.
+        case unanswered
+        /// No write went out: the helper was off, the preset was gone or no
+        /// temperature could be read.
+        case neverRetried
+    }
+
+    var giveUp: GiveUp {
+        if refusedWrites > 0 { return .stillRefused }
+        return unansweredWrites > 0 ? .unanswered : .neverRetried
+    }
+
+    /// A lost or timed-out connection says nothing about the SMC.
+    static func isRefusal(_ error: Error) -> Bool {
+        (error as? HelperClientError)?.isConnectionFailure != true
     }
 
     /// Right after wake the SMC is slow, not stuck; start the short waits again.
@@ -58,6 +94,11 @@ final class SMCLockoutRetrier {
     /// The wait before the attempt now scheduled; nil when none is.
     private(set) var pendingDelay: TimeInterval?
     private var task: Task<Void, Never>?
+    /// The write now with the helper. Cancelling the recovery cannot recall it.
+    private var inFlightWrite: Task<Void, Error>?
+    /// Changes whenever a recovery starts or ends. A write compares it, not the
+    /// recovery itself, which a wake changes by restarting the backoff.
+    private var generation = 0
     private let now: () -> Date
     private let sleep: @Sendable (TimeInterval) async throws -> Void
 
@@ -67,8 +108,8 @@ final class SMCLockoutRetrier {
     var perform: (SMCLockoutRecovery.Write) async throws -> Void = { _ in }
     /// The SMC took the write; turn the mode back on the usual way.
     var onRecovered: (SMCLockoutRecovery) -> Void = { _ in }
-    /// The window closed with the SMC still refusing.
-    var onGaveUp: () -> Void = {}
+    /// The window closed without the mode coming back.
+    var onGaveUp: (SMCLockoutRecovery.GiveUp) -> Void = { _ in }
 
     init(
         now: @escaping () -> Date = Date.init,
@@ -81,15 +122,24 @@ final class SMCLockoutRetrier {
     }
 
     func start(_ mode: ResumableMode, duration: FanController.AutomaticRestoreDuration) {
+        generation += 1
         recovery = SMCLockoutRecovery(mode: mode, duration: duration, startedAt: now())
         schedule()
     }
 
     func cancel() {
+        generation += 1
         task?.cancel()
         task = nil
         pendingDelay = nil
         recovery = nil
+    }
+
+    /// Waits for a write that already reached the helper. Every mode switch calls
+    /// this before its own write, so the two never share the connection at once
+    /// and a timed-out retry cannot drop the connection under the user's request.
+    func finishInFlightWrite() async {
+        _ = await inFlightWrite?.result
     }
 
     func restartAfterWake() {
@@ -101,33 +151,41 @@ final class SMCLockoutRetrier {
     /// Writes the refused mode once, quietly, so a failed attempt never flashes
     /// an error banner every few minutes.
     func attempt() async {
-        guard var current = recovery else { return }
+        guard let mode = recovery?.mode else { return }
+        // A wake can bring the next attempt forward while the last write is still out.
+        guard inFlightWrite == nil else {
+            schedule()
+            return
+        }
         pendingDelay = nil
-        current.recordAttempt()
-        recovery = current
-        guard isReady(), let write = resolveWrite(current.mode) else {
+        recovery?.recordAttempt()
+        guard isReady(), let write = resolveWrite(mode) else {
             schedule()
             return
         }
-        do {
-            try await perform(write)
-        } catch {
+        let ownGeneration = generation
+        let request = Task { @MainActor [perform] in try await perform(write) }
+        inFlightWrite = request
+        let result = await request.result
+        inFlightWrite = nil
+        // A mode the user picked meanwhile cancelled this recovery and waited for this write.
+        guard generation == ownGeneration, let finished = recovery else { return }
+        if case .failure(let error) = result {
             // The helper already handed the failed write back to macOS.
+            recovery?.recordFailedWrite(error)
             schedule()
             return
         }
-        // A mode the user picked meanwhile cancelled this recovery and is queued behind the write.
-        guard recovery == current else { return }
         cancel()
-        onRecovered(current)
+        onRecovered(finished)
     }
 
     private func schedule() {
         task?.cancel()
         guard let delay = recovery?.nextDelay(at: now()) else {
-            guard recovery != nil else { return }
+            guard let recovery else { return }
             cancel()
-            onGaveUp()
+            onGaveUp(recovery.giveUp)
             return
         }
         pendingDelay = delay
@@ -139,6 +197,26 @@ final class SMCLockoutRetrier {
             }
             guard !Task.isCancelled else { return }
             await self?.attempt()
+        }
+    }
+}
+
+extension SMCLockoutRecovery.GiveUp {
+    /// Only a write the SMC turned down earns the restart advice.
+    var message: LocalizedControlText {
+        switch self {
+        case .stillRefused:
+            LocalizedControlText {
+                fanBarText("SMC 仍然拒绝风扇写入，重启 Mac 可恢复", "The SMC still refuses fan writes; restarting your Mac clears it")
+            }
+        case .unanswered:
+            LocalizedControlText {
+                fanBarText("控制服务一直没有回应，风扇仍由 macOS 调节", "The fan control service never answered; macOS still controls the fans")
+            }
+        case .neverRetried:
+            LocalizedControlText {
+                fanBarText("FanBar 没能重试风扇模式，风扇仍由 macOS 调节", "FanBar couldn't retry the fan mode; macOS still controls the fans")
+            }
         }
     }
 }

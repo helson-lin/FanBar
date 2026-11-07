@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { createExecutionContext, createScheduledController, waitOnExecutionContext } from 'cloudflare:test';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import worker from '../src/index.ts';
+import worker, { UpdateAdmin } from '../src/index.ts';
 
 const SPARKLE_UA = (version: string) => `FanBar/${version} Sparkle/2.9.6`;
 
@@ -35,8 +35,13 @@ function at(isoTime: string) {
   vi.setSystemTime(new Date(isoTime));
 }
 
+// Every update check may start the daily task, which asks GitHub for releases: never reach the network.
+const noReleases = () => vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json([]));
+
 beforeEach(async () => {
+  noReleases();
   await env.DB.batch([
+    env.DB.prepare("UPDATE task_runs SET day = ''"),
     ...['checks_daily', 'cohort_weekly', 'model_weekly', 'os_weekly', 'arch_weekly', 'country_weekly']
       .map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
     env.DB.prepare('DELETE FROM releases'),
@@ -155,8 +160,8 @@ it('splits weeks at Monday 00:00 UTC, including across the ISO year', async () =
   expect(await weekOf('2027-01-04T00:00:00Z')).toBe('2027-W01');
 });
 
-it('serves only the appcast and stats paths', async () => {
-  for (const path of ['/', '/appcast', '/api/stats/extra', '/admin']) expect((await call(path)).status).toBe(404);
+it('serves only the home, appcast and stats paths', async () => {
+  for (const path of ['/appcast', '/api/stats/extra', '/admin']) expect((await call(path)).status).toBe(404);
   expect((await call('/appcast.xml', { method: 'HEAD' })).status).toBe(302);
 });
 
@@ -176,6 +181,24 @@ it('limits stats to the last 180 days and 26 weeks', async () => {
   expect(body.cohorts.map((row: any) => row.week)).toEqual(['2026-W47']);
 });
 
+it('serves stats from the edge cache in production and survives a database failure', async () => {
+  await checks(5);
+  let reads = 0;
+  const countingDB = { prepare: env.DB.prepare.bind(env.DB), batch: (s: D1PreparedStatement[]) => { reads++; return env.DB.batch(s); } };
+  const production = { ...env, ENVIRONMENT: 'production', DB: countingDB as unknown as D1Database };
+  const first = await call('/api/stats', {}, production);
+  const second = await call('/api/stats?bust=1', {}, production);
+  expect(reads).toBe(1);
+  expect(await second.json()).toEqual(await first.json());
+  await caches.default.delete(new Request('http://localhost/api/stats'));
+
+  const brokenDB = { prepare() { throw new Error('D1 unavailable'); }, batch() { throw new Error('D1 unavailable'); } };
+  const failed = await call('/api/stats', {}, { ...env, DB: brokenDB as unknown as D1Database });
+  expect(failed.status).toBe(503);
+  expect(failed.headers.get('Access-Control-Allow-Origin')).toBe(env.STATS_ORIGIN);
+  expect(failed.headers.get('Cache-Control')).toBe('no-store');
+});
+
 async function runDailyTask() {
   const ctx = createExecutionContext();
   await worker.scheduled(createScheduledController({ cron: '23 4 * * *' }), env, ctx);
@@ -187,19 +210,22 @@ function githubReleases(tags: string[]) {
 }
 
 it('learns newly published versions from GitHub every day', async () => {
-  const fetch = githubReleases(['v0.9.0', 'v0.8.0', 'nightly-build']);
+  const fetch = githubReleases(['v0.9.0', 'v0.9.1-beta.1', 'v0.8.0', 'nightly-build']);
   await runDailyTask();
   expect(String(fetch.mock.calls[0][0])).toBe('https://api.github.com/repos/helson-lin/FanBar/releases?per_page=100');
   vi.restoreAllMocks();
+  noReleases();
   await checks(5, '', SPARKLE_UA('0.9.0'));
+  await checks(5, '', SPARKLE_UA('0.9.1-beta.1'));
   await checks(5, '', SPARKLE_UA('nightly-build'));
-  expect((await stats()).checksDaily.map((row: any) => row.version).sort()).toEqual(['0.9.0', 'other']);
+  expect((await stats()).checksDaily.map((row: any) => row.version).sort()).toEqual(['0.9.0', '0.9.1-beta.1', 'other']);
 });
 
 it('keeps the known versions when GitHub is unavailable', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('rate limited', { status: 403 }));
   await runDailyTask();
   vi.restoreAllMocks();
+  noReleases();
   await checks(5);
   expect((await stats()).checksDaily).toEqual([{ day: today(), version: '0.8.0', n: 5 }]);
 });
@@ -216,4 +242,106 @@ it('deletes counts older than 730 days', async () => {
   const weeks = await env.DB.prepare('SELECT week FROM cohort_weekly').all();
   expect(days.results).toEqual([{ day: '2026-11-18' }]);
   expect(weeks.results).toEqual([{ week: '2026-W47' }]);
+});
+
+it('runs the daily task from the first update check of each UTC day only', async () => {
+  // Days no other test uses, so this isolate has not claimed them yet.
+  at('2027-03-10T08:00:00Z');
+  const fetch = githubReleases(['v1.0.0']);
+  await checks(3);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  at('2027-03-10T23:59:00Z');
+  await checks(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  // Another isolate that has not seen today's claim still finds the day taken in D1.
+  await env.DB.prepare("UPDATE task_runs SET day = '2027-03-10'").run();
+  at('2027-03-11T00:00:00Z');
+  await checks(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  // The synced version now counts under its own name.
+  vi.restoreAllMocks();
+  noReleases();
+  await checks(5, '', SPARKLE_UA('1.0.0'));
+  expect((await stats()).checksDaily.filter((row: any) => row.version === '1.0.0'))
+    .toEqual([{ day: '2027-03-11', version: '1.0.0', n: 5 }]);
+});
+
+it('keeps redirecting when the daily task fails', async () => {
+  at('2027-04-01T08:00:00Z');
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+  const response = await check();
+  expect(response.status).toBe(302);
+  expect(response.headers.get('Location')).toBe(env.APPCAST_URL);
+});
+
+it('explains the service at the root without counting the visit', async () => {
+  const response = await call('/', { headers: { 'User-Agent': SPARKLE_UA('0.8.0') } });
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+  expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
+  const page = await response.text();
+  expect(page).toContain('FanBar update service');
+  expect(page).toContain('href="/api/stats"');
+  await checks(4);
+  expect((await stats()).checksDaily).toEqual([]); // 4 checks + the page visit would be 5
+});
+
+it('answers the root page in English unless Chinese is picked', async () => {
+  const browser = await call('/', { headers: { 'Accept-Language': 'zh-CN,zh;q=0.9' } });
+  expect(browser.headers.get('Content-Language')).toBe('en');
+  expect(await browser.text()).toContain('<html lang="en">');
+
+  const zh = await call('/?lang=zh');
+  expect(zh.headers.get('Content-Language')).toBe('zh-Hans');
+  const zhPage = await zh.text();
+  expect(zhPage).toContain('<html lang="zh-Hans">');
+  expect(zhPage).toContain('FanBar 更新服务');
+  expect(zhPage).toContain('href="/?lang=en"');
+});
+
+it('keeps the root page script-free under its CSP', async () => {
+  const page = await (await call('/')).text();
+  // In-page references such as an SVG gradient's url(#id) load nothing.
+  expect(page).not.toMatch(/<script|<link|<img|url\((?!#)/i);
+});
+
+const admin = () => new UpdateAdmin(createExecutionContext(), env);
+
+it('gives the admin every group, including those hidden from /api/stats', async () => {
+  at('2026-11-18T12:00:00Z'); // Wednesday of 2026-W47
+  await checks(2);
+  await checks(3, '?fb_cohort=legacy&fb_model=Mac14,2&fb_os=26&fb_arch=arm64');
+  expect((await stats()).checksDaily).toEqual([{ day: '2026-11-18', version: '0.8.0', n: 5 }]);
+  const result = await admin().stats(7);
+  expect(result.range).toBe(7);
+  expect(result.publicMinimumGroupSize).toBe(5);
+  expect(result.days).toHaveLength(7);
+  expect(result.days.at(-1)).toBe('2026-11-18');
+  expect(result.daily).toEqual([{ day: '2026-11-18', version: '0.8.0', n: 5 }]);
+  expect(result.weeks[0]).toBe('2026-W47');
+  expect(result.weeks).toHaveLength(8);
+  expect(result.weekly.models).toEqual([{ week: '2026-W47', value: 'Mac14,2', n: 3 }]);
+  expect(result.weekly.os).toEqual([{ week: '2026-W47', value: '26', n: 3 }]);
+  expect(result.currentWeek).toEqual({ week: '2026-W47', checks: 5, optedIn: 3 });
+});
+
+it('lists releases newest first and reports the daily task day', async () => {
+  await env.DB.prepare("INSERT INTO releases (version) VALUES ('0.10.0'), ('0.9.0-beta.1'), ('0.9.0')").run();
+  await env.DB.prepare("UPDATE task_runs SET day = '2026-11-18'").run();
+  const result = await admin().stats(30);
+  expect(result.releases).toEqual(['0.10.0', '0.9.0', '0.9.0-beta.1', '0.8.0', '0.7.0']);
+  expect(result.dailyTaskDay).toBe('2026-11-18');
+});
+
+it('keeps enough days to compare the selected range with the one before it', async () => {
+  at('2026-11-01T12:00:00Z');
+  await checks(1);
+  at('2026-11-18T12:00:00Z');
+  await checks(1);
+  expect((await admin().stats(7)).daily.map((row) => row.day)).toEqual(['2026-11-18']);
+  expect((await admin().stats(30)).daily.map((row) => row.day)).toEqual(['2026-11-01', '2026-11-18']);
+});
+
+it('refuses ranges the admin does not offer', async () => {
+  await expect(admin().stats(365)).rejects.toThrow(RangeError);
 });

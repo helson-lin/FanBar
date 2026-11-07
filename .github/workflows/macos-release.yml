@@ -349,3 +349,57 @@ jobs:
           # Required checks and the cask install test, run on the pushed commit.
           gh workflow run quality.yml --ref "${branch}"
           gh workflow run homebrew.yml --ref "${branch}"
+
+  geo:
+    name: Publish GEO release pages (dev)
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: fanbar-geo-dev
+      cancel-in-progress: false
+    steps:
+      - name: Check out the release notes
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check out the GEO automation
+        run: git clone --depth 1 https://github.com/helson-lin/fanbar-site.git .geo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build release pages and GEO files
+        working-directory: .geo
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/build-release.mjs --src "$GITHUB_WORKSPACE/docs/releases" --tag "$RELEASE_TAG"
+
+      - name: Validate generated output
+        working-directory: .geo
+        run: node scripts/validate-build.mjs --version "${GITHUB_REF_NAME#v}"
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .geo
+          wranglerVersion: "4.113.0"
+          command: deploy --config wrangler.dev.jsonc
+
+      - name: Verify the dev deployment
+        working-directory: .geo
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if node scripts/verify-deployment.mjs https://fanbar-site-dev.helson.workers.dev; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1

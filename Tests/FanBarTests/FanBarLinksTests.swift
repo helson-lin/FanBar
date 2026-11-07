@@ -18,10 +18,10 @@ final class FanBarLinksTests: XCTestCase {
     func testUsageStatisticsPrivacyLinkOpensTheDocumentedFieldsInTheReadersLanguage() {
         let base = "https://github.com/helson-lin/FanBar/blob/main/services/update/"
         for language in [FanBarLanguage.chinese, .traditionalChinese] {
-            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.md")
+            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.zh-CN.md")
         }
         for language in [FanBarLanguage.english, .japanese, .russian, .french] {
-            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.en.md")
+            XCTAssertEqual(FanBarLinks.usageStatisticsPrivacy(for: language).absoluteString, base + "PRIVACY.md")
         }
     }
 }

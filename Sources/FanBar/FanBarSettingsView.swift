@@ -468,8 +468,8 @@ enum FanBarLinks {
         return resolved == .chinese || resolved == .traditionalChinese ? privacyChinese : privacyEnglish
     }
 
-    private static let privacyChinese = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md")!
-    private static let privacyEnglish = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.en.md")!
+    private static let privacyChinese = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.zh-CN.md")!
+    private static let privacyEnglish = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md")!
     /// Dodo Payments checkout for donations.
     static let donation = URL(string: "https://checkout.dodopayments.com/buy/pdt_0NqThcy5f4slzzZQspCty?quantity=1")!
 }

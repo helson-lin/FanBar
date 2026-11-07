@@ -10,14 +10,16 @@ import { Select } from '@cloudflare/kumo/components/select';
 import { Table } from '@cloudflare/kumo/components/table';
 import { Tabs } from '@cloudflare/kumo/components/tabs';
 import { cn } from '@cloudflare/kumo/utils';
-import { ArrowClockwiseIcon, KeyIcon, TrayIcon, WarningCircleIcon } from '@phosphor-icons/react';
+import { ArrowClockwiseIcon, TrayIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { AuditTab, FlagBadges, OverviewTab, VerificationLists } from '../components/admin-insights';
+import { AccountMenu, AreaNav, ExpiredGate, LocalDevelopmentBanner, UnconfiguredGate, type Area } from '../components/admin-shell';
+import { UpdateStatsArea } from '../components/update-stats';
 import { DataTable } from '../components/data-table';
 import { Page, PageTitle, SiteHeader } from '../components/shell';
 import { StatusLabel } from '../components/status';
 import { t } from '../i18n';
 import {
-  ApiError, api, failureSummary, type AdminDetail, type AdminList, type Capability, type ReviewReason, type ReviewStatus, type VerificationCandidate,
+  ApiError, api, failureSummary, type AdminDetail, type AdminList, type AdminSession, type Overview, type Capability, type ReviewReason, type ReviewStatus, type VerificationCandidate,
   type VerificationStatus,
 } from '../lib/api';
 import { capabilityOrder, capabilityTitle, errorMessage, modelTitle, statusTitle, toneOf } from '../lib/labels';
@@ -33,72 +35,111 @@ const translateAll = <K extends string>(record: Record<K, string>) =>
 
 type Notice = { tone: 'info' | 'error'; text: string } | null;
 
+type Gate = 'loading' | 'ready' | 'expired' | 'unconfigured';
+const areaFromHash = (): Area => (location.hash === '#updates' ? 'updates' : 'compat');
+
 function AdminPage() {
-  // The access key lives only in memory; a reload asks for it again.
-  const [token, setToken] = useState('');
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  // Cloudflare Access holds the session in its cookie; the page only asks who is signed in.
+  const [session, setSession] = useState<AdminSession | null>(null);
+  const [gate, setGate] = useState<Gate>('loading');
+  const [area, setArea] = useState<Area>(areaFromHash);
+  const [pending, setPending] = useState<number | null>(null);
   const [tab, setTab] = useState('overview');
   // A report opened from the overview; the review tab selects it.
   const [focus, setFocus] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
-  const request = useCallback(<T,>(path: string, options: RequestInit = {}) => api<T>(path, {
-    ...options,
-    headers: { ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(options.headers ?? {}) },
-  }), [token]);
+  const request = useCallback(<T,>(path: string, options: RequestInit = {}) => api<T>(path, options), []);
 
-  const ready = useCallback(() => setAuthenticated(true), []);
   const fail = useCallback((error: unknown) => {
-    if (error instanceof ApiError && error.status === 403 && error.code.startsWith('ADMIN_')) setAuthenticated(false);
+    if (error instanceof ApiError && error.code === 'ADMIN_AUTHENTICATION_REQUIRED') { setGate('expired'); return; }
+    if (error instanceof ApiError && error.code === 'ADMIN_ACCESS_NOT_CONFIGURED') { setGate('unconfigured'); return; }
     setNotice({ tone: 'error', text: errorMessage(error) });
   }, []);
 
+  const refreshPending = useCallback(async () => {
+    try { setPending((await api<Overview>('/api/admin/overview')).queue.pending); }
+    catch { /* The count is a hint; the tabs report their own errors. */ }
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setSession(await api<AdminSession>('/api/admin/session'));
+        setGate('ready');
+        void refreshPending();
+      } catch (error) {
+        fail(error);
+        if (!(error instanceof ApiError && error.code.startsWith('ADMIN_'))) setGate('ready');
+      }
+    })();
+  }, [fail, refreshPending]);
+
+  useEffect(() => {
+    const follow = () => setArea(areaFromHash());
+    addEventListener('hashchange', follow);
+    return () => removeEventListener('hashchange', follow);
+  }, []);
+  const switchArea = (next: Area) => {
+    setArea(next);
+    setNotice(null);
+    history.replaceState(null, '', next === 'updates' ? '#updates' : location.pathname + location.search);
+  };
+
+  const signedIn = gate === 'ready' && session !== null;
   return (
     <>
       <SiteHeader
-        subtitle="报告审核 · 管理员"
-        links={[{ href: '/', label: '公开兼容性页 ↗' }, { href: '/privacy.html', label: '处理规则' }]}
+        subtitle="管理后台"
+        nav={signedIn ? <AreaNav area={area} pending={pending} onChange={switchArea} /> : undefined}
+        links={[
+          { href: '/', label: '公开兼容性页 ↗' },
+          { href: 'https://update.getfanbar.com/', label: 'update.getfanbar.com ↗', external: true },
+        ]}
+        account={<AccountMenu session={gate === 'ready' ? session : null} />}
       />
       <Page>
-        <PageTitle
-          title="把报告变成可信的兼容性记录。"
-          lede="审核通过只纳入社区统计。开发者验证需要独立实测与公开依据，不能由用户请求成功自动推导。"
-          aside={<Badge variant="secondary">{t('原始报告默认私有')}</Badge>}
-        />
+        {gate === 'expired' && <ExpiredGate />}
+        {gate === 'unconfigured' && <UnconfiguredGate />}
+        {gate === 'ready' && !session && notice && <NoticeLine notice={notice} />}
 
-        {authenticated === false && (
-          <Login
-            onSubmit={value => { setToken(value); setAuthenticated(null); setNotice(null); }}
-            notice={notice}
-          />
-        )}
-
-        {authenticated !== false && (
+        {signedIn && (
           <>
-            <Tabs
-              variant="underline"
-              className="mb-5"
-              value={tab}
-              onValueChange={setTab}
-              tabs={[
-                { value: 'overview', label: t('概览') }, { value: 'review', label: t('审核报告') }, { value: 'verify', label: t('开发者验证') },
-                { value: 'audit', label: t('审核记录') }, { value: 'diagnostics', label: t('诊断日志') },
-              ]}
-            />
-            {notice && <NoticeLine notice={notice} />}
-            {tab === 'overview' && (
-              <OverviewTab
-                request={request}
-                onReady={ready}
-                onError={fail}
-                onOpenReport={id => { setFocus(id); setTab('review'); }}
-                onOpenVerification={() => setTab('verify')}
-              />
+            {session.kind === 'localDevelopment' && <LocalDevelopmentBanner />}
+            {area === 'updates' && <UpdateStatsArea request={request} onError={fail} />}
+            {area === 'compat' && (
+              <>
+                <PageTitle
+                  title="把报告变成可信的兼容性记录。"
+                  lede="审核通过只纳入社区统计。开发者验证需要独立实测与公开依据，不能由用户请求成功自动推导。"
+                  aside={<Badge variant="secondary">{t('原始报告默认私有')}</Badge>}
+                />
+                <Tabs
+                  variant="underline"
+                  className="mb-5"
+                  value={tab}
+                  onValueChange={setTab}
+                  tabs={[
+                    { value: 'overview', label: t('概览') }, { value: 'review', label: t('审核报告') }, { value: 'verify', label: t('开发者验证') },
+                    { value: 'audit', label: t('审核记录') }, { value: 'diagnostics', label: t('诊断日志') },
+                  ]}
+                />
+                {notice && <NoticeLine notice={notice} />}
+                {tab === 'overview' && (
+                  <OverviewTab
+                    request={request}
+                    onReady={overview => setPending(overview.queue.pending)}
+                    onError={fail}
+                    onOpenReport={id => { setFocus(id); setTab('review'); }}
+                    onOpenVerification={() => setTab('verify')}
+                  />
+                )}
+                {tab === 'review' && <ReviewTab request={request} focus={focus} onReady={refreshPending} onError={fail} onNotice={setNotice} />}
+                {tab === 'verify' && <VerifyTab request={request} onError={fail} onNotice={setNotice} />}
+                {tab === 'audit' && <AuditTab request={request} onError={fail} />}
+                {tab === 'diagnostics' && <DiagnosticsTab request={request} onError={fail} />}
+              </>
             )}
-            {tab === 'review' && <ReviewTab request={request} focus={focus} onReady={ready} onError={fail} onNotice={setNotice} />}
-            {tab === 'verify' && <VerifyTab request={request} onError={fail} onNotice={setNotice} />}
-            {tab === 'audit' && <AuditTab request={request} onError={fail} />}
-            {tab === 'diagnostics' && <DiagnosticsTab request={request} onError={fail} />}
           </>
         )}
       </Page>
@@ -234,34 +275,6 @@ function DiagnosticsTab({ request, onError }: { request: Request; onError: (erro
       </li>)}
     </ul>
   </section>;
-}
-
-/* ---------- Sign-in ---------- */
-function Login({ onSubmit, notice }: { onSubmit: (token: string) => void; notice: Notice }) {
-  const [value, setValue] = useState('');
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    onSubmit(value);
-    setValue('');
-  };
-  return (
-    <LayerCard className="mx-auto max-w-md">
-      <LayerCard.Primary>
-          <form onSubmit={submit} className="flex flex-col gap-4">
-        {notice?.tone === 'error' && <Banner variant="error" icon={<WarningCircleIcon weight="fill" />} description={notice.text} />}
-        <Input
-          label={t('管理员访问密钥')}
-          type="password"
-          autoComplete="off"
-          value={value}
-          onChange={event => setValue(event.target.value)}
-          className="w-full font-mono"
-        />
-        <Button type="submit" variant="primary" icon={KeyIcon} className="justify-center">{t('进入审核后台')}</Button>
-      </form>
-        </LayerCard.Primary>
-    </LayerCard>
-  );
 }
 
 /* ---------- Review ---------- */
@@ -610,4 +623,4 @@ function VerifyTab({ request, onError, onNotice }: { request: Request; onError: 
   );
 }
 
-mount('报告审核 · FanBar', <AdminPage />);
+mount('管理后台 · FanBar', <AdminPage />);

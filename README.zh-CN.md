@@ -239,7 +239,7 @@ Raycast：在同一区块点「在 Raycast 中设置…」，然后在 Raycast �
 
 ## 📊 使用统计
 
-FanBar 通过 `update.getfanbar.com` 检查更新，它会跳转到 GitHub 上的 appcast，并对更新检查做匿名计数。默认只按天、按应用版本统计检查次数。如果你主动开启（默认关闭，只询问一次），FanBar 还会每周附带一次安装批次（周）、Mac 机型、macOS 主版本、芯片架构，以及 Cloudflare 根据请求判断的国家。不会保存你的 IP 地址、设备 ID、序列号或应用名称，样本小于 5 的分组不会公开；汇总数据见 [getfanbar.com/stats](https://getfanbar.com/stats)。你可以随时在设置的「自动更新」下方关闭，关闭自动检查更新也会停止自动计数。详情见 [PRIVACY.md](services/update/PRIVACY.md)。
+FanBar 通过 `update.getfanbar.com` 检查更新，它会跳转到 GitHub 上的 appcast，并对更新检查做匿名计数。默认只按天、按应用版本统计检查次数。如果你主动开启（默认关闭，只询问一次），FanBar 还会每周附带一次安装批次（周）、Mac 机型、macOS 主版本、芯片架构，以及 Cloudflare 根据请求判断的国家。不会保存你的 IP 地址、设备 ID、序列号或应用名称，样本小于 5 的分组不会公开；汇总数据见 [getfanbar.com/stats](https://getfanbar.com/stats)。你可以随时在设置的「自动更新」下方关闭，关闭自动检查更新也会停止自动计数。详情见 [PRIVACY.md](services/update/PRIVACY.zh-CN.md)。
 
 ## 🤝 社区
 

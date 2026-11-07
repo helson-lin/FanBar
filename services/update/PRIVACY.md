@@ -1,81 +1,81 @@
-# FanBar 更新检查：匿名使用统计
+# FanBar update checks: anonymous usage statistics
 
-English: [PRIVACY.en.md](PRIVACY.en.md)
+简体中文：[PRIVACY.zh-CN.md](PRIVACY.zh-CN.md). If the English and Chinese versions ever differ, this English version is authoritative; please open an issue so we can fix the translation.
 
-运营者：FanBar 项目维护者。服务地址：https://update.getfanbar.com。公开统计页：https://getfanbar.com/stats。
+Operator: the FanBar project maintainers. Service: https://update.getfanbar.com. Public statistics: https://getfanbar.com/stats.
 
-FanBar 的更新源经过 `https://update.getfanbar.com/appcast.xml`。该地址只做一件事：把请求跳转（302）到 GitHub 上的 appcast，同时记录匿名计数。计数失败不会影响更新检查。本文说明记录什么、不记录什么，以及如何关闭。规格见 [SPEC.md](SPEC.md)，源码在本目录 `src/`。
+FanBar's update feed goes through `https://update.getfanbar.com/appcast.xml`. That address does one thing: it redirects (302) the request to the appcast on GitHub and records an anonymous count. If counting fails, the update check is not affected. This page explains what is recorded, what is not, and how to turn it off. The specification is [SPEC.md](SPEC.md) (Chinese) and the source code is in `src/` in this directory.
 
-## 默认会计数的内容
+## Counted by default
 
-只要应用检查更新，服务就会在当天（UTC）给「应用版本」的计数加 1：
+Whenever the app checks for updates, the service adds 1 to the count for that app version on that day (UTC):
 
-- 版本号取自 Sparkle 发出的 User-Agent，形如 `FanBar/<版本> Sparkle/<版本>`。
-- 版本号在已发布版本列表中时，按该版本计数；不在列表中的（包括格式异常的），一律计入 `other`。
-- User-Agent 不是 FanBar 加 Sparkle 这种形式的请求（浏览器访问、爬虫、监控拨测等）会被忽略，不计数。
+- The version is read from the User-Agent that Sparkle sends, of the form `FanBar/<version> Sparkle/<version>`.
+- A version on the list of published releases is counted under that version. Anything else, including malformed values, is counted as `other`.
+- Requests whose User-Agent is not FanBar plus Sparkle (browsers, crawlers, uptime probes) are ignored and not counted.
 
-这一项不需要你做任何选择，也不含任何其他字段。
+This needs no choice from you and carries no other field.
 
-## 只有开启「共享匿名使用统计」后才会计数的内容
+## Counted only when "Share anonymous usage statistics" is on
 
-该选项默认关闭。新安装时会在引导流程中询问一次；从旧版升级的用户也会被询问一次。之后可在设置里「自动更新」下方的「共享匿名使用统计 / Share anonymous usage statistics」开关随时更改。
+The option is off by default. New installs are asked once during onboarding; people upgrading from an earlier version are also asked once. You can change it at any time in Settings, below automatic updates, with the "Share anonymous usage statistics" switch.
 
-开启后，应用在每个 UTC ISO 周第一次成功加载 appcast 时，会在更新检查请求上附带下列字段，一周最多一次。开启时，FanBar 会立即进行本周的这次检查，而不是等到下一次定时检查。服务按服务器的 UTC 时间决定「本周」，不信任客户端传来的时间。
+When it is on, the app adds the fields below to the update check the first time it loads the appcast successfully in each UTC ISO week, at most once a week. When you turn the option on, FanBar makes that week's check right away instead of waiting for the next scheduled one. The service decides what "this week" is from its own UTC clock and does not trust a time sent by the client.
 
-| 字段 | 允许的值 | 说明 |
+| Field | Allowed values | Notes |
 | --- | --- | --- |
-| `fb_cohort`（安装批次） | `legacy`，或 UTC ISO 周，如 `2026-W47` | 升级上来的老用户为 `legacy`；新安装的用户为首次启动所在的周（该周只保存在本机）。周必须在首个统计周和当前周之间，否则丢弃。 |
-| `fb_model`（Mac 机型） | 机型标识，如 `Mac14,13`；形式正确但不在已知列表中的记为 `other` | 其他格式的值（例如不是 Mac 的标识）会被丢弃。 |
-| `fb_os`（macOS 主版本） | 11 到 40 之间的整数 | 只有主版本号，不含小版本和构建号。 |
-| `fb_arch`（处理器架构） | `arm64` 或 `x86_64` | |
-| 国家或地区 | 两位国家代码，如 `CN` | 不由应用发送，由 Cloudflare 根据网络位置在请求元数据中提供。 |
+| `fb_cohort` (install week) | `legacy`, or a UTC ISO week such as `2026-W47` | People who upgraded from an earlier version are `legacy`; new installs send the week of their first launch (stored only on your Mac). The week must fall between the first statistics week and the current week, or it is dropped. |
+| `fb_model` (Mac model) | A model identifier such as `Mac14,13`; identifiers of the right shape that are not on the known list are recorded as `other` | Values in any other format (for example, identifiers that are not Macs) are dropped. |
+| `fb_os` (macOS major version) | An integer from 11 to 40 | The major version only, with no minor version or build number. |
+| `fb_arch` (chip architecture) | `arm64` or `x86_64` | |
+| Country or region | A two-letter country code such as `CN` | Not sent by the app. Cloudflare provides it in the request metadata, based on network location. |
 
-规则：
+Rules:
 
-- 只有请求带有合法的 `fb_cohort` 时，才会处理其他字段和国家；没有它，其他字段一律不计。
-- 每个字段独立校验，非法的字段单独丢弃，不影响其他字段和版本计数。
-- 关闭统计时，应用不附带任何 `fb_` 字段，国家也不会被记录。
+- The other fields and the country are processed only when the request carries a valid `fb_cohort`. Without it, none of them is counted.
+- Each field is validated on its own. An invalid field is dropped by itself and does not affect the other fields or the version count.
+- When sharing is off, the app sends no `fb_` field and the country is not recorded.
 
-## 绝不收集
+## Never collected
 
-- 不保存 IP 地址。
-- 不收集设备 ID、序列号、硬件 UUID。
-- 不收集用户名、主机名。
-- 不收集你安装或运行的其他应用的名称。
-- 不收集温度历史、风扇转速或任何传感器读数。
-- 不收集系统或界面语言。
-- 不收集内存（RAM）大小。
-- 不保存原始请求、User-Agent 原文或查询字符串。
+- No IP address is stored.
+- No device ID, serial number or hardware UUID.
+- No user name or host name.
+- No names of other apps you have installed or run.
+- No temperature history, fan speeds or any sensor readings.
+- No system or interface language.
+- No memory (RAM) size.
+- No raw requests, raw User-Agent strings or query strings are stored.
 
-## IP 地址与基础设施日志
+## IP addresses and infrastructure logs
 
-IP 地址只用于限流，不会存入数据库：服务用服务器保存的秘密盐值与 IP 一起计算 SHA-256，得到的哈希只作为限流器的键，每个键每 60 秒最多计 10 次。超出限制的请求仍然正常跳转，只是不计数。限流是按 Cloudflare 位置的尽力保护，共享网络可能共享额度。
+IP addresses are used only for rate limiting and are never written to the database. The service computes SHA-256 over a secret salt kept on the server together with the IP, and uses the resulting hash only as the rate limiter's key: at most 10 counts per key every 60 seconds. Requests over the limit are still redirected normally; they are just not counted. Rate limiting is a best-effort protection per Cloudflare location, and a shared network may share the allowance.
 
-服务运行在 Cloudflare 上。Cloudflare 作为基础设施提供方，处理请求时可能按其自身的政策保留请求日志，这不在本服务的控制范围内。本服务自身不记录请求内容；Workers 的调用日志已关闭，运行日志只输出不含请求细节的固定错误信息。
+The service runs on Cloudflare. As the infrastructure provider, Cloudflare may keep request logs under its own policies while handling requests; this is outside the service's control. The service itself does not log request contents: Workers invocation logs are off, and runtime logs contain only fixed error messages without request details.
 
-## 存储方式与最小分组
+## Storage and minimum group size
 
-数据库只保存「按天或按周 × 单一维度」的计数：
+The database stores only counts of the form "per day or per week × a single dimension":
 
-- 版本数据按天保存；安装批次、机型、macOS 版本、架构、国家各自按周保存。
-- 各维度分开存放，互不交叉。数据库里没有「某个机型在某个国家」之类的组合，更没有单个用户的记录。
-- 公开接口和统计页不展示计数小于 5 的分组。
+- Version data is stored per day; install week, Mac model, macOS version, architecture and country are each stored per week.
+- Each dimension is stored separately and never combined with another. There is no "this model in this country" combination in the database, and no record of any individual user.
+- The public API and statistics page never show a group with a count below 5.
 
-## 公开统计与保留期限
+## Public statistics and retention period
 
-公开统计页 https://getfanbar.com/stats 展示最近 180 天的更新检查（按版本）和最近 26 周的批次、机型、系统、架构、国家分布。数据来自公开接口 `GET https://update.getfanbar.com/api/stats`，响应带有 `minimumGroupSize: 5`，任何小于 5 的分组都不会返回。
+The public statistics page https://getfanbar.com/stats shows update checks by version for the last 180 days, and the install-week, model, system, architecture and country distributions for the last 26 weeks. The data comes from the public API `GET https://update.getfanbar.com/api/stats`. Its response includes `minimumGroupSize: 5`, and no group smaller than 5 is ever returned.
 
-计数只是更新检查的次数，不是独立设备数或活跃用户数：同一台 Mac 一天内检查多次会计多次，关闭自动检查或未联网的设备不会出现。
+The counts are numbers of update checks, not distinct devices or active users: a Mac that checks several times in a day is counted several times, and devices with automatic checks off or no network do not appear.
 
-数据库中的计数保留 730 天，之后由每天一次的定时任务删除。
+Counts in the database are kept for 730 days and then deleted by a task that runs once a day.
 
-## 如何关闭
+## How to turn it off
 
-- 关闭共享：在设置中，「自动更新」下方关闭「共享匿名使用统计」。此后应用不再附带任何额外字段。
-- 停止全部计数：关闭自动检查更新。这样应用不会主动访问更新源，也就不会被计数。手动选择「检查更新」时仍会访问更新源，并只按版本计一次，且不含额外字段（除非你已开启共享）。
+- Stop sharing: in Settings, below automatic updates, turn off "Share anonymous usage statistics". From then on the app sends no extra fields.
+- Stop all counting: turn off automatic update checks. The app then no longer contacts the update feed on its own, so it is not counted. Choosing "Check for Updates" by hand still contacts the feed and is counted once, by version only, with no extra fields (unless you have turned sharing on).
 
-由于不保存任何可识别个人的标识，已经计入的聚合计数无法按个人撤回或删除；它们会在 730 天后过期。
+Because no personally identifying value is stored, aggregate counts that have already been recorded cannot be withdrawn or deleted per person; they expire after 730 days.
 
-## 源码与联系
+## Source code and contact
 
-服务源码公开，位于本仓库的 `services/update/`：<https://github.com/helson-lin/FanBar/tree/main/services/update>。可在 [GitHub Issues](https://github.com/helson-lin/FanBar/issues) 提问。本文随源码一起维护，修改记录见 Git 历史。
+The service's source code is public in `services/update/` in this repository: <https://github.com/helson-lin/FanBar/tree/main/services/update>. Questions are welcome in [GitHub Issues](https://github.com/helson-lin/FanBar/issues). This page is maintained alongside the source; see the Git history for changes.
