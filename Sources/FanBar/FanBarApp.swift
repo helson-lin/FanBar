@@ -114,6 +114,8 @@ struct FanBarApp: App {
         RuntimeDiagnostics.shared.beginLaunch()
         // Keep Sparkle alive for the full LSUIElement app lifetime. Diagnostic
         // command-line modes exit above and never start network update checks.
+        // Before the first update check and before onboarding can mark completion.
+        UsageStatistics.shared.recordCohortIfNeeded(onboardingCompleted: OnboardingPreferences.hasCompleted)
         SoftwareUpdateController.shared.start()
         let controller = FanController()
         RuntimeDiagnostics.shared.record(.app, .controllerReady, .succeeded)

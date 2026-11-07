@@ -29,6 +29,8 @@ struct FanMenu: View {
     @AppStorage(PanelMonitorPreferences.preferenceKey)
     private var monitorModulesRawValue: String?
 
+    /// Hides the one-time question as soon as it is answered or dismissed.
+    @State private var isUsagePromptAnswered = false
     @State private var contentHeight: CGFloat = 580
     @State private var chartRange: TemperatureChartRange = .tenMinutes
     @State private var expandedResource: PanelResourceList.Resource?
@@ -83,8 +85,21 @@ struct FanMenu: View {
         controller.modeActionFeedback?.kind == .failure
     }
 
+    private func answerUsagePrompt(share: Bool) {
+        UsageStatistics.shared.isEnabled = share
+        UsageStatistics.shared.markAsked()
+        isUsagePromptAnswered = true
+        if share { SoftwareUpdateController.shared.reportUsageIfPending() }
+    }
+
+    private var isShowingUsagePrompt: Bool {
+        !isUsagePromptAnswered
+            && UsageStatistics.shared.shouldAskLegacyUser
+            && !(focus?.level == .hot || controller.helperState != .enabled || isShowingModeFailureBanner)
+    }
+
     private var isShowingSupportPrompt: Bool {
-        SupportPrompt.shouldShow(
+        !isShowingUsagePrompt && SupportPrompt.shouldShow(
             firstUse: supportPromptFirstUse,
             dismissed: isSupportPromptDismissed,
             now: Date(),
@@ -223,6 +238,15 @@ struct FanMenu: View {
                                  alertThreshold: controller.highTemperatureThresholdCelsius)
                     .padding(.horizontal, Self.padding)
                     .padding(.vertical, PanelLayout.rowVerticalPadding)
+            }
+
+            if isShowingUsagePrompt {
+                UsageStatisticsPromptRow(
+                    onShare: { answerUsagePrompt(share: true) },
+                    onDecline: { answerUsagePrompt(share: false) }
+                )
+                .padding(.horizontal, Self.padding)
+                .padding(.top, 4)
             }
 
             if isShowingSupportPrompt {

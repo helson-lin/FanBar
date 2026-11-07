@@ -22,56 +22,98 @@ struct OnboardingCard: View {
     private var languageRawValue = FanBarLanguage.defaultValue
 
     static let width: CGFloat = 580
+    /// Divider, 14pt padding above and below, and the 30pt buttons.
+    static let footerHeight: CGFloat = 59
 
-    /// The permission notice only appears before the helper is approved; without it the
-    /// window is shorter rather than ending in an empty band.
-    static func height(for helperState: FanController.HelperState) -> CGFloat {
-        helperState == .enabled ? 548 : 626
+    private static var measuredHeights: [String: CGFloat] = [:]
+
+    @MainActor
+    private static func measurementKey(for controller: FanController) -> String {
+        "\(FanBarLanguage.current.rawValue)|\(controller.helperState)"
+    }
+
+    /// Tall enough to show everything without scrolling in the current language, so the
+    /// permission notice never hides below the fold and short translations leave no empty
+    /// band. Measured once per language and control-service state; capped to the screen,
+    /// where the content scrolls instead.
+    ///
+    /// Measuring lays out a second card, so call this outside `body` (the presenter does,
+    /// before it creates the window). `body` only reads the cache and measures a missing
+    /// entry afterwards, in a task.
+    @MainActor
+    static func height(for controller: FanController) -> CGFloat {
+        let key = measurementKey(for: controller)
+        let content = measuredHeights[key] ?? {
+            let host = NSHostingView(rootView: OnboardingCard(
+                controller: controller, onOpenMenu: {}, onDismiss: {}, showsContentOnly: true
+            ))
+            let height = ceil(host.fittingSize.height)
+            measuredHeights[key] = height
+            return height
+        }()
+        return min(content + footerHeight, maximumHeight)
+    }
+
+    /// Tests compare a fresh measurement with the window, so they drop earlier ones.
+    @MainActor
+    static func forgetMeasuredHeights() {
+        measuredHeights.removeAll()
+    }
+
+    /// The measured height, or nil until `height(for:)` has run for this state.
+    @MainActor
+    static func cachedHeight(for controller: FanController) -> CGFloat? {
+        measuredHeights[measurementKey(for: controller)].map { min($0 + footerHeight, maximumHeight) }
+    }
+
+    /// Leaves a margin on short screens, where the content scrolls instead.
+    @MainActor
+    static var maximumHeight: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? .greatestFiniteMagnitude) - 40
     }
 
     @ObservedObject var controller: FanController
     let onOpenMenu: () -> Void
     let onDismiss: () -> Void
+    /// Renders only the scrolling part, for measuring.
+    var showsContentOnly = false
 
     @AppStorage(MenuBarDisplayMode.preferenceKey)
     private var displayModeRawValue = MenuBarDisplayMode.defaultMode.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var isVisible = false
+    /// The last height shown, kept while a new language or control-service state is measured.
+    @State private var lastHeight: CGFloat?
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
+
+    private var measurementID: String { "\(languageRawValue)|\(controller.helperState)" }
+
+    private func remeasure() {
+        DispatchQueue.main.async {
+            lastHeight = Self.height(for: controller)
+        }
+    }
 
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRawValue) ?? .defaultMode
     }
 
     var body: some View {
+        if showsContentOnly {
+            scrollContent
+                .frame(width: Self.width)
+                .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+        } else {
+            window
+        }
+    }
+
+    private var window: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    previewStage
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(fanBarText("FanBar 已经在运行", "FanBar is running"))
-                            .font(.system(size: 22, weight: .semibold))
-                        Text(fanBarText(
-                            "它常驻在屏幕顶部的菜单栏，不会出现在程序坞中。",
-                            "It lives in the menu bar at the top of your screen and does not appear in the Dock."
-                        ))
-                        .font(.system(size: 13))
-                        .foregroundColor(palette.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    featuresCard
-
-                    if controller.helperState != .enabled {
-                        controlServiceNotice
-                    }
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
+                scrollContent
             }
 
             Divider()
@@ -105,7 +147,11 @@ struct OnboardingCard: View {
             .padding(.vertical, 14)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: Self.width, height: Self.height(for: controller.helperState))
+        .frame(width: Self.width, height: Self.cachedHeight(for: controller) ?? lastHeight ?? Self.maximumHeight)
+        // `task(id:)` needs macOS 12. Measuring waits for the next run-loop turn,
+        // so it never lays out a view inside `body`.
+        .onAppear(perform: remeasure)
+        .onChange(of: measurementID) { _ in remeasure() }
         .background(Color(NSColor.windowBackgroundColor))
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : 8)
@@ -119,6 +165,40 @@ struct OnboardingCard: View {
             }
         }
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+
+    /// Everything above the footer.
+    private var scrollContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            previewStage
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(fanBarText("FanBar 已经在运行", "FanBar is running"))
+                    .font(.system(size: 22, weight: .semibold))
+                Text(fanBarText(
+                    "它常驻在屏幕顶部的菜单栏，不会出现在程序坞中。",
+                    "It lives in the menu bar at the top of your screen and does not appear in the Dock."
+                ))
+                .font(.system(size: 13))
+                .foregroundColor(palette.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            featuresCard
+
+            SettingsChrome.settingsCard {
+                UsageStatisticsRow(showsAutomaticChecksNote: false)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+            }
+
+            if controller.helperState != .enabled {
+                controlServiceNotice
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 24)
+        .padding(.bottom, 20)
     }
 
     // MARK: Preview

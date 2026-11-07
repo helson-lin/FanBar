@@ -258,6 +258,9 @@ struct FanBarSettingsView: View {
             languageRow
             SettingsChrome.rowDivider
             softwareUpdateRow
+            SettingsChrome.rowDivider
+            UsageStatisticsRow()
+                .settingsRow()
         }
     }
 
@@ -458,6 +461,15 @@ struct SettingsSupportFooter: View {
 /// Pages FanBar opens in the browser.
 enum FanBarLinks {
     static let repository = URL(string: "https://github.com/helson-lin/FanBar")!
+    /// What anonymous usage statistics collect, field by field: the Chinese
+    /// original for Chinese, the English translation for every other language.
+    static func usageStatisticsPrivacy(for language: FanBarLanguage) -> URL {
+        let resolved = language == .system ? FanBarLanguage.current : language
+        return resolved == .chinese || resolved == .traditionalChinese ? privacyChinese : privacyEnglish
+    }
+
+    private static let privacyChinese = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.zh-CN.md")!
+    private static let privacyEnglish = URL(string: "https://github.com/helson-lin/FanBar/blob/main/services/update/PRIVACY.md")!
     /// Dodo Payments checkout for donations.
     static let donation = URL(string: "https://checkout.dodopayments.com/buy/pdt_0NqThcy5f4slzzZQspCty?quantity=1")!
 }
