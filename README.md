@@ -57,9 +57,9 @@ FanBar supports macOS 11 Big Sur and later on compatible Apple Silicon and Intel
 
 ## 🎬 Video demo
 
-[![Watch FanBar in action: fan speeds, cooling presets, and custom curves](docs/screenshots/fanbar-demo-en.png)](docs/videos/fanbar-demo-en.mp4)
+https://github.com/user-attachments/assets/53fa39f1-c930-4860-9f5a-2cc6f0530faf
 
-[Watch the 11-second demo](docs/videos/fanbar-demo-en.mp4) — real fan controls, preset switching, and temperature-based curve editing in the English interface.
+11-second demo — real fan controls, preset switching, and temperature-based curve editing in the English interface. [Download the MP4](docs/videos/fanbar-demo-en.mp4?raw=true).
 
 ## FanBar at a glance
 
