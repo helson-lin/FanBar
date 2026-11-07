@@ -42,7 +42,7 @@
 
 ### `GET /`
 
-一页静态说明（中英文）：这个地址是什么、统计什么，并链接到 `/api/stats` 和源码。不计数，`Cache-Control: public, max-age=86400`，CSP 为 `default-src 'none'`。
+一页静态说明：这个地址是什么、一次检查更新的路径、统计和不保存哪些内容、全部接口，并链接到 `/api/stats` 和源码。默认英文，`?lang=zh` 显示中文（页脚有切换链接），带 `Content-Language`。不含脚本、外部字体或图片。不计数，`Cache-Control: public, max-age=86400`，CSP 为 `default-src 'none'; style-src 'unsafe-inline'`。
 
 ### 其他路径
 
