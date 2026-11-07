@@ -198,4 +198,14 @@ final class UsageStatisticsTests: XCTestCase {
         statistics.isEnabled = true
         XCTAssertFalse(statistics.shouldAskLegacyUser)
     }
+
+    func testLegacyUserWhoTurnsSharingOnThenOffInSettingsIsNotAskedAgain() {
+        let statistics = makeStatistics()
+        statistics.recordCohortIfNeeded(onboardingCompleted: true)
+        statistics.isEnabled = true
+        statistics.isEnabled = false
+        XCTAssertTrue(statistics.hasBeenAsked)
+        XCTAssertFalse(statistics.shouldAskLegacyUser)
+        XCTAssertFalse(makeStatistics().shouldAskLegacyUser)
+    }
 }

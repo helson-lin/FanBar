@@ -57,15 +57,15 @@ struct UsageStatisticsRow: View {
 enum UsageStatisticsCopy {
     static var detail: String {
         fanBarText(
-            "每周随一次更新检查附带安装周、Mac 型号、macOS 版本和芯片类型。",
-            "Adds the install week, Mac model, macOS version and chip type to one update check per week."
+            "每周随一次更新检查附带安装周、Mac 型号、macOS 版本和芯片类型；服务还会根据网络位置记录所在国家或地区。",
+            "Adds the install week, Mac model, macOS version and chip type to one update check per week. The service also records the country or region from your network location."
         )
     }
 
     static var automaticChecksNote: String {
         fanBarText(
-            "关闭自动检查更新后，只有手动检查更新时才会按版本号计数一次。",
-            "With automatic checks off, only a manual update check is counted, by version only."
+            "关闭自动检查更新后，只有手动检查更新时才会计数；除非打开此开关，否则只按版本号计数。",
+            "With automatic checks off, only a manual update check is counted. It is counted by version only, unless this switch is on."
         )
     }
 

@@ -75,10 +75,13 @@ final class UsageStatistics {
         return String(format: "%04d-W%02d", parts.yearForWeekOfYear ?? 0, parts.weekOfYear ?? 0)
     }
 
+    /// Any explicit choice, from Settings, onboarding or the panel, answers the
+    /// one-time question, so turning sharing off again never brings it back.
     var isEnabled: Bool {
         get { defaults.bool(forKey: Self.enabledKey) }
         set {
             defaults.set(newValue, forKey: Self.enabledKey)
+            markAsked()
             if !newValue { pendingWeek = nil }
         }
     }
