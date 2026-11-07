@@ -1,8 +1,11 @@
 import AppKit
+import Combine
 import FanBarShared
 import SwiftUI
 
-/// Recording options and file management for the local CSV temperature log.
+/// The History tab: what the log is for and one switch first, then how
+/// detailed to record (three purpose presets), then everything technical
+/// folded under Advanced. See docs/design/settings-log.html (v4).
 struct TemperatureLogSettingsView: View {
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
@@ -13,179 +16,195 @@ struct TemperatureLogSettingsView: View {
     private var enabled = false
     @AppStorage(TemperatureLogPreferences.intervalKey)
     private var intervalSeconds = TemperatureLogPreferences.defaultIntervalSeconds
-    @AppStorage(TemperatureLogPreferences.directoryKey)
-    private var directoryPath = ""
-    @AppStorage(TemperatureLogPreferences.newLogPolicyKey)
-    private var newLogPolicyRawValue = TemperatureLogPreferences.defaultPolicy.rawValue
+    @AppStorage(TemperatureLogPreferences.retentionDaysKey)
+    private var retentionDays = TemperatureLogPreferences.defaultRetentionDays
     @AppStorage(TemperatureLogPreferences.logTemperaturesKey)
     private var logTemperatures = true
     @AppStorage(TemperatureLogPreferences.logFanSpeedsKey)
     private var logFanSpeeds = true
 
-    private var settings: TemperatureLogSettings { TemperatureLogSettings.current() }
+    @State private var usage: TemperatureLogUsage?
+    /// Folder size changes slowly; a periodic scan is enough and never runs per refresh tick.
+    private let usageTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
-    private var newLogPolicy: Binding<TemperatureLogPreferences.NewLogPolicy> {
-        Binding(
-            get: { TemperatureLogPreferences.NewLogPolicy(rawValue: newLogPolicyRawValue) ?? TemperatureLogPreferences.defaultPolicy },
-            set: { newLogPolicyRawValue = $0.rawValue }
-        )
-    }
+    private var settings: TemperatureLogSettings { TemperatureLogSettings.current() }
 
     var body: some View {
         Group {
-            recordingSection
-            fileSection
+            TemperatureLogOverviewCard(
+                controller: controller,
+                enabled: $enabled,
+                usage: usage,
+                directory: settings.directory
+            )
+            TemperatureLogPresetPicker(
+                intervalSeconds: $intervalSeconds,
+                retentionDays: $retentionDays,
+                columnCount: TemperatureLogFormat.columns(for: settings).count
+            )
+            .opacity(enabled ? 1 : 0.55)
+            .disabled(!enabled)
+            TemperatureLogAdvancedCard(
+                intervalSeconds: $intervalSeconds,
+                retentionDays: $retentionDays,
+                logTemperatures: $logTemperatures,
+                logFanSpeeds: $logFanSpeeds
+            )
+            .opacity(enabled ? 1 : 0.55)
+            .disabled(!enabled)
         }
+        .onAppear(perform: refreshUsage)
+        .onReceive(usageTimer) { _ in refreshUsage() }
+        .onChange(of: retentionDays) { _ in controller.temperatureLog.requestCleanup() }
+        .onChange(of: enabled) { _ in refreshUsage() }
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
-    private var recordingSection: some View {
-        SettingsSection(
-            title: fanBarText("温度日志", "Temperature Log"),
-            footer: fanBarText(
-                "CPU 日志和高温提醒使用平均温度；菜单栏和温度曲线显示最高温度。数据只保存在本机。",
-                "CPU logs and alerts use average temperature; the menu bar and chart show the highest. Data stays on this Mac."
-            )
-        ) {
-            Toggle(isOn: $enabled) {
-                SettingsRowText(title: fanBarText("启用日志", "Enable logging"), detail: statusText)
-            }
-            .toggleStyle(.switch)
-            .settingsRow()
-
-            SettingsChrome.rowDivider
-
-            HStack(spacing: SettingsChrome.rowHorizontalPadding) {
-                SettingsRowText(
-                    title: fanBarText("采样间隔", "Sampling interval"),
-                    detail: fanBarText("间隔越短，文件越大。", "Shorter intervals make larger files.")
-                )
-                Spacer(minLength: 8)
-                Picker(fanBarText("采样间隔", "Sampling interval"), selection: $intervalSeconds) {
-                    ForEach(TemperatureLogPreferences.intervalOptions, id: \.self) { seconds in
-                        Text(fanBarFormat("%d 秒", "%d s", seconds)).tag(seconds)
-                    }
-                }
-                .labelsHidden()
-                .id(languageRawValue)
-                .frame(width: SettingsChrome.trailingControlMinWidth)
-            }
-            .settingsRow()
-
-            SettingsChrome.rowDivider
-
-            VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
-                Text(fanBarText("记录内容", "Logged Data"))
-                HStack(alignment: .top, spacing: SettingsChrome.rowHorizontalPadding) {
-                    Toggle(isOn: $logTemperatures) {
-                        Text(fanBarText("温度", "Temperatures"))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Toggle(isOn: $logFanSpeeds) {
-                        Text(fanBarText("风扇转速和模式", "Fan speeds and mode"))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .toggleStyle(.checkbox)
-            }
-            .settingsRow()
-        }
+    private func refreshUsage() {
+        usage = TemperatureLogUsage.summarize(TemperatureLogRetention.files(in: settings.directory), now: Date())
     }
+}
 
-    private var fileSection: some View {
-        SettingsSection(
-            title: fanBarText("日志文件", "Log Files"),
-            footer: fanBarText(
-                "更改记录内容时，若表头不匹配，会另建文件，避免混用数据列。",
-                "Changing the logged data creates a separate file when the header differs, keeping each file's columns consistent."
-            )
-        ) {
-            VStack(alignment: .leading, spacing: SettingsChrome.rowVerticalPadding) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(fanBarText("文件位置", "Location"))
-                    Text(locationText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(locationText)
-                }
-
-                HStack(spacing: SettingsChrome.headerToCardSpacing) {
-                    Spacer(minLength: 0)
-                    Button(fanBarText("在访达中显示", "Reveal in Finder"), action: revealInFinder)
-                    Button(fanBarText("选择文件夹…", "Choose Folder…"), action: chooseFolder)
-                }
-            }
-            .settingsRow()
-
-            SettingsChrome.rowDivider
-
-            VStack(alignment: .leading, spacing: SettingsChrome.headerToCardSpacing) {
-                Text(fanBarText("新建日志", "Create New Log"))
-                Picker(fanBarText("新建日志", "Create New Log"), selection: newLogPolicy) {
-                    Text(fanBarText("从不（持续追加到同一文件）", "Never (keep appending to one file)"))
-                        .tag(TemperatureLogPreferences.NewLogPolicy.never)
-                    Text(fanBarText("每次启动应用", "On app startup"))
-                        .tag(TemperatureLogPreferences.NewLogPolicy.onStartup)
-                    Text(fanBarText("每天午夜（每天一个文件）", "Every day at midnight (one file per day)"))
-                        .tag(TemperatureLogPreferences.NewLogPolicy.daily)
-                }
-                .pickerStyle(.radioGroup)
-                .labelsHidden()
-                .id(languageRawValue)
-            }
-            .settingsRow()
-        }
-    }
-
-    private var statusText: String {
-        guard enabled else { return fanBarText("已关闭", "Off") }
-        switch controller.temperatureLog.status {
-        case .idle:
-            return fanBarText("等待第一条记录", "Waiting for the first sample")
-        case .recording(let fileName):
-            return fanBarFormat("正在写入：%@", "Writing to %@", fileName)
-        case .failed:
-            return fanBarText("写入失败，请检查文件夹权限。", "Writing failed. Check the folder’s permissions.")
-        }
-    }
-
-    private var locationText: String {
-        let directory = settings.directory
-        let folder = (directory.path as NSString).abbreviatingWithTildeInPath
-        if case .recording(let fileName) = controller.temperatureLog.status {
-            return "\(folder)/\(fileName)"
-        }
-        return folder
-    }
-
-    private func revealInFinder() {
-        if case .recording(let fileName) = controller.temperatureLog.status {
-            let file = settings.directory.appendingPathComponent(fileName)
-            if FileManager.default.fileExists(atPath: file.path) {
-                NSWorkspace.shared.activateFileViewerSelecting([file])
-                return
-            }
-        }
-        NSWorkspace.shared.open(settings.directory)
-    }
-
-    private func chooseFolder() {
+/// Chooses the log folder without blocking the run loop: runModal() would
+/// stop the 2-second refresh timer, and with it curve control.
+enum TemperatureLogFolderPicker {
+    @MainActor
+    static func choose() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = fanBarText("选择", "Choose")
-        // Non-modal: runModal() would stop the 2-second refresh timer, and with it curve control,
-        // for as long as the panel stays open.
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-            directoryPath = url.path
+            UserDefaults.standard.set(url.path, forKey: TemperatureLogPreferences.directoryKey)
         }
+    }
+}
+
+/// The one switch, what it is for, and — once on — what has been recorded
+/// and where to look, or why recording paused.
+private struct TemperatureLogOverviewCard: View {
+    @ObservedObject var controller: FanController
+    @Binding var enabled: Bool
+    let usage: TemperatureLogUsage?
+    let directory: URL
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
+
+    var body: some View {
+        SettingsChrome.settingsCard {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.accentColor)
+                    .frame(width: 32, height: 32)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.accentColor.opacity(0.12)))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(fanBarText("记录温度历史", "Record temperature history"))
+                        .fontWeight(.semibold)
+                    Text(fanBarText(
+                        "记下温度和风扇转速，之后可以回看什么时候变热",
+                        "Keeps temperatures and fan speeds so you can see when your Mac got hot"
+                    ))
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+                    Text(enabled
+                        ? fanBarText("只存在本机", "Stays on this Mac")
+                        : fanBarText(
+                            "只存在本机 · 开启后存成表格，可用 Numbers 或 Excel 打开",
+                            "Stays on this Mac · Saved as a spreadsheet for Numbers or Excel"
+                        ))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Toggle(fanBarText("记录温度历史", "Record temperature history"), isOn: $enabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            .padding(SettingsChrome.rowHorizontalPadding)
+
+            if enabled {
+                SettingsChrome.rowDivider
+                statusRow
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statusRow: some View {
+        switch controller.temperatureLog.status {
+        case .failed:
+            failureRow
+        case .recording(let fileName):
+            recordingRow(fileName: fileName)
+        case .idle:
+            HStack(spacing: 8) {
+                Circle().fill(Color.secondary).frame(width: 7, height: 7).accessibilityHidden(true)
+                Text(fanBarText("等待第一条记录", "Waiting for the first sample"))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Spacer(minLength: 0)
+            }
+            .settingsRow()
+        }
+    }
+
+    private func recordingRow(fileName: String) -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(palette.accent).frame(width: 7, height: 7).accessibilityHidden(true)
+            Text(fanBarText("正在记录", "Recording"))
+                .font(.system(size: 12, weight: .medium))
+            if let summary = TemperatureLogText.recordedSummary(usage) {
+                Text(summary)
+                    .font(.system(size: 12).monospacedDigit())
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 8)
+            Button(fanBarText("用表格打开", "Open Spreadsheet")) {
+                NSWorkspace.shared.open(directory.appendingPathComponent(fileName))
+            }
+            .help(fanBarText("用 Numbers 或 Excel 打开正在记录的文件", "Opens the current file in Numbers or Excel"))
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([directory.appendingPathComponent(fileName)])
+            } label: {
+                Image(systemName: "folder")
+            }
+            .help(fanBarText("在访达中显示", "Reveal in Finder"))
+            .accessibilityLabel(fanBarText("在访达中显示", "Reveal in Finder"))
+        }
+        .settingsRow()
+        .accessibilityElement(children: .contain)
+    }
+
+    private var failureRow: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(palette.hot)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(fanBarText("已暂停", "Paused"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(palette.hot)
+                Text(TemperatureLogText.failureDetail(retryAt: controller.temperatureLog.retryAt, now: Date()))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .help(fanBarText("写入失败，请检查文件夹权限。", "Writing failed. Check the folder’s permissions."))
+            Button(fanBarText("重试", "Retry")) { controller.temperatureLog.retryNow() }
+            Button(fanBarText("更换位置…", "Change Location…")) { TemperatureLogFolderPicker.choose() }
+        }
+        .settingsRow()
+        .background(palette.hot.opacity(0.07))
+        .accessibilityElement(children: .contain)
     }
 }

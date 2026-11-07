@@ -14,13 +14,7 @@ struct ToolIntegrationsSection: View {
         let showsTool = tool.state != .unavailable
         let showsRaycast = raycast.state != .unavailable
         if showsTool || showsRaycast {
-            SettingsSection(
-                title: fanBarText("命令行与自动化", "Command Line & Automation"),
-                footer: fanBarText(
-                    "两者都通过 FanBar 控制风扇；FanBar 未运行时会在后台打开它。",
-                    "Both control the fans through FanBar, and open it in the background when it is not running."
-                )
-            ) {
+            SettingsSection(title: fanBarText("命令行与自动化", "Command Line & Automation")) {
                 if showsTool {
                     CommandLineToolRow(installer: tool)
                 }
@@ -87,10 +81,7 @@ struct RaycastRow: View {
                 "Install Raycast to control FanBar from it."
             )
         case .unavailable, .ready:
-            fanBarText(
-                "在 Raycast 中切换预设、固定转速、查看温度。",
-                "Switch presets, set a fixed speed and see temperatures from Raycast."
-            )
+            fanBarText("切换预设、固定转速、查看温度", "Switch presets, set a fixed speed, see temperatures")
         case .copied:
             // One literal per language: the catalog scanner reads whole literals.
             // swiftlint:disable line_length

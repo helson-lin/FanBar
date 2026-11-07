@@ -71,11 +71,11 @@ final class ToolIntegrationsSectionTests: XCTestCase {
         let toolOnly = try height(tool: true, raycast: false)
         let raycastOnly = try height(tool: false, raycast: true)
         let both = try height(tool: true, raycast: true)
-        // Header, card and footer come with even a single row.
-        XCTAssertGreaterThan(toolOnly, 80)
-        XCTAssertGreaterThan(raycastOnly, 80)
+        // Header and card come with even a single row.
+        XCTAssertGreaterThan(toolOnly, 60)
+        XCTAssertGreaterThan(raycastOnly, 60)
         // Both rows share one card: taller than either alone, but by one row,
-        // not by a second header and footer.
+        // not by a second header.
         XCTAssertGreaterThan(both, max(toolOnly, raycastOnly))
         XCTAssertLessThan(both, toolOnly + raycastOnly)
     }

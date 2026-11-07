@@ -8,8 +8,8 @@ final class LegacyStatusItemController: NSObject {
     static let shared = LegacyStatusItemController()
 
     private var statusItem: NSStatusItem?
-    private var resourceItems: [MenuBarResource: NSStatusItem] = [:]
-    private var resourceIcons: [MenuBarResource: NSImage] = [:]
+    private lazy var resourceItems = MenuBarResourceItems(target: self, action: #selector(togglePopover(_:)))
+    /// The status button the open panel hangs from.
     private weak var activeButton: NSStatusBarButton?
     private var popover: NSPopover?
     private weak var controller: FanController?
@@ -97,12 +97,15 @@ final class LegacyStatusItemController: NSObject {
 
     @objc private func togglePopover(_ sender: Any?) {
         let button = sender as? NSStatusBarButton ?? statusItem?.button
-        let resource = resourceItems.first { $0.value.button === button }?.key
-        if popover?.isShown == true, activeButton === button {
+        switch MenuBarPanelClick.action(isShown: popover?.isShown == true, fromAnchorItem: activeButton === button) {
+        case .open:
+            showPopover(from: button, resource: resourceItems.resource(for: button))
+        case .close:
             closePopover(sender)
-        } else {
-            if popover?.isShown == true { closePopover(sender) }
-            showPopover(from: button, resource: resource)
+        case .move:
+            popover?.closeImmediately()
+            stopOutsideClickMonitoring()
+            showPopover(from: button, resource: resourceItems.resource(for: button))
         }
     }
 
@@ -128,43 +131,9 @@ final class LegacyStatusItemController: NSObject {
 
     private func updateResourceItems() {
         guard let controller else { return }
-        for resource in MenuBarResource.allCases {
-            let enabled = UserDefaults.standard.bool(forKey: resource.preferenceKey)
-            if !enabled {
-                if let item = resourceItems.removeValue(forKey: resource) {
-                    if activeButton === item.button, popover?.isShown == true { closePopover(nil) }
-                    NSStatusBar.system.removeStatusItem(item)
-                }
-                continue
-            }
-            let item: NSStatusItem
-            if let existing = resourceItems[resource] {
-                item = existing
-            } else {
-                item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-                item.button?.target = self
-                item.button?.action = #selector(togglePopover(_:))
-                resourceItems[resource] = item
-            }
-            guard let button = item.button else { continue }
-            let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-            button.font = font
-            let style = resource.currentStyle
-            button.title = resource.text(for: controller.usage, style: style)
-            if style == .icon {
-                if resourceIcons[resource] == nil { resourceIcons[resource] = resource.icon }
-                button.image = resourceIcons[resource]
-            } else {
-                button.image = nil
-            }
-            button.imagePosition = style == .icon ? .imageLeading : .noImage
-            button.imageScaling = .scaleProportionallyDown
-            button.imageHugsTitle = true
-            button.toolTip = resource.title
-            button.setAccessibilityTitle("\(resource.title), \(button.title)")
-            let widest = (style == .label ? "\(resource.label) 100%" : "100%") as NSString
-            let iconWidth: CGFloat = style == .icon ? ceil((button.image?.size.width ?? 14) + 3) : 0
-            item.length = ceil(widest.size(withAttributes: [.font: font]).width + iconWidth + 10)
+        resourceItems.update(usage: controller.usage) { [weak self] button in
+            guard let self, self.activeButton === button, self.popover?.isShown == true else { return }
+            self.closePopover(nil)
         }
     }
 
@@ -241,8 +210,8 @@ final class LegacyStatusItemController: NSObject {
         guard popover?.isShown == true else { return false }
         let clickedWindow = event.window
         let popoverWindow = popover?.contentViewController?.view.window
-        let statusItemWindows = [statusItem?.button?.window] + resourceItems.values.map { $0.button?.window }
-        return clickedWindow !== popoverWindow && !statusItemWindows.contains { $0 != nil && $0 === clickedWindow }
+        let statusItemWindows = [statusItem?.button?.window].compactMap { $0 } + resourceItems.windows
+        return clickedWindow !== popoverWindow && !statusItemWindows.contains { $0 === clickedWindow }
     }
 
     private func closePopover(_ sender: Any?) {
@@ -418,6 +387,9 @@ extension LegacyStatusItemController: NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        // Moving the panel to another item reopens it at once. A late close
+        // notification must not clear the new item's focus or release the panel.
+        guard popover?.isShown != true else { return }
         // Also clean up when AppKit closes the transient popover itself.
         stopOutsideClickMonitoring()
         panelVisibility.isVisible = false

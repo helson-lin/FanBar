@@ -7,30 +7,6 @@ struct MenuBarPreviewStrip: View {
     @ObservedObject var controller: FanController
     let displayMode: MenuBarDisplayMode
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage("fanbar.menuBarResource.cpu") private var showCPU = false
-    @AppStorage("fanbar.menuBarResource.memory") private var showMemory = false
-    @AppStorage("fanbar.menuBarResource.gpu") private var showGPU = false
-    @AppStorage("fanbar.menuBarResource.cpu.style") private var cpuStyle = MenuBarResourceStyle.icon.rawValue
-    @AppStorage("fanbar.menuBarResource.memory.style") private var memoryStyle = MenuBarResourceStyle.icon.rawValue
-    @AppStorage("fanbar.menuBarResource.gpu.style") private var gpuStyle = MenuBarResourceStyle.icon.rawValue
-
-    private func style(_ resource: MenuBarResource) -> MenuBarResourceStyle {
-        let raw: String
-        switch resource {
-        case .cpu: raw = cpuStyle
-        case .memory: raw = memoryStyle
-        case .gpu: raw = gpuStyle
-        }
-        return MenuBarResourceStyle(rawValue: raw) ?? .label
-    }
-
-    private func isEnabled(_ resource: MenuBarResource) -> Bool {
-        switch resource {
-        case .cpu: showCPU
-        case .memory: showMemory
-        case .gpu: showGPU
-        }
-    }
 
     private var wallpaper: LinearGradient {
         let colors: [Color] = colorScheme == .dark
@@ -48,8 +24,8 @@ struct MenuBarPreviewStrip: View {
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.14)))
-            ForEach(MenuBarResource.allCases.filter(isEnabled), id: \.rawValue) { resource in
-                resourcePreview(resource, style: style(resource), usage: controller.usage)
+            ForEach(MenuBarResource.allCases, id: \.rawValue) { resource in
+                MenuBarResourcePreviewItem(resource: resource, usage: controller.usage)
             }
             Text(Date(), style: .time)
         }
@@ -112,12 +88,6 @@ struct MenuBarIconStylePicker: View {
 /// Independent resource items are opt-in and do not change the main fan item.
 struct MenuBarResourceSettings: View {
     @ObservedObject var controller: FanController
-    @AppStorage("fanbar.menuBarResource.cpu") private var showCPU = false
-    @AppStorage("fanbar.menuBarResource.memory") private var showMemory = false
-    @AppStorage("fanbar.menuBarResource.gpu") private var showGPU = false
-    @AppStorage("fanbar.menuBarResource.cpu.style") private var cpuStyle = MenuBarResourceStyle.icon.rawValue
-    @AppStorage("fanbar.menuBarResource.memory.style") private var memoryStyle = MenuBarResourceStyle.icon.rawValue
-    @AppStorage("fanbar.menuBarResource.gpu.style") private var gpuStyle = MenuBarResourceStyle.icon.rawValue
 
     var body: some View {
         SettingsSection(
@@ -127,42 +97,78 @@ struct MenuBarResourceSettings: View {
                 "Each item appears separately in the menu bar. Click one to open the panel and highlight that resource."
             )
         ) {
-            row(.cpu, isOn: $showCPU, style: $cpuStyle)
-            SettingsChrome.rowDivider
-            row(.memory, isOn: $showMemory, style: $memoryStyle)
-            SettingsChrome.rowDivider
-            row(.gpu, isOn: $showGPU, style: $gpuStyle)
-        }
-        .onAppear {
-            // Migrate the earlier ambiguous value-only style and invalid values.
-            if MenuBarResourceStyle(rawValue: cpuStyle) == nil { cpuStyle = MenuBarResourceStyle.label.rawValue }
-            if MenuBarResourceStyle(rawValue: memoryStyle) == nil { memoryStyle = MenuBarResourceStyle.label.rawValue }
-            if MenuBarResourceStyle(rawValue: gpuStyle) == nil { gpuStyle = MenuBarResourceStyle.label.rawValue }
+            ForEach(Array(MenuBarResource.allCases.enumerated()), id: \.element.rawValue) { index, resource in
+                if index > 0 { SettingsChrome.rowDivider }
+                MenuBarResourceSettingsRow(resource: resource, usage: controller.usage)
+            }
         }
     }
+}
 
-    private func row(_ resource: MenuBarResource, isOn: Binding<Bool>, style: Binding<String>) -> some View {
+/// One resource's switch, style and live sample, bound to that resource's own keys.
+private struct MenuBarResourceSettingsRow: View {
+    let resource: MenuBarResource
+    let usage: SystemUsage
+    @AppStorage private var isOn: Bool
+    @AppStorage private var styleRawValue: String
+
+    init(resource: MenuBarResource, usage: SystemUsage) {
+        self.resource = resource
+        self.usage = usage
+        _isOn = AppStorage(wrappedValue: false, resource.preferenceKey)
+        _styleRawValue = AppStorage(wrappedValue: MenuBarResourceStyle.icon.rawValue, resource.stylePreferenceKey)
+    }
+
+    private var style: MenuBarResourceStyle { MenuBarResourceStyle.resolve(styleRawValue) }
+
+    var body: some View {
         HStack(spacing: 10) {
             Text(resource.title)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Picker(resource.title, selection: style) {
+            Picker(resource.title, selection: $styleRawValue) {
                 ForEach(MenuBarResourceStyle.allCases) { option in
                     Text(option.title).tag(option.rawValue)
                 }
             }
             .labelsHidden()
             .fixedSize()
-            .disabled(!isOn.wrappedValue)
-            resourcePreview(resource, style: MenuBarResourceStyle(rawValue: style.wrappedValue) ?? .label, usage: controller.usage)
+            .disabled(!isOn)
+            resourcePreview(resource, style: style, usage: usage)
                 .frame(width: 65, alignment: .center)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Color.primary.opacity(0.06)))
                 .accessibilityHidden(true)
-            Toggle(resource.title, isOn: isOn)
+            Toggle(resource.title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
         }
         .settingsRow()
+        .onAppear {
+            // A style FanBar no longer offers is shown as the label style; save
+            // that, so the picker has a selection.
+            if MenuBarResourceStyle(rawValue: styleRawValue) == nil { styleRawValue = style.rawValue }
+        }
+    }
+}
+
+/// A resource item in the preview strip, shown only while its switch is on.
+private struct MenuBarResourcePreviewItem: View {
+    let resource: MenuBarResource
+    let usage: SystemUsage
+    @AppStorage private var isOn: Bool
+    @AppStorage private var styleRawValue: String
+
+    init(resource: MenuBarResource, usage: SystemUsage) {
+        self.resource = resource
+        self.usage = usage
+        _isOn = AppStorage(wrappedValue: false, resource.preferenceKey)
+        _styleRawValue = AppStorage(wrappedValue: MenuBarResourceStyle.icon.rawValue, resource.stylePreferenceKey)
+    }
+
+    var body: some View {
+        if isOn {
+            resourcePreview(resource, style: MenuBarResourceStyle.resolve(styleRawValue), usage: usage)
+        }
     }
 }
 

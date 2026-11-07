@@ -433,7 +433,7 @@ final class TemperatureLogTests: XCTestCase {
         XCTAssertFalse(current.enabled)
         XCTAssertEqual(current.intervalSeconds, 10)
         XCTAssertEqual(current.directory, TemperatureLogPreferences.defaultDirectory)
-        XCTAssertEqual(current.newLogPolicy, .onStartup)
+        XCTAssertEqual(current.newLogPolicy, .daily, "one file per day, so retention expires whole days")
         XCTAssertTrue(current.logTemperatures)
         XCTAssertTrue(current.logFanSpeeds)
 

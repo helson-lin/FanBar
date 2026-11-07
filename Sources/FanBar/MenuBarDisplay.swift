@@ -180,15 +180,10 @@ enum MenuBarResource: String, CaseIterable {
         return image
     }
 
-    var currentStyle: MenuBarResourceStyle {
-        guard let saved = UserDefaults.standard.string(forKey: stylePreferenceKey) else { return .icon }
-        return MenuBarResourceStyle(rawValue: saved) ?? .label
-    }
-
     var label: String {
         switch self {
         case .cpu: "CPU"
-        case .memory: "MEM"
+        case .memory: fanBarText("内存", "MEM")
         case .gpu: "GPU"
         }
     }
@@ -210,11 +205,10 @@ enum MenuBarResource: String, CaseIterable {
     }
 
     func text(for usage: SystemUsage, style: MenuBarResourceStyle = .label) -> String {
-        let value = valueText(for: usage)
-        return style == .label ? "\(label) \(value)" : value
+        MenuBarResourceItemContent.make(self, usage: usage, style: style).title
     }
 
-    private func valueText(for usage: SystemUsage) -> String {
+    func valueText(for usage: SystemUsage) -> String {
         let fraction: Double?
         switch self {
         case .cpu: fraction = usage.cpuFraction

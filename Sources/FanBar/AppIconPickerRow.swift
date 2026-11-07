@@ -16,10 +16,10 @@ struct AppIconPickerRow: View {
     }
 
     var body: some View {
-        // The section header names the setting and its footer explains where
-        // the icon appears; the row only states the current choice.
+        // A row of the FanBar section: the setting's name, then the current choice.
         HStack(spacing: 12) {
-            SettingsRowText(title: selection.title)
+            SettingsRowText(title: fanBarText("App 图标", "App Icon"), detail: selection.title)
+                .help(fanBarText("用于访达、启动台和菜单栏面板。", "Used in Finder, Launchpad, and the menu bar panel."))
             Spacer(minLength: 0)
             iconButton
         }
