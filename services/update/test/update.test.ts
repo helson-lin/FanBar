@@ -286,6 +286,25 @@ it('explains the service at the root without counting the visit', async () => {
   expect((await stats()).checksDaily).toEqual([]); // 4 checks + the page visit would be 5
 });
 
+it('answers the root page in English unless Chinese is picked', async () => {
+  const browser = await call('/', { headers: { 'Accept-Language': 'zh-CN,zh;q=0.9' } });
+  expect(browser.headers.get('Content-Language')).toBe('en');
+  expect(await browser.text()).toContain('<html lang="en">');
+
+  const zh = await call('/?lang=zh');
+  expect(zh.headers.get('Content-Language')).toBe('zh-Hans');
+  const zhPage = await zh.text();
+  expect(zhPage).toContain('<html lang="zh-Hans">');
+  expect(zhPage).toContain('FanBar 更新服务');
+  expect(zhPage).toContain('href="/?lang=en"');
+});
+
+it('keeps the root page script-free under its CSP', async () => {
+  const page = await (await call('/')).text();
+  // In-page references such as an SVG gradient's url(#id) load nothing.
+  expect(page).not.toMatch(/<script|<link|<img|url\((?!#)/i);
+});
+
 const admin = () => new UpdateAdmin(createExecutionContext(), env);
 
 it('gives the admin every group, including those hidden from /api/stats', async () => {
