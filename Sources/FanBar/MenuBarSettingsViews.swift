@@ -109,6 +109,10 @@ struct MenuBarResourceSettings: View {
 private struct MenuBarResourceSettingsRow: View {
     let resource: MenuBarResource
     let usage: SystemUsage
+    /// Read so the row repaints when the interface language changes, even when
+    /// the reading it shows has not.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
     @AppStorage private var isOn: Bool
     @AppStorage private var styleRawValue: String
 
@@ -131,6 +135,9 @@ private struct MenuBarResourceSettingsRow: View {
                 }
             }
             .labelsHidden()
+            // The pop-up button caches its item titles; rebuild it per language,
+            // as the icon style picker does.
+            .id(languageRawValue)
             .fixedSize()
             .disabled(!isOn)
             resourcePreview(resource, style: style, usage: usage)
@@ -155,6 +162,9 @@ private struct MenuBarResourceSettingsRow: View {
 private struct MenuBarResourcePreviewItem: View {
     let resource: MenuBarResource
     let usage: SystemUsage
+    /// Read so the translated memory label follows a language change.
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
     @AppStorage private var isOn: Bool
     @AppStorage private var styleRawValue: String
 
