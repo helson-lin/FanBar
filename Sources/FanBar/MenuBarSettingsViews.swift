@@ -88,6 +88,8 @@ struct MenuBarIconStylePicker: View {
 /// Independent resource items are opt-in and do not change the main fan item.
 struct MenuBarResourceSettings: View {
     @ObservedObject var controller: FanController
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
 
     var body: some View {
         SettingsSection(
@@ -102,6 +104,8 @@ struct MenuBarResourceSettings: View {
                 MenuBarResourceSettingsRow(resource: resource, usage: controller.usage)
             }
         }
+        // The section owns translated header and footer text as well as rows.
+        .id(languageRawValue)
     }
 }
 
