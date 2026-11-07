@@ -55,13 +55,15 @@ struct UsageStatisticsRow: View {
 }
 
 enum UsageStatisticsCopy {
+    // swiftlint:disable line_length
     static var detail: String {
         fanBarText(
             "每周随一次更新检查附带安装周、Mac 型号、macOS 版本和芯片类型；服务还会根据网络位置记录所在国家或地区。",
-            // swiftlint:disable:next line_length
             "Adds the install week, Mac model, macOS version and chip type to one update check per week. The service also records the country or region from your network location."
         )
     }
+
+    // swiftlint:enable line_length
 
     static var automaticChecksNote: String {
         fanBarText(
