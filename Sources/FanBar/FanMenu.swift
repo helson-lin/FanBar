@@ -12,6 +12,7 @@ struct FanMenu: View {
     private var menuCoolingPresetsRawValue = CoolingPresetPreferences.defaultRawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.focusedMenuBarResource) private var focusedMenuBarResource
     @Environment(\.isPanelVisible) private var isPanelVisible
     @AppStorage(PanelAnimationPreferences.preferenceKey)
     private var panelAnimationEnabled = true
@@ -105,7 +106,10 @@ struct FanMenu: View {
     }
 
     private var monitorModules: [PanelMonitorModule] {
-        PanelMonitorPreferences.modules(from: monitorModulesRawValue)
+        PanelMonitorPreferences.presentedModules(
+            PanelMonitorPreferences.modules(from: monitorModulesRawValue),
+            focusing: focusedMenuBarResource
+        )
     }
 
     private var focus: ThermalFocus? {
@@ -119,14 +123,22 @@ struct FanMenu: View {
     // MARK: Body
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            panelContent
-                .fixedSize(horizontal: false, vertical: true)
-                .background(GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { updateContentHeight(proxy.size.height) }
-                        .onChange(of: proxy.size.height) { updateContentHeight($0) }
-                })
+        ScrollViewReader { scroll in
+            ScrollView(.vertical, showsIndicators: false) {
+                panelContent
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background(GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { updateContentHeight(proxy.size.height) }
+                            .onChange(of: proxy.size.height) { updateContentHeight($0) }
+                    })
+            }
+            .onAppear {
+                if focusedMenuBarResource != nil { scroll.scrollTo("resources", anchor: .center) }
+            }
+            .onChange(of: focusedMenuBarResource) { resource in
+                scroll.scrollTo(resource == nil ? "panelTop" : "resources", anchor: resource == nil ? .top : .center)
+            }
         }
         .frame(width: Self.panelWidth, height: min(contentHeight, max(240, Self.visibleScreenHeight() - 70)))
         .background(PanelGlassBackground())
@@ -146,6 +158,7 @@ struct FanMenu: View {
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+                .id("panelTop")
                 .padding(.horizontal, Self.padding)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
@@ -214,6 +227,7 @@ struct FanMenu: View {
                     expanded: $expandedResource
                 )
                 .padding(.horizontal, Self.padding)
+                .id("resources")
                 .transition(animatesPanel ? .opacity : .identity)
             }
 

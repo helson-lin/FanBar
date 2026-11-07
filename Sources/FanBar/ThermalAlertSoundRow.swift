@@ -12,13 +12,11 @@ struct ThermalAlertSoundRow: View {
     var body: some View {
         let sound = controller.highTemperatureAlertSound
         return HStack(spacing: 8) {
-            SettingsRowText(
-                title: fanBarText("提示音", "Sound"),
-                detail: fanBarText(
+            SettingsRowText(title: fanBarText("提示音", "Sound"))
+                .help(fanBarText(
                     "选择具体声音后，即使系统关闭了通知声音或开启了专注模式也会播放。",
                     "A chosen sound plays even when notification sounds are off or a Focus is on."
-                )
-            )
+                ))
             Spacer(minLength: 12)
             Button(action: controller.previewHighTemperatureAlertSound) {
                 Image(systemName: "speaker.wave.2")

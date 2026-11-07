@@ -8,6 +8,9 @@ final class LegacyStatusItemController: NSObject {
     static let shared = LegacyStatusItemController()
 
     private var statusItem: NSStatusItem?
+    private lazy var resourceItems = MenuBarResourceItems(target: self, action: #selector(togglePopover(_:)))
+    /// The status button the open panel hangs from.
+    private weak var activeButton: NSStatusBarButton?
     private var popover: NSPopover?
     private weak var controller: FanController?
     private var observation: AnyCancellable?
@@ -54,7 +57,7 @@ final class LegacyStatusItemController: NSObject {
         statusItem = item
         self.popover = popover
         observation = controller.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async { self?.updateButton() }
+            DispatchQueue.main.async { self?.updateButton(); self?.updateResourceItems() }
         }
         iconAnimator.onFinish = { [weak self] in self?.updateButton() }
         feedbackObservation = controller.$switchFeedback
@@ -73,9 +76,11 @@ final class LegacyStatusItemController: NSObject {
                     self?.iconAnimator.stop()
                 }
                 self?.updateButton()
+                self?.updateResourceItems()
             }
         }
         updateButton()
+        updateResourceItems()
     }
 
     private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
@@ -91,34 +96,45 @@ final class LegacyStatusItemController: NSObject {
     }
 
     @objc private func togglePopover(_ sender: Any?) {
-        if popover?.isShown == true {
+        let button = sender as? NSStatusBarButton ?? statusItem?.button
+        switch MenuBarPanelClick.action(isShown: popover?.isShown == true, fromAnchorItem: activeButton === button) {
+        case .open:
+            showPopover(from: button, resource: resourceItems.resource(for: button))
+        case .close:
             closePopover(sender)
-        } else {
-            showPopover()
+        case .move:
+            popover?.closeImmediately()
+            stopOutsideClickMonitoring()
+            showPopover(from: button, resource: resourceItems.resource(for: button))
         }
     }
 
-    /// Presents the panel. Also used by onboarding so the first successful
-    /// action is performed in FanBar itself instead of a disconnected tutorial.
+    /// Presents the primary panel, including when invoked by onboarding.
     func showPopover() {
-        guard let button = statusItem?.button, let popover, !popover.isShown else { return }
+        showPopover(from: statusItem?.button, resource: nil)
+    }
+
+    private func showPopover(from button: NSStatusBarButton?, resource: MenuBarResource?) {
+        guard let button, let popover, !popover.isShown else { return }
         panelReleaseWorkItem?.cancel()
         panelReleaseWorkItem = nil
+        panelVisibility.focusedResource = resource?.panelResource
+        activeButton = button
         installPanelContentIfNeeded(in: popover)
-        // A status-item action does not reliably activate an LSUIElement app.
-        // Activate before presentation so dynamic AppKit/SwiftUI colors do not
-        // change the first time the user clicks inside the popover.
         NSApplication.shared.activate(ignoringOtherApps: true)
-        // Inherit appearance live instead of pinning the scheme at presentation.
         popover.appearance = nil
-        popover.show(
-            relativeTo: button.bounds,
-            of: button,
-            preferredEdge: .minY
-        )
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
         clearInitialFocus(in: popover)
         startOutsideClickMonitoring()
+    }
+
+    private func updateResourceItems() {
+        guard let controller else { return }
+        resourceItems.update(usage: controller.usage) { [weak self] button in
+            guard let self, self.activeButton === button, self.popover?.isShown == true else { return }
+            self.closePopover(nil)
+        }
     }
 
     private func installPanelContentIfNeeded(in popover: NSPopover) {
@@ -194,8 +210,8 @@ final class LegacyStatusItemController: NSObject {
         guard popover?.isShown == true else { return false }
         let clickedWindow = event.window
         let popoverWindow = popover?.contentViewController?.view.window
-        let statusItemWindow = statusItem?.button?.window
-        return clickedWindow !== popoverWindow && clickedWindow !== statusItemWindow
+        let statusItemWindows = [statusItem?.button?.window].compactMap { $0 } + resourceItems.windows
+        return clickedWindow !== popoverWindow && !statusItemWindows.contains { $0 === clickedWindow }
     }
 
     private func closePopover(_ sender: Any?) {
@@ -371,9 +387,14 @@ extension LegacyStatusItemController: NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        // Moving the panel to another item reopens it at once. A late close
+        // notification must not clear the new item's focus or release the panel.
+        guard popover?.isShown != true else { return }
         // Also clean up when AppKit closes the transient popover itself.
         stopOutsideClickMonitoring()
         panelVisibility.isVisible = false
+        panelVisibility.focusedResource = nil
+        activeButton = nil
         controller?.setPanelVisible(false)
         schedulePanelRelease()
     }
@@ -422,6 +443,7 @@ private final class StackedReadoutView: NSView {
 @MainActor
 final class PanelVisibility: ObservableObject {
     @Published var isVisible = false
+    @Published var focusedResource: PanelResourceList.Resource?
 }
 
 /// Passes the popover's visibility into the panel's environment.
@@ -432,5 +454,6 @@ private struct PanelRoot: View {
     var body: some View {
         FanMenu(controller: controller)
             .environment(\.isPanelVisible, visibility.isVisible)
+            .environment(\.focusedMenuBarResource, visibility.focusedResource)
     }
 }

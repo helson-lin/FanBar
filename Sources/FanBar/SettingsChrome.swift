@@ -81,16 +81,8 @@ enum SettingsChrome {
 
     /// Separates independent settings. Inset on both sides to the row text,
     /// so it divides content without cutting across the card.
-    /// Choices within one option group use `choiceHighlight` instead.
     static var rowDivider: some View {
         Divider().padding(.horizontal, rowHorizontalPadding)
-    }
-
-    /// Background of one choice in an option group: the selected choice is
-    /// tinted, so the group reads as a single decision rather than a table.
-    static func choiceHighlight(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: cardCornerRadius - choiceInset, style: .continuous)
-            .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
     }
 
     /// Request the settings window to re-fit after disclosure or content height changes.

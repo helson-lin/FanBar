@@ -5,14 +5,14 @@ import SwiftUI
 /// Settings panes. The selection persists so the window reopens where the
 /// user left off. The native labeled toolbar navigation is installed by the
 /// window presenter so content can use the full height below the title bar.
-/// Case order is the toolbar order (and ⌘1…⌘4).
+/// Case order is the toolbar order (and ⌘1…⌘5).
 enum SettingsTab: String, CaseIterable, Identifiable {
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
     /// Raw value kept from the former "Menu Bar" pane so a saved selection survives.
     case appearance = "menuBar"
+    case panel
     case general
-    /// Last so ⌘1…⌘3 keep their existing meaning.
     case log
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -22,16 +22,19 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .cooling: fanBarText("散热", "Cooling")
-        case .appearance: fanBarText("外观", "Appearance")
+        case .appearance: fanBarText("菜单栏", "Menu Bar")
+        case .panel: fanBarText("面板", "Panel")
         case .general: fanBarText("通用", "General")
-        case .log: fanBarText("日志", "Log")
+        // "Log" reads like a developer tool; the tab is about looking back.
+        case .log: fanBarText("记录", "History")
         }
     }
 
     var symbol: String {
         switch self {
         case .cooling: FanBarSymbols.fan
-        case .appearance: "paintbrush"
+        case .appearance: "macwindow"
+        case .panel: "rectangle.on.rectangle"
         case .general: "gearshape"
         case .log: "doc.text"
         }
@@ -39,7 +42,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 }
 
 struct FanBarSettingsView: View {
-    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var controller: FanController
     @AppStorage(MenuBarDisplayMode.preferenceKey)
     private var displayModeRawValue = MenuBarDisplayMode.defaultMode.rawValue
@@ -62,10 +64,11 @@ struct FanBarSettingsView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            VStack(alignment: .leading, spacing: SettingsChrome.sectionSpacing) {
+            VStack(alignment: .leading, spacing: currentTab == .general ? 24 : SettingsChrome.sectionSpacing) {
                 switch currentTab {
                 case .cooling: coolingTab
-                case .appearance: appearanceTab
+                case .appearance: menuBarTab
+                case .panel: panelTab
                 case .general: generalTab
                 case .log: logTab
                 }
@@ -108,11 +111,10 @@ struct FanBarSettingsView: View {
         FanCurveEditorView(controller: controller)
     }
 
-    // MARK: - Appearance
+    // MARK: - Menu bar
 
-    /// How FanBar looks: in the menu bar, as an app icon, and in motion.
     @ViewBuilder
-    private var appearanceTab: some View {
+    private var menuBarTab: some View {
         // Icon and readout are one decision about the same status item, so
         // they share a card instead of two sections.
         SettingsSection(
@@ -130,44 +132,28 @@ struct FanBarSettingsView: View {
 
             SettingsChrome.rowDivider
 
-            // One decision, so no dividers between choices; the selected
-            // one is tinted instead.
-            VStack(spacing: 2) {
-                ForEach(Array(MenuBarDisplayMode.allCases.enumerated()), id: \.element.id) { index, mode in
-                    MenuBarDisplayOptionRow(
-                        controller: controller,
-                        mode: mode,
-                        isSelected: mode == displayMode,
-                        position: index + 1,
-                        count: MenuBarDisplayMode.allCases.count,
-                        onSelect: { displayModeRawValue = mode.rawValue }
-                    )
+            HStack(spacing: 12) {
+                SettingsRowText(
+                    title: fanBarText("显示内容", "Display content"),
+                    detail: displayMode.detail
+                )
+                Picker(fanBarText("显示内容", "Display content"), selection: $displayModeRawValue) {
+                    ForEach(MenuBarDisplayMode.allCases) { mode in
+                        Text(mode.title).tag(mode.rawValue)
+                    }
                 }
+                .labelsHidden()
+                .id(languageRawValue)
+                .fixedSize()
             }
-            .padding(SettingsChrome.choiceInset)
+            .settingsRow()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("菜单栏", "Menu Bar"))
 
-        PanelMonitorSettingsSection()
+        MenuBarResourceSettings(controller: controller)
 
-        SettingsSection(
-            title: fanBarText("App 图标", "App Icon"),
-            footer: fanBarText(
-                "用于访达、启动台和菜单栏面板。",
-                "Used in Finder, Launchpad, and the menu bar panel."
-            )
-        ) {
-            AppIconPickerRow()
-        }
-
-        SettingsSection(
-            title: fanBarText("动画", "Animation"),
-            footer: fanBarText(
-                "动画需要持续重绘界面。关闭可降低 FanBar 的 CPU 占用，主界面动画仅在面板打开时运行。",
-                "Animations redraw continuously. Turning them off lowers FanBar's CPU use; panel animation runs only while the panel is open."
-            )
-        ) {
+        SettingsSection(title: fanBarText("动画", "Animation")) {
             Toggle(isOn: $switchFeedbackAnimationEnabled) {
                 SettingsRowText(
                     title: fanBarText("菜单栏图标动画", "Menu bar icon animation"),
@@ -179,9 +165,17 @@ struct FanBarSettingsView: View {
             }
             .toggleStyle(.switch)
             .settingsRow()
+        }
+    }
 
-            SettingsChrome.rowDivider
+    // MARK: - Panel
 
+    @ViewBuilder
+    private var panelTab: some View {
+        PanelMonitorSettingsSection()
+            .id(languageRawValue)
+
+        SettingsSection(title: fanBarText("动画", "Animation")) {
             Toggle(isOn: $panelAnimationEnabled) {
                 SettingsRowText(
                     title: fanBarText("主界面动画", "Panel animation"),
@@ -205,11 +199,12 @@ struct FanBarSettingsView: View {
 
     @ViewBuilder
     private var generalTab: some View {
+        // Control → alerts → the app → power-user tools; see docs/design/settings-general.html.
+        GeneralStatusHeader(controller: controller)
         fanControlSection
         NotificationSettingsSection(controller: controller)
         appSection
         ToolIntegrationsSection()
-        compatibilitySection
         freeSoftwareNotice
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
@@ -239,14 +234,15 @@ struct FanBarSettingsView: View {
         }
     }
 
-    /// Manual control's prerequisite and its safety net belong together.
+    /// How long manual modes last and whether to be warned first: both are
+    /// about handing control back, so they share one section.
     private var fanControlSection: some View {
         SettingsSection(
-            title: fanBarText("风扇控制", "Fan Control")
+            title: fanBarText("交还给 macOS", "Hand Back to macOS")
         ) {
-            controlServiceRow
-            SettingsChrome.rowDivider
             automaticRestoreRow
+            SettingsChrome.rowDivider
+            HandBackReminderRow(controller: controller)
         }
     }
 
@@ -256,6 +252,8 @@ struct FanBarSettingsView: View {
             launchAtLoginRow
             SettingsChrome.rowDivider
             languageRow
+            SettingsChrome.rowDivider
+            AppIconPickerRow()
             SettingsChrome.rowDivider
             softwareUpdateRow
         }
@@ -269,10 +267,7 @@ struct FanBarSettingsView: View {
             )
         ) {
             VStack(alignment: .leading, spacing: 2) {
-                SettingsRowText(
-                    title: fanBarText("登录时启动 FanBar", "Launch FanBar at login"),
-                    detail: fanBarText("登录后自动出现在菜单栏。", "Appears in the menu bar after you sign in.")
-                )
+                SettingsRowText(title: fanBarText("登录时启动", "Launch at login"))
                 if controller.launchAtLoginRequiresApproval {
                     Button(fanBarText("等待系统批准 · 打开设置", "Waiting for approval · Open Settings")) {
                         controller.openLoginItemSettings()
@@ -287,53 +282,16 @@ struct FanBarSettingsView: View {
         .settingsRow()
     }
 
-    /// Healthy: one quiet status line. Needs attention: symbol, guidance and action.
-    @ViewBuilder
-    private var controlServiceRow: some View {
-        let state = controller.helperState
-        if state == .enabled {
-            HStack(spacing: 8) {
-                Text(fanBarText("控制服务", "Control service"))
-                Spacer(minLength: 12)
-                Circle()
-                    .fill(PanelPalette(colorScheme: colorScheme).accent)
-                    .frame(width: 6, height: 6)
-                    .accessibilityHidden(true)
-                Text(fanBarText("已启用", "Enabled"))
-                    .foregroundColor(.secondary)
-            }
-            .settingsRow()
-            .help(state.noticeDetail)
-            .accessibilityElement(children: .combine)
-        } else {
-            HStack(spacing: 12) {
-                Image(systemName: state.symbolName)
-                    .font(.system(size: 18))
-                    .foregroundColor(state.tint)
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
-                SettingsRowText(title: state.noticeTitle, detail: state.noticeDetail)
-                if let actionTitle = state.actionTitle {
-                    Button(actionTitle, action: controller.performHelperAction)
-                }
-            }
-            .settingsRow()
-            .accessibilityElement(children: .contain)
-        }
-    }
-
     private var automaticRestoreRow: some View {
         HStack {
             SettingsRowText(
-                title: fanBarText("自动恢复为自动模式", "Restore automatic control"),
-                detail: fanBarText(
-                    "手动模式到时交还 macOS；主界面中的修改只对当次生效。",
-                    "Manual modes hand back to macOS when time runs out. Menu changes apply to that session only."
-                )
+                title: fanBarText("手动模式持续", "Manual modes last"),
+                detail: fanBarText("到时由 macOS 接管", "Then macOS takes over")
             )
+            .help(fanBarText("主界面中的修改只对当次生效。", "Changes made in the menu apply to that session only."))
             Spacer(minLength: 12)
             Picker(
-                fanBarText("自动恢复为自动模式", "Restore automatic control"),
+                fanBarText("手动模式持续", "Manual modes last"),
                 selection: Binding(
                     get: { controller.defaultAutomaticRestoreDuration },
                     set: { controller.setDefaultAutomaticRestoreDuration($0) }
@@ -554,18 +512,17 @@ private struct HandBackReminderRow: View {
                 set: { controller.setHandBackRemindersEnabled($0) }
             )
         ) {
-            // swiftlint:disable line_length
             SettingsRowText(
-                title: fanBarText("控制交回 macOS 前提醒", "Remind before handing back to macOS"),
-                detail: fanBarText(
-                    "定时结束前 1 分钟提醒，可以直接延长；没有处理，交回后再提示一次。面板开着时只在面板里显示。",
-                    "One minute before a timer ends, with a button to extend; if nothing changes, once more after the hand-back. With the panel open, it shows there instead."
-                )
+                title: fanBarText("交还前提醒", "Remind before hand-back"),
+                detail: fanBarText("结束前 1 分钟提醒，可以直接延长", "One minute before, with a button to extend")
             )
-            // swiftlint:enable line_length
         }
         .toggleStyle(.switch)
         .settingsRow()
+        .help(fanBarText(
+            "没有处理时，交回后再提示一次；面板开着时只在面板里显示。",
+            "If nothing changes, once more after the hand-back. With the panel open, it shows there instead."
+        ))
     }
 }
 
@@ -578,11 +535,7 @@ private struct NotificationSettingsSection: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        SettingsSection(title: fanBarText("通知", "Notifications")) {
-            HandBackReminderRow(controller: controller)
-
-            SettingsChrome.rowDivider
-
+        SettingsSection(title: fanBarText("高温提醒", "High-temperature alerts")) {
             Toggle(
                 isOn: Binding(
                     get: { controller.highTemperatureNotificationsEnabled },
@@ -590,14 +543,15 @@ private struct NotificationSettingsSection: View {
                 )
             ) {
                 SettingsRowText(
-                    title: fanBarText("高温提醒", "High-temperature alerts"),
-                    detail: fanBarText(
-                        "同一次高温只提醒一次，降温后重置。面板会同时显示过热提示。",
-                        "One alert per high-temperature episode; it resets after cooling down. The panel shows the same warning."
-                    )
+                    title: fanBarText("温度过高时通知我", "Notify me when it gets too hot"),
+                    detail: fanBarText("同一次高温只提醒一次", "Once per hot spell")
                 )
             }
             .toggleStyle(.switch)
+            .help(fanBarText(
+                "降温后重置。面板会同时显示过热提示。",
+                "Resets after cooling down. The panel shows the same warning."
+            ))
             .disabled(controller.isRequestingHighTemperatureNotificationPermission)
             .settingsRow()
 
@@ -618,14 +572,12 @@ private struct NotificationSettingsSection: View {
         let value = controller.highTemperatureThresholdCelsius
         let valueText = String(format: "%.0f°C", value)
         return HStack {
-            SettingsRowText(
-                title: fanBarText("提醒温度", "Alert temperature"),
-                detail: fanBarFormat(
+            SettingsRowText(title: fanBarText("提醒温度", "Alert temperature"))
+                .help(fanBarFormat(
                     "默认 %.0f°C；面板和曲线上的告警线使用同一数值。",
                     "Default %.0f°C. The panel and the curve's alert line use the same value.",
                     ThermalAlertSettings.defaultThresholdCelsius
-                )
-            )
+                ))
             Spacer(minLength: 12)
             Stepper(
                 value: Binding(

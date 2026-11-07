@@ -24,6 +24,9 @@ struct MenuBarPreviewStrip: View {
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.14)))
+            ForEach(MenuBarResource.allCases, id: \.rawValue) { resource in
+                MenuBarResourcePreviewItem(resource: resource, usage: controller.usage)
+            }
             Text(Date(), style: .time)
         }
         .font(.system(size: 12.5, weight: .medium))
@@ -43,61 +46,8 @@ struct MenuBarPreviewStrip: View {
     }
 }
 
-/// One selectable menu bar display style, with its own rendered sample.
-struct MenuBarDisplayOptionRow: View {
-    @AppStorage(FanBarLanguage.preferenceKey)
-    private var languageRawValue = FanBarLanguage.defaultValue
-
-    @ObservedObject var controller: FanController
-    let mode: MenuBarDisplayMode
-    let isSelected: Bool
-    /// 1-based place in the option list, read out by VoiceOver because
-    /// these rows are custom buttons rather than a native radio group.
-    let position: Int
-    let count: Int
-    let onSelect: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 10) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
-                    .frame(width: 18)
-                    .accessibilityHidden(true)
-
-                // Weight joins the filled radio, so selection never rests on tint alone.
-                SettingsRowText(
-                    title: mode.title,
-                    detail: mode.detail,
-                    titleWeight: isSelected ? .medium : .regular
-                )
-                .foregroundColor(.primary)
-
-                MenuBarStatusLabel(controller: controller, displayMode: mode)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(Color.primary.opacity(0.06)))
-            }
-            // With the group's inset, the radio lines up with other rows' text.
-            .padding(.horizontal, SettingsChrome.rowHorizontalPadding - SettingsChrome.choiceInset)
-            .padding(.vertical, SettingsChrome.rowVerticalPadding)
-            .background(SettingsChrome.choiceHighlight(isSelected: isSelected))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(isSelected
-            ? fanBarFormat("已选择，第 %d 项，共 %d 项", "Selected, %d of %d", position, count)
-            : fanBarFormat("第 %d 项，共 %d 项", "%d of %d", position, count))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
-    }
-}
-
 /// The icon row of the Menu Bar card. A pop-up menu scales to any number of
-/// glyphs; each item shows its glyph beside the name, and the display rows
-/// below preview the chosen one at real size.
+/// glyphs; each item shows its glyph beside the name.
 struct MenuBarIconStylePicker: View {
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
@@ -133,4 +83,103 @@ struct MenuBarIconStylePicker: View {
         .settingsRow()
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
+}
+
+/// Independent resource items are opt-in and do not change the main fan item.
+struct MenuBarResourceSettings: View {
+    @ObservedObject var controller: FanController
+
+    var body: some View {
+        SettingsSection(
+            title: fanBarText("系统资源", "System resources"),
+            footer: fanBarText(
+                "每项独立显示在菜单栏中。点击可打开面板并突出对应资源。",
+                "Each item appears separately in the menu bar. Click one to open the panel and highlight that resource."
+            )
+        ) {
+            ForEach(Array(MenuBarResource.allCases.enumerated()), id: \.element.rawValue) { index, resource in
+                if index > 0 { SettingsChrome.rowDivider }
+                MenuBarResourceSettingsRow(resource: resource, usage: controller.usage)
+            }
+        }
+    }
+}
+
+/// One resource's switch, style and live sample, bound to that resource's own keys.
+private struct MenuBarResourceSettingsRow: View {
+    let resource: MenuBarResource
+    let usage: SystemUsage
+    @AppStorage private var isOn: Bool
+    @AppStorage private var styleRawValue: String
+
+    init(resource: MenuBarResource, usage: SystemUsage) {
+        self.resource = resource
+        self.usage = usage
+        _isOn = AppStorage(wrappedValue: false, resource.preferenceKey)
+        _styleRawValue = AppStorage(wrappedValue: MenuBarResourceStyle.icon.rawValue, resource.stylePreferenceKey)
+    }
+
+    private var style: MenuBarResourceStyle { MenuBarResourceStyle.resolve(styleRawValue) }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(resource.title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Picker(resource.title, selection: $styleRawValue) {
+                ForEach(MenuBarResourceStyle.allCases) { option in
+                    Text(option.title).tag(option.rawValue)
+                }
+            }
+            .labelsHidden()
+            .fixedSize()
+            .disabled(!isOn)
+            resourcePreview(resource, style: style, usage: usage)
+                .frame(width: 65, alignment: .center)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.primary.opacity(0.06)))
+                .accessibilityHidden(true)
+            Toggle(resource.title, isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+        }
+        .settingsRow()
+        .onAppear {
+            // A style FanBar no longer offers is shown as the label style; save
+            // that, so the picker has a selection.
+            if MenuBarResourceStyle(rawValue: styleRawValue) == nil { styleRawValue = style.rawValue }
+        }
+    }
+}
+
+/// A resource item in the preview strip, shown only while its switch is on.
+private struct MenuBarResourcePreviewItem: View {
+    let resource: MenuBarResource
+    let usage: SystemUsage
+    @AppStorage private var isOn: Bool
+    @AppStorage private var styleRawValue: String
+
+    init(resource: MenuBarResource, usage: SystemUsage) {
+        self.resource = resource
+        self.usage = usage
+        _isOn = AppStorage(wrappedValue: false, resource.preferenceKey)
+        _styleRawValue = AppStorage(wrappedValue: MenuBarResourceStyle.icon.rawValue, resource.stylePreferenceKey)
+    }
+
+    var body: some View {
+        if isOn {
+            resourcePreview(resource, style: MenuBarResourceStyle.resolve(styleRawValue), usage: usage)
+        }
+    }
+}
+
+private func resourcePreview(_ resource: MenuBarResource, style: MenuBarResourceStyle, usage: SystemUsage) -> some View {
+    HStack(spacing: 3) {
+        if style == .icon {
+            Image(nsImage: resource.icon)
+                .renderingMode(.template)
+                .frame(width: 14, height: 14)
+        }
+        Text(resource.text(for: usage, style: style))
+    }
+    .font(.system(size: 12, weight: .medium).monospacedDigit())
 }

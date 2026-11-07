@@ -3,7 +3,7 @@ import FanBarShared
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings › Appearance › Menu Bar Panel: which monitoring modules the panel shows, and in
+/// Settings › Panel: which monitoring modules the panel shows, and in
 /// what order. A skeleton preview mirrors the panel's two-column layout; modules are dragged
 /// in the preview or the list, added and removed with the list's + / − buttons.
 struct PanelMonitorSettingsSection: View {
@@ -11,6 +11,8 @@ struct PanelMonitorSettingsSection: View {
     @AppStorage(PanelMonitorPreferences.preferenceKey)
     private var rawValue: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(FanBarLanguage.preferenceKey)
+    private var languageRawValue = FanBarLanguage.defaultValue
 
     @State private var selection: PanelMonitorModule?
     @State private var hoveredRow: PanelMonitorModule?
@@ -66,6 +68,7 @@ struct PanelMonitorSettingsSection: View {
             listFooter
         }
         .onChange(of: modules.count) { _ in SettingsChrome.requestWindowRefit() }
+        .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
     }
 
     // MARK: Preview
