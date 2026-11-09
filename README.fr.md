@@ -224,7 +224,9 @@ fanbar mode auto               # rendre les ventilateurs à macOS
 
 Sans `--hold`, macOS reprend la main après le délai de retour automatique défini dans les réglages. Ajoutez `--json` pour une sortie lisible par une machine. Si FanBar n’est pas lancé, la commande l’ouvre en arrière-plan ; changer de mode nécessite le service de contrôle approuvé.
 
-Pour Raycast, cliquez sur **Configurer dans Raycast…** dans la même section, puis ajoutez une fois le dossier de scripts dans Raycast (Settings → Extensions → **+** → Add Script Directory). Vous pourrez changer de préréglage, fixer un régime, revenir en automatique et voir les températures CPU, GPU et SSD dans la recherche principale.
+Pour Raycast, installez l’[extension FanBar](https://www.raycast.com/JarinHe/fanbar) depuis le Raycast Store. Elle change de préréglage (personnalisés compris), fixe un régime, revient en automatique, affiche l’état des ventilateurs et peut garder la température CPU dans la barre des menus. Elle nécessite l’outil `fanbar` ci-dessus.
+
+Pour utiliser plutôt les Script Commands (sans extension), cliquez sur **Configurer dans Raycast…** dans la même section, puis ajoutez une fois le dossier de scripts dans Raycast (Settings → Extensions → **+** → Add Script Directory). Vous pourrez changer de préréglage, fixer un régime, revenir en automatique et voir les températures CPU, GPU et SSD dans la recherche principale.
 
 Référence complète : [docs/cli.md](docs/cli.md) (en anglais).
 

@@ -203,7 +203,9 @@ fanbar mode auto               # macOS に制御を返す
 
 `--hold` を付けない場合、設定の自動復帰時間が過ぎると macOS の制御に戻ります。`--json` を付けると機械可読な出力になります。FanBar が起動していなければコマンドがバックグラウンドで起動します。モードの切り替えには、承認済みのファン制御サービスが必要です。
 
-Raycast では、同じセクションの「Raycast で設定…」をクリックし、Raycast でスクリプトフォルダを一度だけ追加します（Settings → Extensions → **+** → Add Script Directory）。プリセットの切り替え、固定回転数、自動制御への復帰ができ、ルート検索で CPU・GPU・SSD の温度を確認できます。
+Raycast では、Raycast Store から [FanBar 拡張機能](https://www.raycast.com/JarinHe/fanbar) をインストールできます。プリセット（カスタムを含む）の切り替え、固定回転数、自動制御への復帰、ファンの状態表示ができ、メニューバーに CPU 温度を常に表示することもできます。上記の `fanbar` ツールが必要です。
+
+拡張機能を使わずにスクリプトコマンドを使う場合は、同じセクションの「Raycast で設定…」をクリックし、Raycast でスクリプトフォルダを一度だけ追加します（Settings → Extensions → **+** → Add Script Directory）。プリセットの切り替え、固定回転数、自動制御への復帰ができ、ルート検索で CPU・GPU・SSD の温度を確認できます。
 
 詳しくは [docs/cli.md](docs/cli.md)（英語）を参照してください。
 
