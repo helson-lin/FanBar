@@ -514,6 +514,7 @@ enum JapaneseCatalog {
         "Unable to read the fan count": "ファンの数を読み取れません",
         "Unable to register control service: %@": "制御サービスを登録できません：%@",
         "Unable to run the system service command: %@": "システムサービスのコマンドを実行できません：%@",
+        "An unsigned FanBar build can't install the control service": "署名されていない FanBar では制御サービスをインストールできません",
         "Unable to update login item: %@": "ログイン項目を更新できません：%@",
         "Unable to write %@ (error %d).": "%@ に書き込めません（エラー %d）。",
         "Unknown cooling preset": "不明な冷却プリセットです",

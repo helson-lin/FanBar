@@ -62,6 +62,12 @@ final class FanBarServiceManager {
 
     private func registerService() throws {
         if #available(macOS 13.0, *) {
+            if LegacyHelperDaemon.needsRemovalBeforeServiceManagement(
+                on: ProcessInfo.processInfo.operatingSystemVersion,
+                legacyPlistExists: FileManager.default.fileExists(atPath: LegacyHelperDaemon.installedPlistPath)
+            ) {
+                try LegacyLaunchd.removeHelper()
+            }
             try SMAppService.daemon(plistName: FanBarService.helperPlistName).register()
         } else {
             try LegacyLaunchd.installHelper()
@@ -168,16 +174,22 @@ final class FanBarLoginItemManager {
 
 private enum LegacyLaunchd {
     static func installHelper() throws {
-        let plistURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("local.fanbar.helper.\(ProcessInfo.processInfo.processIdentifier).plist")
-        let helperPath = LegacyHelperDaemon.helperExecutablePath(inAppAt: Bundle.main.bundleURL)
-        try write(LegacyHelperDaemon.jobDefinition(helperExecutablePath: helperPath), to: plistURL)
-        defer { try? FileManager.default.removeItem(at: plistURL) }
-        try runAsAdministrator(LegacyHelperDaemon.installCommand(stagedPlistPath: plistURL.path))
+        guard let teamID = LegacyHelperDaemon.installableTeam(OwnCodeSignature.teamIdentifier()) else {
+            throw LegacyLaunchdError.unsignedBuild
+        }
+        let command = try LegacyHelperDaemon.installCommand(
+            appBundlePath: Bundle.main.bundleURL.path,
+            teamID: teamID,
+            jobPlist: LegacyHelperDaemon.jobPlistText()
+        )
+        try runAsAdministrator(command, describedAs: "launchctl bootstrap system \(LegacyHelperDaemon.installedPlistPath)")
     }
 
     static func removeHelper() throws {
-        try runAsAdministrator(LegacyHelperDaemon.removeCommand())
+        try runAsAdministrator(
+            LegacyHelperDaemon.removeCommand(),
+            describedAs: "launchctl bootout system/\(LegacyHelperDaemon.label)"
+        )
     }
 
     static func jobIsLoaded(label: String) -> Bool {
@@ -233,7 +245,7 @@ private enum LegacyLaunchd {
         }
     }
 
-    private static func runAsAdministrator(_ command: String) throws {
+    private static func runAsAdministrator(_ command: String, describedAs description: String) throws {
         let script = "do shell script \(appleScriptQuote(command)) with administrator privileges"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
@@ -241,7 +253,7 @@ private enum LegacyLaunchd {
         try process.run()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
-            throw LegacyLaunchdError.commandFailed(command)
+            throw LegacyLaunchdError.commandFailed(description)
         }
     }
 
@@ -255,6 +267,7 @@ private enum LegacyLaunchd {
 
 private enum LegacyLaunchdError: LocalizedError {
     case commandFailed(String)
+    case unsignedBuild
 
     var errorDescription: String? {
         switch self {
@@ -262,6 +275,10 @@ private enum LegacyLaunchdError: LocalizedError {
             "无法执行系统服务命令：%@",
             "Unable to run the system service command: %@",
             command
+        )
+        case .unsignedBuild: fanBarText(
+            "未签名的 FanBar 无法安装控制服务",
+            "An unsigned FanBar build can't install the control service"
         )
         }
     }
