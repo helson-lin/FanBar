@@ -45,7 +45,7 @@ final class FanBarServiceManager {
                 status = .unavailable
             }
         } else {
-            status = legacyServiceIsRunning() ? .enabled : .notRegistered
+            status = LegacyHelperDaemon.status(jobIsLoaded: LegacyLaunchd.jobIsLoaded(label: LegacyHelperDaemon.label))
         }
     }
 
@@ -111,10 +111,6 @@ final class FanBarServiceManager {
             }
         }
     }
-
-    private func legacyServiceIsRunning() -> Bool {
-        LegacyLaunchd.jobIsLoaded(label: FanBarService.helperPlistName)
-    }
 }
 
 @MainActor
@@ -174,22 +170,14 @@ private enum LegacyLaunchd {
     static func installHelper() throws {
         let plistURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("local.fanbar.helper.\(ProcessInfo.processInfo.processIdentifier).plist")
-        let helperPath = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Library/LaunchServices/local.fanbar.helper")
-            .path
-        let plist: [String: Any] = [
-            "Label": FanBarService.helperPlistName,
-            "ProgramArguments": [helperPath],
-            "MachServices": [FanBarService.helperBundleID: true],
-            "ProcessType": "Interactive"
-        ]
-        try write(plist, to: plistURL)
+        let helperPath = LegacyHelperDaemon.helperExecutablePath(inAppAt: Bundle.main.bundleURL)
+        try write(LegacyHelperDaemon.jobDefinition(helperExecutablePath: helperPath), to: plistURL)
         defer { try? FileManager.default.removeItem(at: plistURL) }
-        try runAsAdministrator("/bin/launchctl bootstrap system \(shellQuote(plistURL.path))")
+        try runAsAdministrator(LegacyHelperDaemon.installCommand(stagedPlistPath: plistURL.path))
     }
 
     static func removeHelper() throws {
-        try runAsAdministrator("/bin/launchctl bootout system/\(FanBarService.helperPlistName)")
+        try runAsAdministrator(LegacyHelperDaemon.removeCommand())
     }
 
     static func jobIsLoaded(label: String) -> Bool {
@@ -255,10 +243,6 @@ private enum LegacyLaunchd {
         guard process.terminationStatus == 0 else {
             throw LegacyLaunchdError.commandFailed(command)
         }
-    }
-
-    private static func shellQuote(_ value: String) -> String {
-        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
     private static func appleScriptQuote(_ value: String) -> String {

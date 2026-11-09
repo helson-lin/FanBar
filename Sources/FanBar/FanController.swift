@@ -2207,7 +2207,7 @@ final class FanController: ObservableObject {
         // Legacy launchd registration already required an administrator prompt.
         // Do not immediately ask for a second prompt on the first Big Sur setup;
         // later bundle-version changes still take the migration path below.
-        if #unavailable(macOS 13.0), savedVersion == nil {
+        if LegacyHelperDaemon.isUsed(on: ProcessInfo.processInfo.operatingSystemVersion), savedVersion == nil {
             UserDefaults.standard.set(
                 helperBuildVersion,
                 forKey: helperBuildVersionPreferenceKey
