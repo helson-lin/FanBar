@@ -45,6 +45,29 @@
 
 回归测试：`MenuBarResourceLanguageTests.testResourceSectionRepaintsWithoutNewReadings` 在固定读数、外观、Locale 和资源偏好下，对比保留视图与同语言新视图，覆盖六种界面语言。修复前简体和繁体中文比较失败，修复后通过。原有 `SettingsLanguageRefreshTests` 继续检查全部设置页的语言切换。
 
+## macOS 11 批准后控制服务仍未启用
+
+根因：macOS 11–12 没有 `SMAppService`，走 launchd 旧路径。旧版把守护进程 plist 写进当前用户的临时目录，再以管理员身份执行 `launchctl bootstrap system <临时文件>`。launchd 只接受属主为 root、其他用户不可写的系统域 plist，因此用户批准授权提示后命令仍失败，服务保持未启用。即使加载成功，临时 plist 随即被删除，重启后服务也会消失。该问题自 v0.4.0 引入旧路径起就存在，不是 #155 引入的。
+
+修复：新增纯类型 `LegacyHelperDaemon`，安装改为由管理员脚本完成全部步骤：
+
+- 把助手连同其读取版本号用的 `Info.plist` 和 macOS 11 缺少的 Swift 并发运行库，复制到 root 所有的 `/Library/PrivilegedHelperTools/local.fanbar.helper/`，保持原有相对路径；复制后用 `codesign` 校验副本由同一团队签名。旧版 launchd 不校验签名，若直接运行用户可写的应用包内文件，任何以用户身份运行的进程都能替换助手并在重启后获得 root。
+- 由 root 脚本直接写入 `/Library/LaunchDaemons/local.fanbar.helper.plist`（root:wheel、0644），不再从用户临时目录复制，避免输入密码期间被替换。
+- 先卸载已加载的任务并清除禁用标记，再加载。任务标签改为与 macOS 13+ 一致的 `local.fanbar.helper`。卸载时任务未加载也不报错，并删除 plist 和助手副本。
+- 升级到 macOS 13+ 后，若仍有旧版 plist，先删除旧安装再通过 `SMAppService` 注册，避免同名任务冲突。
+- 未签名或 ad-hoc 构建不安装（这类助手本来就会拒绝所有客户端）。
+
+macOS 13+ 的 `SMAppService` 注册方式和助手的客户端认证未改动；读取自身团队 ID 的代码移到 `FanBarShared/OwnCodeSignature.swift` 供应用和助手共用，行为不变。
+
+回归测试位于 `Tests/FanBarTests/LegacyHelperDaemonTests.swift`：
+
+- `testMacOS11InstallLoadsARootOwnedPlistFromLaunchDaemons`：传入 macOS 11，要求 plist 属主为 root:wheel、权限 644，并从 `/Library/LaunchDaemons` 加载。
+- `testMacOS11JobPlistIsWrittenByRootNotCopiedFromTheUser`：plist 由 root 脚本写入，内容可解析，不引用用户临时目录。
+- `testMacOS11RootRunsAVerifiedRootOwnedCopyOfTheHelper`：任务运行 root 所有的副本；复制、改属主、校验签名、加载依次进行。
+- `testMacOS13RemovesALeftoverLegacyInstallBeforeRegistering`：13 及以上有旧 plist 时先删除，11、12 不受影响。
+- `testInstallScriptCopiesTheHelperLayoutAndWritesAValidPlist`、`testInstallScriptStopsBeforeLoadingWhenTheSignatureCheckFails`、`testInstallScriptFailsWhenBootstrapFailsAndRemoveSucceedsWithoutAJob`：在临时目录中实际运行生成的脚本（仅替换 chown、codesign、launchctl），验证复制结果、签名失败时不加载、加载失败返回非零。
+- `testUnsignedBuildsInstallNothing`、`testBigSurAndMontereyRegisterTheHelperThroughLaunchd`、`testMacOS11StatusFollowsWhetherTheJobIsLoaded` 等覆盖其余分支。
+
 ## 后续约束
 
 - 刷新入口负责采样次数，重连不得再次进入刷新入口。

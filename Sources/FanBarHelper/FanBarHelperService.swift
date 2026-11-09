@@ -339,24 +339,6 @@ final class FanBarHelperService: NSObject, NSXPCListenerDelegate, FanBarHelperPr
     }
 
     private static func ownTeamIdentifier() -> String? {
-        var ownCode: SecCode?
-        guard SecCodeCopySelf([], &ownCode) == errSecSuccess,
-              let ownCode
-        else { return nil }
-
-        var staticCode: SecStaticCode?
-        guard SecCodeCopyStaticCode(ownCode, [], &staticCode) == errSecSuccess,
-              let staticCode
-        else { return nil }
-
-        var signingInformation: CFDictionary?
-        guard SecCodeCopySigningInformation(
-            staticCode,
-            SecCSFlags(rawValue: kSecCSSigningInformation),
-            &signingInformation
-        ) == errSecSuccess,
-            let information = signingInformation as? [CFString: Any]
-        else { return nil }
-        return information[kSecCodeInfoTeamIdentifier] as? String
+        OwnCodeSignature.teamIdentifier()
     }
 }

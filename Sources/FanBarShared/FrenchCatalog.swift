@@ -503,6 +503,7 @@ enum FrenchCatalog {
         "Unable to read the fan count": "Impossible de lire le nombre de ventilateurs",
         "Unable to register control service: %@": "Impossible d’enregistrer le service de contrôle : %@",
         "Unable to run the system service command: %@": "Impossible d’exécuter la commande du service système : %@",
+        "An unsigned FanBar build can't install the control service": "Une version non signée de FanBar ne peut pas installer le service de contrôle",
         "Unable to update login item: %@": "Impossible de modifier l’élément d’ouverture de session : %@",
         "Unable to write %@ (error %d).": "Impossible d’écrire %@ (erreur %d).",
         "Unknown cooling preset": "Profil de refroidissement inconnu",

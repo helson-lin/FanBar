@@ -510,6 +510,7 @@ enum RussianCatalog {
         "Unable to read the fan count": "Не удалось определить число вентиляторов",
         "Unable to register control service: %@": "Не удалось зарегистрировать службу управления: %@",
         "Unable to run the system service command: %@": "Не удалось выполнить команду системной службы: %@",
+        "An unsigned FanBar build can't install the control service": "Неподписанная сборка FanBar не может установить службу управления",
         "Unable to update login item: %@": "Не удалось обновить объект входа: %@",
         "Unable to write %@ (error %d).": "Не удалось записать %@ (ошибка %d).",
         "Unknown cooling preset": "Неизвестный пресет охлаждения",
