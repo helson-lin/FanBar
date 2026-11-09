@@ -1,6 +1,6 @@
-import { Action, ActionPanel, Color, Icon, List, Toast, showHUD, showToast } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Keyboard, List, Toast, showHUD, showToast } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { FailureEmptyView, RecoveryActions, showFailureToast } from "./lib/components";
+import { FailureEmptyView, showFailureToast } from "./lib/components";
 import { FanBarPreset, runFanBar } from "./lib/fanbar";
 
 export default function SwitchPreset() {
@@ -22,12 +22,12 @@ export default function SwitchPreset() {
         <>
           <List.Section title="Built-in">
             {builtIn.map((preset) => (
-              <PresetItem key={preset.id} preset={preset} onRetry={revalidate} />
+              <PresetItem key={preset.id} preset={preset} onRefresh={revalidate} />
             ))}
           </List.Section>
           <List.Section title="Custom">
             {custom.map((preset) => (
-              <PresetItem key={preset.id} preset={preset} onRetry={revalidate} />
+              <PresetItem key={preset.id} preset={preset} onRefresh={revalidate} />
             ))}
           </List.Section>
         </>
@@ -36,7 +36,7 @@ export default function SwitchPreset() {
   );
 }
 
-function PresetItem(props: { preset: FanBarPreset; onRetry: () => void }) {
+function PresetItem(props: { preset: FanBarPreset; onRefresh: () => void }) {
   const { preset } = props;
   return (
     <List.Item
@@ -64,7 +64,12 @@ function PresetItem(props: { preset: FanBarPreset; onRetry: () => void }) {
             />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <RecoveryActions onRetry={props.onRetry} />
+            <Action
+              title="Refresh"
+              icon={Icon.ArrowClockwise}
+              shortcut={Keyboard.Shortcut.Common.Refresh}
+              onAction={props.onRefresh}
+            />
           </ActionPanel.Section>
         </ActionPanel>
       }

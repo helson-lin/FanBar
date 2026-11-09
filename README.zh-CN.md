@@ -219,7 +219,9 @@ fanbar mode auto               # 把风扇交还给 macOS
 
 不加 `--hold` 时，会按设置里的自动恢复时间交还 macOS 控制。加 `--json` 可输出机器可读结果。FanBar 未运行时，命令会在后台打开它；切换模式需要已批准风扇控制服务。
 
-Raycast：在同一区块点「在 Raycast 中设置…」，然后在 Raycast 中添加一次脚本目录（设置 → Extensions → **+** → Add Script Directory）。之后就能在 Raycast 里切换预设、设置固定转速、交还自动控制，并在根搜索中直接看到 CPU、GPU、SSD 温度。
+Raycast：从 Raycast Store 安装 [FanBar 扩展](https://www.raycast.com/JarinHe/fanbar)，可以切换预设（包括自定义预设）、设置固定转速、交还自动控制、查看风扇状态，并能在菜单栏常驻 CPU 温度。扩展需要先安装上面的 `fanbar` 工具。
+
+如果不想装扩展，也可以用脚本命令：在同一区块点「在 Raycast 中设置…」，然后在 Raycast 中添加一次脚本目录（设置 → Extensions → **+** → Add Script Directory）。之后就能在 Raycast 里切换预设、设置固定转速、交还自动控制，并在根搜索中直接看到 CPU、GPU、SSD 温度。
 
 完整说明见 [docs/cli.md](docs/cli.md)（英文）。
 

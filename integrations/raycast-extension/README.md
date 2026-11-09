@@ -4,6 +4,8 @@ Control [FanBar](https://github.com/helson-lin/FanBar) from Raycast: switch
 cooling presets (custom ones included), set a fixed fan speed, hand the fans
 back to macOS, and keep the CPU temperature in the menu bar.
 
+Install it from the Raycast Store: <https://www.raycast.com/JarinHe/fanbar>.
+
 | Command | What it does |
 |---|---|
 | Switch Preset | Lists built-in and custom presets and marks the selected one. ↵ runs the preset's curve until the **Restore automatic control** timer in FanBar Settings; ⌘↵ keeps it until changed (`--hold`). |
@@ -15,8 +17,9 @@ back to macOS, and keep the CPU temperature in the menu bar.
 ## Requirements
 
 The extension drives the `fanbar` command-line tool that ships inside
-FanBar.app. Install it on PATH from **FanBar Settings › General › FanBar ›
-Command-line tool › Install…**, or by hand:
+FanBar.app 0.7.0 and later. Install it on PATH from **FanBar Settings ›
+General › Command Line & Automation › Command-line tool › Install…**, or by
+hand:
 
 ```sh
 sudo mkdir -p /usr/local/bin
@@ -57,11 +60,15 @@ npm run build
 npm run lint
 ```
 
-`npm run publish` is disabled on purpose: the extension goes to the Raycast
-Store only after a FanBar release ships the `fanbar` CLI. Before publishing,
-restore the standard script (`npx @raycast/api@latest publish`), check that
-`author` in `package.json` is the Raycast Store username, and add screenshots
-under `metadata/`.
+This folder is the source of the Store extension, published as
+`extensions/fanbar` in [raycast/extensions](https://github.com/raycast/extensions)
+under the Raycast account `JarinHe` (the `author` in `package.json`). To ship
+an update, make the change here, add an entry at the top of `CHANGELOG.md`
+headed `## [Title] - {PR_MERGE_DATE}`, then run `npm run publish`. It opens a
+pull request against raycast/extensions; the Store updates after Raycast
+merges it. If someone else changed the Store copy in the meantime, run
+`npx @raycast/api@latest pull-contributions` first. Store screenshots live in
+`metadata/` (2000 × 1250 PNG).
 
 ## Follow-ups for the CLI contract
 

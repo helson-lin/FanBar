@@ -79,9 +79,9 @@ Two integrations call `fanbar` from Raycast:
 
 - **Extension** ([`integrations/raycast-extension`](../integrations/raycast-extension)):
   Switch Preset (custom presets included), Fan Status, Fixed RPM, Automatic,
-  and a menu bar command with the CPU temperature. It is meant for the Raycast
-  Store and will be submitted once a FanBar release ships the CLI. Until then,
-  load it with `npm install && npm run dev` in that folder. See its
+  and a menu bar command with the CPU temperature. Install it from the
+  [Raycast Store](https://www.raycast.com/JarinHe/fanbar); it needs FanBar
+  0.7.0 or later with the `fanbar` tool installed. See its
   [README](../integrations/raycast-extension/README.md).
 - **Script Commands** ([`integrations/raycast`](../integrations/raycast)): no
   Node needed, but Raycast needs one manual Add Script Directory step and the

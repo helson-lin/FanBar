@@ -1,9 +1,10 @@
-import { Action, ActionPanel, Icon, List, Toast, open, openExtensionPreferences, showToast } from "@raycast/api";
+import { Action, ActionPanel, Icon, List, Toast, open, openExtensionPreferences } from "@raycast/api";
+import { showFailureToast as showUtilsFailureToast } from "@raycast/utils";
 import { DEFAULT_LOCATIONS, DOCS_URL, FanBarError, INSTALL_COMMAND, asFanBarError } from "./fanbar";
 
 export function showFailureToast(error: unknown): Promise<Toast> {
   const failure = asFanBarError(error);
-  return showToast({ style: Toast.Style.Failure, title: failure.title, message: failure.message });
+  return showUtilsFailureToast(failure, { title: failure.title });
 }
 
 /** Actions that help with any failure; extra ones go first. */
@@ -39,7 +40,7 @@ export function FailureEmptyView(props: { error: unknown; onRetry?: () => void }
 export function describe(failure: FanBarError): string {
   if (failure.failure === "missing") {
     return (
-      "Install the command-line tool in FanBar Settings › General › Command-line tool, " +
+      "Install the command-line tool in FanBar Settings › General › Command Line & Automation, " +
       `or set its path in this extension's preferences. Looked in ${DEFAULT_LOCATIONS.join(", ")}.`
     );
   }

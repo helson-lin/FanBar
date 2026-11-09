@@ -230,7 +230,9 @@ fanbar mode auto               # hand the fans back to macOS
 
 Without `--hold`, macOS control comes back after the restore timer set in Settings. Add `--json` for machine-readable output. If FanBar isn't running, the command opens it in the background; switching modes needs the approved control service.
 
-For Raycast, click **Set Up in Raycast…** in the same section, then add the script folder once in Raycast (Settings → Extensions → **+** → Add Script Directory). You get commands to switch presets, set a fixed RPM, return to Automatic, and see CPU, GPU, and SSD temperatures in root search.
+For Raycast, install the [FanBar extension](https://www.raycast.com/JarinHe/fanbar) from the Raycast Store. It switches presets (custom ones included), sets a fixed RPM, returns to Automatic, shows fan status, and can keep the CPU temperature in the menu bar. It needs the `fanbar` tool above.
+
+To use Script Commands instead (no extension), click **Set Up in Raycast…** in the same section, then add the script folder once in Raycast (Settings → Extensions → **+** → Add Script Directory). You get commands to switch presets, set a fixed RPM, return to Automatic, and see CPU, GPU, and SSD temperatures in root search.
 
 Full reference: [docs/cli.md](docs/cli.md).
 
