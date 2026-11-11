@@ -1,6 +1,6 @@
 cask "fanbar" do
-  version "0.8.2"
-  sha256 "d5909fb17084168aad48cf60df06422f1cec784c2506585941246fa5063ea685"
+  version "0.9.0"
+  sha256 "de63c342cf581cabd6dc4868576da054626260c881f25745af0b9ff26f338eaf"
 
   url "https://github.com/helson-lin/FanBar/releases/download/v#{version}/FanBar-#{version}.dmg"
   name "FanBar"
