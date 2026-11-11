@@ -110,5 +110,5 @@ model_weekly / os_weekly / arch_weekly / country_weekly(week TEXT, value TEXT, n
 ## 7. 上线前的运维事项（不写测试）
 
 - 域名开启自动续费和转移锁。
-- 外部拨测：每 5 分钟请求一次 `/appcast.xml`，期望得到 302，失败就告警。拨测请求的 User-Agent 不是 Sparkle 的，所以不会被计数。
-- Worker 单独稳定运行一周后，再发布修改了 `SUFeedURL` 的 Beta 版。
+- 外部拨测：每 5 分钟请求一次 `/appcast.xml`，期望得到 302，失败就告警。拨测请求的 User-Agent 不是 Sparkle 的，所以不会被计数。实现见 `.github/workflows/update-service-probe.yml`。
+- Worker 单独稳定运行一周，并满足 [docs/update-service-ops.md](../../docs/update-service-ops.md) 里的通过标准后，再发布修改了 `SUFeedURL` 的 Beta 版。回退步骤也在该文档中。

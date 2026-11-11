@@ -1,0 +1,28 @@
+name: Update service probe
+# Every 5 minutes, ask update.getfanbar.com for the appcast the way Sparkle does.
+# A failed run emails the person who last edited this schedule. Scheduled runs can
+# start several minutes late, and GitHub disables schedules after 60 days without
+# repository activity, so treat a long silence as a failure too (docs/update-service-ops.md).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: update-service-probe
+  cancel-in-progress: true
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe, retrying twice so one network blip does not alert
+        run: |
+          for attempt in 1 2 3; do
+            scripts/probe-update-service.sh && exit 0
+            status=$?
+            [ "$attempt" = 3 ] || sleep 20
+          done
+          exit "$status"
