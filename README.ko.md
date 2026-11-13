@@ -82,8 +82,48 @@ FanBar는 CPU/GPU/SSD/배터리 온도와 팬 RPM을 확인하는 무료 오픈 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/localization/panel-korean-light.png" alt="FanBar 한국어 메뉴 막대 패널 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/localization/panel-korean-dark.png" alt="FanBar 한국어 메뉴 막대 패널 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-light-ko.png" alt="FanBar 한국어 메뉴 막대 패널 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-dark-ko.png" alt="FanBar 한국어 메뉴 막대 패널 (다크)" width="100%"></td>
+  </tr>
+</table>
+
+팬이 2개인 Mac에서는 각 팬의 속도, 상태, 범위를 나란히 표시합니다. 아래 화면은 실제 팬을 제어하지 않는 고정된 테스트 데이터로 두 팬 레이아웃을 렌더링한 인터페이스 검증용 화면이며, 하드웨어 동작의 증거가 아닙니다.
+
+<table>
+  <tr><th>라이트</th><th>다크</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/fanbar-menu-dual-fan-light-ko.png" alt="팬 2개인 Mac의 FanBar 한국어 인터페이스 픽스처 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-dual-fan-dark-ko.png" alt="팬 2개인 Mac의 FanBar 한국어 인터페이스 픽스처 (다크)" width="100%"></td>
+  </tr>
+</table>
+
+냉각 설정에서 패널 프리셋별 온도→RPM 곡선을 편집할 수 있습니다.
+
+<table>
+  <tr><th>라이트</th><th>다크</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/fanbar-settings-cooling-light-ko.png" alt="FanBar 한국어 냉각 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-cooling-dark-ko.png" alt="FanBar 한국어 냉각 설정 (다크)" width="100%"></td>
+  </tr>
+</table>
+
+외관 설정에서 메뉴 막대 아이콘과 표시 내용을 선택하고, 모의 메뉴 막대에서 바로 미리 볼 수 있습니다.
+
+<table>
+  <tr><th>라이트</th><th>다크</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/fanbar-settings-appearance-light-ko.png" alt="FanBar 한국어 외관 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-appearance-dark-ko.png" alt="FanBar 한국어 외관 설정 (다크)" width="100%"></td>
+  </tr>
+</table>
+
+일반 설정에는 기기 호환성 검사, 제어 서비스 상태, 자동 복원, 알림, 언어, 로그인 시 실행, 업데이트, 명령줄 및 Raycast 설정이 있습니다. 기록 설정에서는 온도와 팬 속도를 CSV로 저장합니다. 긴 설정 화면은 스크롤할 수 있습니다.
+
+<table>
+  <tr><th>라이트</th><th>다크</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/fanbar-settings-general-light-ko.png" alt="FanBar 한국어 일반 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-general-dark-ko.png" alt="FanBar 한국어 일반 설정 (다크)" width="100%"></td>
   </tr>
 </table>
 
