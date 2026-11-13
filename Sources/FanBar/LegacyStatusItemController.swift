@@ -19,6 +19,10 @@ final class LegacyStatusItemController: NSObject {
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
     private let iconAnimator = MenuBarIconAnimator()
+    private let buttonWriter = MenuBarButtonWriter()
+    /// Set while a refresh is queued, so a burst of controller changes in one
+    /// run loop turn redraws the status items once.
+    private var refreshScheduled = false
     /// NSStatusBarButton top-aligns a multi-line title and clips it, so the
     /// stacked readout is a separate view centered beside the icon.
     private lazy var stackedLabel: StackedReadoutView = {
@@ -48,6 +52,8 @@ final class LegacyStatusItemController: NSObject {
         item.button?.toolTip = "FanBar"
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
+        item.button?.imageScaling = .scaleProportionallyDown
+        item.button?.imageHugsTitle = true
 
         let popover = NSPopover()
         popover.behavior = .transient
@@ -57,7 +63,7 @@ final class LegacyStatusItemController: NSObject {
         statusItem = item
         self.popover = popover
         observation = controller.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async { self?.updateButton(); self?.updateResourceItems() }
+            self?.scheduleRefresh()
         }
         iconAnimator.onFinish = { [weak self] in self?.updateButton() }
         feedbackObservation = controller.$switchFeedback
@@ -75,12 +81,24 @@ final class LegacyStatusItemController: NSObject {
                 if !SwitchFeedbackPreferences.isEnabled {
                     self?.iconAnimator.stop()
                 }
-                self?.updateButton()
-                self?.updateResourceItems()
+                self?.scheduleRefresh()
             }
         }
         updateButton()
         updateResourceItems()
+    }
+
+    /// A two-second refresh publishes several properties; each one would
+    /// otherwise queue its own pass over every status item.
+    private func scheduleRefresh() {
+        guard !refreshScheduled else { return }
+        refreshScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.refreshScheduled = false
+            self.updateButton()
+            self.updateResourceItems()
+        }
     }
 
     private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
@@ -232,7 +250,7 @@ final class LegacyStatusItemController: NSObject {
 
     private func updateButton() {
         guard let button = statusItem?.button, let controller else { return }
-        button.toolTip = controller.temperatureHistory.last?.cpuTemperatureSummary ?? "FanBar"
+        let toolTip = controller.temperatureHistory.last?.cpuTemperatureSummary ?? "FanBar"
         let modeRawValue = UserDefaults.standard.string(forKey: MenuBarDisplayMode.preferenceKey)
         let displayMode = MenuBarDisplayMode(rawValue: modeRawValue ?? "") ?? .defaultMode
         let iconStyle = MenuBarIconStyle.current
@@ -269,37 +287,21 @@ final class LegacyStatusItemController: NSObject {
             // Assigning even an equal new image re-snapshots every menu bar.
             if button.image !== still { button.image = still }
         }
-        // Digits should not change their advance width as the reading changes.
-        button.font = text == nil
-            ? NSFont.systemFont(ofSize: 12, weight: .medium)
-            : NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        let isStacked = displayMode == .temperatureOverFanSpeed
-        if isStacked, let text {
+        let content = MenuBarButtonContent.make(
+            displayMode: displayMode,
+            text: text,
+            toolTip: toolTip,
+            iconWidth: button.image?.size.width ?? 16
+        )
+        let layoutChanged = buttonWriter.apply(content, to: button, statusItem: statusItem)
+        if content.isStacked, let text {
             installStackedLabelIfNeeded(in: button)
             stackedLabel.text = text
-            // An invisible title as wide as the widest line keeps AppKit's own
-            // icon + title layout, so the icon sits where it does in the other
-            // text modes and the label only has to cover the title slot.
-            button.attributedTitle = Self.stackedPlaceholder
-            button.imagePosition = .imageLeading
-        } else {
-            button.title = text ?? ""
-            button.imagePosition = text == nil ? .imageOnly : .imageLeading
         }
-        stackedLabel.isHidden = !isStacked
-        if isStacked, let cell = button.cell {
+        if stackedLabel.isHidden == content.isStacked { stackedLabel.isHidden = !content.isStacked }
+        if content.isStacked, layoutChanged, let cell = button.cell {
             button.layoutSubtreeIfNeeded()
             stackedLabelLeading?.constant = cell.titleRect(forBounds: button.bounds).minX
-        }
-        button.setAccessibilityTitle(isStacked ? text?.replacingOccurrences(of: "\n", with: ", ") : nil)
-        button.imageScaling = .scaleProportionallyDown
-        button.imageHugsTitle = true
-        // Keep a stable width once text is enabled. A variable-length status
-        // item moves its popover anchor whenever a changing value gains or
-        // loses a digit, which makes the menu appear to jump while refreshing.
-        let targetLength = statusItemLength(for: displayMode, iconWidth: button.image?.size.width ?? 16)
-        if statusItem?.length != targetLength {
-            statusItem?.length = targetLength
         }
     }
 
@@ -311,43 +313,9 @@ final class LegacyStatusItemController: NSObject {
             leading,
             stackedLabel.topAnchor.constraint(equalTo: button.topAnchor),
             stackedLabel.bottomAnchor.constraint(equalTo: button.bottomAnchor),
-            stackedLabel.widthAnchor.constraint(equalToConstant: ceil(Self.stackedPlaceholder.size().width))
+            stackedLabel.widthAnchor.constraint(equalToConstant: ceil(MenuBarButtonContent.stackedPlaceholder.size().width))
         ])
         stackedLabelLeading = leading
-    }
-
-    private static let stackedPlaceholder = NSAttributedString(string: "8,888", attributes: [
-        .font: stackedFont,
-        .foregroundColor: NSColor.clear
-    ])
-
-    fileprivate static let stackedFont = NSFont.monospacedDigitSystemFont(
-        ofSize: MenuBarDisplayMode.stackedFontSize,
-        weight: .medium
-    )
-
-    /// Width sized to the widest reading each mode can show (not the current
-    /// one), so the popover anchor stays put without leaving wide side gaps.
-    private func statusItemLength(for displayMode: MenuBarDisplayMode, iconWidth: CGFloat) -> CGFloat {
-        let widestText: String
-        switch displayMode {
-        case .iconOnly:
-            return NSStatusItem.squareLength
-        case .cpuTemperature:
-            widestText = "100°"
-        case .fanSpeed:
-            widestText = "8,888"
-        case .temperatureAndFanSpeed:
-            widestText = "100° · 8,888"
-        case .temperatureOverFanSpeed:
-            // Only the wider of the two lines counts.
-            let textWidth = Self.stackedPlaceholder.size().width
-            return ceil(iconWidth + 3 + textWidth + 3)
-        }
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        let textWidth = (widestText as NSString).size(withAttributes: [.font: font]).width
-        // icon + image/title gap + text + button's horizontal inset on both sides.
-        return ceil(iconWidth + 3 + textWidth + 3)
     }
 
     private var stillIcons: [String: NSImage] = [:]
@@ -424,10 +392,10 @@ private final class StackedReadoutView: NSView {
         guard !lines.isEmpty else { return }
         // Resolved at draw time, so it follows each replicant's appearance.
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: LegacyStatusItemController.stackedFont,
+            .font: MenuBarButtonContent.stackedFont,
             .foregroundColor: NSColor.labelColor
         ]
-        let font = LegacyStatusItemController.stackedFont
+        let font = MenuBarButtonContent.stackedFont
         var y = ((bounds.height - Self.lineHeight * CGFloat(lines.count)) / 2).rounded()
         for line in lines {
             // Center each glyph run within its fixed line box.

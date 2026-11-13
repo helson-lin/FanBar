@@ -114,7 +114,10 @@ final class MenuBarIconAnimatorTests: XCTestCase {
     }
 
     /// The rotor turns the icon in the render server: the button keeps one
-    /// still image, so no menu bar has to be re-snapshotted while it spins.
+    /// image, so no menu bar has to be re-snapshotted while it spins. That
+    /// image is a transparent placeholder the size of the icon, so the still
+    /// icon is not drawn under the rotor (issue #162 removed the filter that
+    /// used to hide it).
     func testRotorSpinsWithoutSwappingTheButtonImage() throws {
         try XCTSkipUnless(MenuBarIconRotor.isSupported, "Intel Macs swap frames instead")
         let rotor = MenuBarIconRotor()
@@ -128,7 +131,10 @@ final class MenuBarIconAnimatorTests: XCTestCase {
         animator.update(rpm: 3_000, on: button, style: .defaultStyle, isManual: false)
         runMainLoop(for: 0.3)
         let still = button.image
+        let icon = MenuBarIconAnimator.staticIcon(style: .defaultStyle, isManual: false)
         XCTAssertNotNil(still)
+        XCTAssertFalse(still === icon)
+        XCTAssertEqual(still?.size, icon.size)
         XCTAssertTrue(rotor.isAttached)
         var swaps = 0
         let end = Date().addingTimeInterval(1.5)

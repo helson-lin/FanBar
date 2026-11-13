@@ -33,6 +33,15 @@ struct MenuBarResourceItemContent: Equatable {
     /// anchor, stays put while the value changes.
     let widestTitle: String
 
+    /// The button's own fit for the widest title: AppKit leaves about 2 pt
+    /// between an icon and its title, and 5 pt of inset around the title text.
+    /// Anything wider shows as a gap next to the neighboring items, which
+    /// space themselves already.
+    static func length(titleWidth: CGFloat, iconWidth: CGFloat?) -> CGFloat {
+        let icon = iconWidth.map { $0 + 2 } ?? 0
+        return ceil(titleWidth + icon + 5)
+    }
+
     static func make(
         _ resource: MenuBarResource,
         usage: SystemUsage,
@@ -156,8 +165,8 @@ final class MenuBarResourceItems {
         }
         if old?.widestTitle != content.widestTitle || old?.showsIcon != content.showsIcon {
             let titleWidth = (content.widestTitle as NSString).size(withAttributes: [.font: Self.font]).width
-            let iconWidth = content.showsIcon ? ceil((button.image?.size.width ?? 14) + 3) : 0
-            item.length = ceil(titleWidth + iconWidth + 10)
+            let iconWidth = content.showsIcon ? button.image?.size.width ?? 14 : nil
+            item.length = MenuBarResourceItemContent.length(titleWidth: titleWidth, iconWidth: iconWidth)
         }
         shown[resource] = content
     }

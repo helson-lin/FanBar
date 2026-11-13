@@ -1,5 +1,20 @@
 # 面板数据与显示问题复盘
 
+## 旋转的菜单栏图标让菜单栏出现品红色块
+
+根因：Apple silicon 上旋转图标是在按钮自己画的静止图标之上叠一层 Core Animation 转子，再用 Core Image 背景过滤器把静止图标擦掉。WindowServer 每帧都要重绘该过滤区域，在双显示器的 Mac mini M4 上表现为 FanBar 与相邻 app（如 Stats）的菜单栏项闪出品红色块、整项消失再出现、窗口服务器占用升高。0.9.0 的主菜单栏项还在每次刷新时无条件重写标题、字体与提示文字，每次写入都让 AppKit 对所有显示器的菜单栏重新快照。
+
+修复：转子不再使用任何过滤器，旋转期间按钮持一张与图标同尺寸的透明占位图，图标槽位不塌陷。新增 `MenuBarButtonContent` 与 `MenuBarButtonWriter`，逐属性比对后只写入变化项；同一轮 run loop 内多次控制器变更合并为一次刷新；资源项宽度改为按按钮自身对最宽标题的排布计算。
+
+回归测试：
+
+- `Tests/FanBarTests/MenuBarButtonContentTests.swift`：用计数按钮证明读数不变时不写按钮、变化时只写标题，叠放模式的值变化不动标题，切换模式同时改标题与图标位置。
+- `Tests/FanBarTests/MenuBarIconRotorTests.swift`：`testSpinningIconUsesNoBackdropOrCoreImageFilters` 遍历按钮下所有图层，断言没有 `filters`、`backgroundFilters`，且 `layerUsesCoreImageFilters` 为假。
+- `Tests/FanBarTests/MenuBarIconAnimatorTests.swift`：`testRotorSpinsWithoutSwappingTheButtonImage` 断言旋转时按钮持透明占位图（与静止图标不同实例、同尺寸），而非静止图标本身。
+- `Tests/FanBarTests/MenuBarResourceTests.swift`：`testItemWidthMatchesTheButtonsOwnFitForTheWidestTitle` 断言资源项宽度不小于按钮对最宽标题的排布宽度，且不超过 2 pt。
+
+影响范围：菜单栏项的绘制方式与刷新时机，以及资源项宽度。未改动 SMC 访问、硬件边界、自动模式交还、XPC 协议、CLI、存储格式、设置键或七种语言文案。副显示器的菜单栏在旋转期间显示空槽：渲染服务器不复制状态项的子层，这是去掉过滤器的代价。未在真机验证品红色块消失与 WindowServer 负载回落。
+
 ## 无风扇时用量重复采样
 
 根因：风扇读取失败会清空 SMC 连接。旧版 `refresh()` 在采样用量后调用重连方法，重连方法又调用 `refresh()`，导致同一次刷新采样两次。第二次 CPU 计数差分的时间窗口极短，历史也会重复追加。

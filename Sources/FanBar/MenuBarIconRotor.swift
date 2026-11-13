@@ -1,5 +1,4 @@
 import AppKit
-import CoreImage.CIFilterBuiltins
 
 /// Spins the status-item icon with Core Animation instead of swapping images.
 ///
@@ -7,16 +6,20 @@ import CoreImage.CIFilterBuiltins
 /// display's menu bar, about 0.85% of a core per frame per second on a Mac mini
 /// M4 with two displays. A layer animation runs in the render server and costs
 /// next to nothing, but sublayers are not part of those snapshots: only the
-/// menu bar that hosts the live item turns. The other menu bars keep the still
-/// icon the button draws itself.
+/// menu bar that hosts the live item turns.
 ///
-/// On the live menu bar the button's still icon would show under the rotor, so
-/// `eraser` cuts it out with a backdrop filter. That filter has no effect on
-/// Intel Macs, which therefore keep swapping capped frames instead. The same
-/// approach is used by RunCat (runcat-dev/RunCatNeo).
+/// While the rotor spins, the button holds a transparent placeholder the size
+/// of the icon (see `MenuBarIconAnimator`), so the live menu bar shows only the
+/// rotor and the other menu bars show an empty slot until the spin stops.
+///
+/// An earlier version kept the still icon and cut it out of the live menu bar
+/// with a Core Image backdrop filter. WindowServer re-rendered that backdrop
+/// on every frame, and on some Macs drew magenta blocks across FanBar's and
+/// neighboring apps' status items (issue #162), so the rotor uses no filters.
 @MainActor
 final class MenuBarIconRotor {
-    /// Whether this Mac can hide the still icon under the rotor.
+    /// Intel Macs keep swapping capped frames, as they did before the rotor
+    /// stopped using a backdrop filter.
     static var isSupported: Bool {
         #if arch(arm64)
         true
@@ -26,8 +29,6 @@ final class MenuBarIconRotor {
     }
 
     private weak var button: NSButton?
-    /// Removes the button's own still icon from the live menu bar.
-    private let eraser = CALayer()
     /// Painted in the menu bar's text color and cut to the icon by `glyph`.
     private let tint = CALayer()
     /// Carries the template icon as a mask and holds the rotation.
@@ -39,27 +40,10 @@ final class MenuBarIconRotor {
     private static let spinKey = "spin"
 
     init() {
-        eraser.backgroundFilters = [Self.makeEraserFilter()]
-        eraser.masksToBounds = true
         tint.mask = glyph
-        for layer in [eraser, tint, glyph] {
+        for layer in [tint, glyph] {
             layer.actions = ["position": NSNull(), "bounds": NSNull(), "contents": NSNull(), "backgroundColor": NSNull()]
         }
-    }
-
-    /// Turns whatever lies under the eraser fully transparent, leaving the
-    /// menu bar. Every input is a vector: a CIImage input would make Core
-    /// Animation encode it through an in-process Core Image Metal context,
-    /// which loads about 180 MB of precompiled kernels into the app.
-    static func makeEraserFilter() -> CIFilter {
-        let filter = CIFilter.colorMatrix()
-        let zero = CIVector(x: 0, y: 0, z: 0, w: 0)
-        filter.rVector = zero
-        filter.gVector = zero
-        filter.bVector = zero
-        filter.aVector = zero
-        filter.biasVector = zero
-        return filter
     }
 
     var isAttached: Bool {
@@ -71,7 +55,6 @@ final class MenuBarIconRotor {
     func show(_ image: NSImage, in iconRect: CGRect, on button: NSButton) {
         attachIfNeeded(to: button)
         withoutAnimation {
-            if eraser.frame != iconRect { eraser.frame = iconRect }
             if tint.frame != iconRect {
                 tint.frame = iconRect
                 glyph.frame = CGRect(origin: .zero, size: iconRect.size)
@@ -111,12 +94,11 @@ final class MenuBarIconRotor {
         }
     }
 
-    /// Removes the layers so the button's still icon shows again.
+    /// Removes the layers; the owner puts the still icon back on the button.
     func detach() {
         guard isAttached else { return }
         withoutAnimation {
             glyph.removeAnimation(forKey: Self.spinKey)
-            eraser.removeFromSuperlayer()
             tint.removeFromSuperlayer()
         }
         appearanceObservation = nil
@@ -128,13 +110,8 @@ final class MenuBarIconRotor {
         guard !isAttached || self.button !== button else { return }
         self.button = button
         button.wantsLayer = true
-        // Backdrop filters only render when the view asks for Core Image.
-        button.layerUsesCoreImageFilters = true
         guard let host = button.layer else { return }
-        withoutAnimation {
-            host.addSublayer(eraser)
-            host.addSublayer(tint)
-        }
+        withoutAnimation { host.addSublayer(tint) }
         updateTint(for: button)
         appearanceObservation = button.observe(\.effectiveAppearance) { [weak self] button, _ in
             Task { @MainActor in self?.updateTint(for: button) }
