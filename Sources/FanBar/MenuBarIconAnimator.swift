@@ -9,7 +9,8 @@ import AppKit
 /// `flashFailure()`.
 ///
 /// On Apple silicon the spin is a Core Animation rotation (`MenuBarIconRotor`):
-/// nearly free, but only the menu bar hosting the live item turns. Elsewhere,
+/// nearly free, but only the menu bar hosting the live item turns; the others
+/// show an empty slot until the spin stops. Elsewhere,
 /// and for the failure blink, frames are swapped on the button instead. Every
 /// swap makes AppKit re-snapshot the status item for each display's menu bar,
 /// roughly 0.85% of a core per frame per second on a Mac mini M4 with two
@@ -221,12 +222,12 @@ final class MenuBarIconAnimator {
     }
 
     /// Turns the icon at `angularVelocity`: the rotor when there is one, else
-    /// the next quantized frame. The rotor keeps the button's still icon, which
-    /// is what the other displays' menu bars show.
+    /// the next quantized frame. Under the rotor the button holds a transparent
+    /// placeholder, so the icon keeps its slot and is not drawn twice.
     private func spin(on button: NSButton) {
         if let rotor, let cell = button.cell as? NSButtonCell {
             let still = frame(at: 0, alpha: 1)
-            show(still, on: button)
+            show(placeholder(matching: still), on: button)
             rotor.show(still, in: cell.imageRect(forBounds: button.bounds), on: button)
             rotor.setTurnsPerSecond(angularVelocity / 360)
             return
@@ -261,6 +262,15 @@ final class MenuBarIconAnimator {
     }
 
     // MARK: - Render
+
+    /// A transparent image the size of `still`, cached with the frames.
+    private func placeholder(matching still: NSImage) -> NSImage {
+        if let cached = frameCache["placeholder"] { return cached }
+        let image = NSImage(size: still.size, flipped: false) { _ in true }
+        image.isTemplate = true
+        frameCache["placeholder"] = image
+        return image
+    }
 
     /// Returns a cached template frame for the quantized angle and alpha.
     private func frame(at angle: Double, alpha: CGFloat) -> NSImage {

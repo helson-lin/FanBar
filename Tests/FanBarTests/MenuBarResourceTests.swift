@@ -119,6 +119,28 @@ final class MenuBarResourceTests: XCTestCase {
         XCTAssertEqual(MenuBarResourceItemContent.make(.cpu, usage: low, style: .label), first)
     }
 
+    /// The items reserved 10 pt on top of AppKit's own insets, so each one sat
+    /// visibly wider than its neighbors in the menu bar.
+    func testItemWidthMatchesTheButtonsOwnFitForTheWidestTitle() {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        let titleWidth = ("100%" as NSString).size(withAttributes: [.font: font]).width
+        let length = MenuBarResourceItemContent.length(titleWidth: titleWidth, iconWidth: 14)
+
+        let button = NSButton(title: "100%", target: nil, action: nil)
+        button.isBordered = false
+        button.font = font
+        button.image = NSImage(size: NSSize(width: 14, height: 14))
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
+
+        XCTAssertGreaterThanOrEqual(length, button.fittingSize.width, "100% must not be clipped")
+        XCTAssertLessThanOrEqual(length, button.fittingSize.width + 2)
+        XCTAssertEqual(
+            MenuBarResourceItemContent.length(titleWidth: 60, iconWidth: nil),
+            65
+        )
+    }
+
     func testIconStyleShowsTheIconAndLabelStyleDoesNot() {
         let usage = SystemUsage()
         XCTAssertTrue(MenuBarResourceItemContent.make(.gpu, usage: usage, style: .icon).showsIcon)
