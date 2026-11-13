@@ -77,23 +77,23 @@ FanBar는 CPU/GPU/SSD/배터리 온도와 팬 RPM을 확인하는 무료 오픈 
 
 ## 📸 스크린샷
 
-아래는 영어 인터페이스의 라이트 및 다크 모드 화면입니다. **설정 → 일반 → 인터페이스 언어**에서 한국어, 영어, 중국어 간체·번체, 일본어, 러시아어, 프랑스어로 재시작 없이 전환할 수 있습니다.
+아래는 한국어 인터페이스의 라이트 및 다크 모드 화면입니다. **설정 → 일반 → 인터페이스 언어**에서 한국어, 영어, 중국어 간체·번체, 일본어, 러시아어, 프랑스어로 재시작 없이 전환할 수 있습니다.
 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/fanbar-menu-light-en.png" alt="FanBar 영어 메뉴 막대 패널 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/fanbar-menu-dark-en.png" alt="FanBar 영어 메뉴 막대 패널 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-light-ko.png" alt="FanBar 한국어 메뉴 막대 패널 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-dark-ko.png" alt="FanBar 한국어 메뉴 막대 패널 (다크)" width="100%"></td>
   </tr>
 </table>
 
-팬이 2개인 Mac에서는 각 팬의 속도, 상태, 범위를 나란히 표시합니다. 아래 화면은 MacBook Pro (M2 Max)에서 균형 모드를 실행한 모습입니다.
+팬이 2개인 Mac에서는 각 팬의 속도, 상태, 범위를 나란히 표시합니다. 아래 화면은 실제 팬을 제어하지 않는 고정된 테스트 데이터로 두 팬 레이아웃을 렌더링한 인터페이스 검증용 화면이며, 하드웨어 동작의 증거가 아닙니다.
 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/fanbar-menu-dual-fan-light-en.png" alt="팬 2개인 MacBook Pro의 FanBar 영어 패널 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/fanbar-menu-dual-fan-dark-en.png" alt="팬 2개인 MacBook Pro의 FanBar 영어 패널 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-dual-fan-light-ko.png" alt="팬 2개인 Mac의 FanBar 한국어 인터페이스 픽스처 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-menu-dual-fan-dark-ko.png" alt="팬 2개인 Mac의 FanBar 한국어 인터페이스 픽스처 (다크)" width="100%"></td>
   </tr>
 </table>
 
@@ -102,8 +102,8 @@ FanBar는 CPU/GPU/SSD/배터리 온도와 팬 RPM을 확인하는 무료 오픈 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/fanbar-settings-cooling-light-en.png" alt="FanBar 영어 냉각 설정 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/fanbar-settings-cooling-dark-en.png" alt="FanBar 영어 냉각 설정 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-cooling-light-ko.png" alt="FanBar 한국어 냉각 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-cooling-dark-ko.png" alt="FanBar 한국어 냉각 설정 (다크)" width="100%"></td>
   </tr>
 </table>
 
@@ -112,8 +112,8 @@ FanBar는 CPU/GPU/SSD/배터리 온도와 팬 RPM을 확인하는 무료 오픈 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/fanbar-settings-appearance-light-en.png" alt="FanBar 영어 외관 설정 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/fanbar-settings-appearance-dark-en.png" alt="FanBar 영어 외관 설정 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-appearance-light-ko.png" alt="FanBar 한국어 외관 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-appearance-dark-ko.png" alt="FanBar 한국어 외관 설정 (다크)" width="100%"></td>
   </tr>
 </table>
 
@@ -122,8 +122,8 @@ FanBar는 CPU/GPU/SSD/배터리 온도와 팬 RPM을 확인하는 무료 오픈 
 <table>
   <tr><th>라이트</th><th>다크</th></tr>
   <tr>
-    <td><img src="docs/screenshots/fanbar-settings-general-light-en.png" alt="FanBar 영어 일반 설정 (라이트)" width="100%"></td>
-    <td><img src="docs/screenshots/fanbar-settings-general-dark-en.png" alt="FanBar 영어 일반 설정 (다크)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-general-light-ko.png" alt="FanBar 한국어 일반 설정 (라이트)" width="100%"></td>
+    <td><img src="docs/screenshots/fanbar-settings-general-dark-ko.png" alt="FanBar 한국어 일반 설정 (다크)" width="100%"></td>
   </tr>
 </table>
 
