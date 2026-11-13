@@ -12,7 +12,8 @@
   <a href="README.zh-TW.md">繁體中文</a> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.ru.md">Русский</a> ·
-  <a href="README.fr.md"><strong>Français</strong></a>
+  <a href="README.fr.md"><strong>Français</strong></a> ·
+  <a href="README.ko.md">한국어</a>
 </p>
 
 <p align="center">
@@ -70,7 +71,7 @@ Le site officiel publie un fichier [llms.txt](https://getfanbar.com/llms.txt?utm
 
 ## 📸 Captures d’écran
 
-Interface française en apparence claire et sombre. Passez à l’anglais, au chinois simplifié ou traditionnel, au japonais ou au russe dans **Réglages → Général → Langue de l’interface**, sans redémarrer.
+Interface française en apparence claire et sombre. Passez à l’anglais, au chinois simplifié ou traditionnel, au japonais, au russe ou au coréen dans **Réglages → Général → Langue de l’interface**, sans redémarrer.
 
 <table>
   <tr>
@@ -149,7 +150,7 @@ Général regroupe la vérification locale de compatibilité, l’état du servi
 - **Journal CSV** — Enregistrez toutes les 2 à 60 secondes les températures du CPU, du GPU, du SSD et de la batterie, la vitesse des ventilateurs et le mode de contrôle dans des fichiers CSV situés dans `~/Library/Application Support/FanBar/Logs`, avec un nouveau fichier au lancement, à minuit ou jamais.
 - **Repli de sécurité** — Les vitesses cibles sont limitées à la plage matérielle indiquée par chaque ventilateur. En cas de fermeture, de déconnexion ou de défaillance du service, FanBar tente de rendre le contrôle automatique à macOS.
 - **Autorisation native** — Au premier lancement, FanBar explique pourquoi le service de contrôle est nécessaire et ouvre la bonne page des Réglages Système.
-- **Six langues** — English, 简体中文, 繁體中文, 日本語, Русский et Français, ou la langue du système.
+- **Sept langues** — English, 简体中文, 繁體中文, 日本語, Русский, Français et 한국어, ou la langue du système.
 
 ## ⬇️ Téléchargement
 
@@ -234,13 +235,14 @@ Référence complète : [docs/cli.md](docs/cli.md) (en anglais).
 
 Ouvrez **Réglages → Général → Langue de l’interface** et choisissez :
 
-- **System** — suit la langue actuelle du Mac (chinois simplifié ou traditionnel, japonais, russe, français ; sinon anglais)
+- **System** — suit la langue actuelle du Mac (chinois simplifié ou traditionnel, japonais, russe, français, coréen ; sinon anglais)
 - **English**
 - **简体中文**
 - **繁體中文**
 - **日本語**
 - **Русский**
 - **Français**
+- **한국어**
 
 Ce réglage s’applique à la fenêtre de la barre des menus, à la fenêtre des réglages, à l’accueil, aux messages d’état, aux erreurs du helper et au widget de bureau.
 

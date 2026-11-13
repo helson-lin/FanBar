@@ -31,7 +31,7 @@ final class MenuBarResourceLanguageTests: XCTestCase {
             window.orderOut(nil)
             window.contentView = nil
         }
-        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
+        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french, .korean] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             settle(host)
             let actual = try snapshot(host)

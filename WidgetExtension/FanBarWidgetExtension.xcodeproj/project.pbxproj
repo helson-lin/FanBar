@@ -20,6 +20,10 @@
 		B714236B779246B84C35650D /* FanCoolingPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF642B6B04CBC5F67042A9D /* FanCoolingPreset.swift */; };
 		EEC171E860A9772FA3437EB5 /* libFanBarUI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 26B6E3A8D802E609B6A7FB57 /* libFanBarUI.a */; };
 		F153551F202B24CA7E1285BE /* FanBarWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6276DCECF184DF8F8B970D0A /* FanBarWidgetSnapshot.swift */; };
+		8EE0B39526B24D2C17C1C62F /* KoreanCatalog+Compatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */; };
+		CD53A770E0712CF21F479D86 /* KoreanCatalog+Control.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */; };
+		C097E9DCCF9CBAEADCA318CF /* KoreanCatalog+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */; };
+		330E2784CA4600970CCF82DD /* KoreanCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8E99F7C8C07F5C4BDD4BC9 /* KoreanCatalog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +70,11 @@
 		F68E66A5FCC1BBE8B65F0526 /* FanRotorGraphic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanRotorGraphic.swift; sourceTree = "<group>"; };
 		FD83C0E7D1B982770DFBCC37 /* libFanBarShared.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libFanBarShared.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE8F9538FCCC5671D92A746B /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Compatibility.swift"; sourceTree = "<group>"; };
+		B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Control.swift"; sourceTree = "<group>"; };
+		D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Settings.swift"; sourceTree = "<group>"; };
+		8E8E99F7C8C07F5C4BDD4BC9 /* KoreanCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog.swift"; sourceTree = "<group>"; };
+		71F630F327FAC84F3BCBB38D /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +126,10 @@
 				733DE0BF88EF99048156AE82 /* JapaneseCatalog.swift */,
 				5C4B3A291807F6E5D4C3B2A1 /* RussianCatalog.swift */,
 				D3E4F5061728394A5B6C7D8E /* FrenchCatalog.swift */,
+				8E8E99F7C8C07F5C4BDD4BC9 /* KoreanCatalog.swift */,
+				D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */,
+				B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */,
+				4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */,
 			);
 			path = FanBarShared;
 			sourceTree = "<group>";
@@ -238,6 +251,7 @@
 				en,
 				fr,
 				ja,
+				ko,
 				ru,
 				"zh-Hans",
 				"zh-Hant",
@@ -323,6 +337,10 @@
 				801D45AECE9E81012FF21E0D /* JapaneseCatalog.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* RussianCatalog.swift in Sources */,
 				C2D3E4F5061728394A5B6C7D /* FrenchCatalog.swift in Sources */,
+				330E2784CA4600970CCF82DD /* KoreanCatalog.swift in Sources */,
+				C097E9DCCF9CBAEADCA318CF /* KoreanCatalog+Settings.swift in Sources */,
+				CD53A770E0712CF21F479D86 /* KoreanCatalog+Control.swift in Sources */,
+				8EE0B39526B24D2C17C1C62F /* KoreanCatalog+Compatibility.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -362,6 +380,7 @@
 				3C2010439C657D738FFB0C6E /* ja */,
 				7E1D2C3B4A5968778695A4B3 /* ru */,
 				E4F5061728394A5B6C7D8E9F /* fr */,
+				71F630F327FAC84F3BCBB38D /* ko */,
 				E6FFB63D7A95840BA6E0A9F1 /* zh-Hans */,
 				FE8F9538FCCC5671D92A746B /* zh-Hant */,
 			);

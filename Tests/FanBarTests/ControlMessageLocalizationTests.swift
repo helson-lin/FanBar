@@ -22,7 +22,7 @@ final class ControlMessageLocalizationTests: XCTestCase {
         controller.setCustomFixedRPM(-1)
         let feedback = try XCTUnwrap(controller.modeActionFeedback)
         let french = feedback.message
-        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
+        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french, .korean] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             let expected = fanBarText("转速超出风扇支持的范围", "That RPM is outside the fans' supported range")
             XCTAssertEqual(feedback.message, expected)
@@ -93,7 +93,7 @@ final class ControlMessageLocalizationTests: XCTestCase {
         let feedback = FanController.ModeActionFeedback(kind: .inProgress, localizedMessage: LocalizedControlText {
             fanBarFormat("正在切换到 %d RPM…", "Switching to %d RPM…", target)
         })
-        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
+        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french, .korean] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             XCTAssertEqual(feedback.message, fanBarFormat("正在切换到 %d RPM…", "Switching to %d RPM…", target))
             XCTAssertEqual(feedback.kind, .inProgress)
@@ -111,7 +111,7 @@ final class ControlMessageLocalizationTests: XCTestCase {
         result.restoreError = result.restoreFailure?.localizedDescription
         let cached = LocalizedControlText { [result] in FanController.compatibilityControlMessage(for: result) }
         let french = cached.text
-        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
+        for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french, .korean] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             XCTAssertEqual(cached.text, fanBarFormat(
                 "恢复系统控制失败：%@。请点击“恢复系统控制”重试。",

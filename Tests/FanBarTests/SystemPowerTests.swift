@@ -102,7 +102,7 @@ final class SMCOptionalKeyPacerTests: XCTestCase {
 }
 
 final class TemperatureHeadingLayoutTests: XCTestCase {
-    private let languages: [FanBarLanguage] = [.english, .chinese, .traditionalChinese, .japanese, .russian, .french]
+    private let languages: [FanBarLanguage] = [.english, .chinese, .traditionalChinese, .japanese, .russian, .french, .korean]
 
     override func invokeTest() {
         let saved = UserDefaults.standard.object(forKey: FanBarLanguage.preferenceKey)

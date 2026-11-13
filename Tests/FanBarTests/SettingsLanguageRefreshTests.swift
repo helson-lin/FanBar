@@ -52,7 +52,7 @@ final class SettingsLanguageRefreshTests: XCTestCase {
                 referenceWindow.orderOut(nil)
                 referenceWindow.contentView = nil
             }
-            for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french] {
+            for language in [FanBarLanguage.japanese, .english, .chinese, .traditionalChinese, .russian, .french, .korean] {
                 defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.2))
                 host.layoutSubtreeIfNeeded()

@@ -9,6 +9,7 @@ public enum FanBarLanguage: String, CaseIterable, Identifiable, Codable, Sendabl
     case japanese
     case russian
     case french
+    case korean
 
     public static let preferenceKey = "fanbar.language"
     public static let defaultValue = FanBarLanguage.system.rawValue
@@ -24,6 +25,7 @@ public enum FanBarLanguage: String, CaseIterable, Identifiable, Codable, Sendabl
         case .japanese: "日本語"
         case .russian: "Русский"
         case .french: "Français"
+        case .korean: "한국어"
         }
     }
 
@@ -36,6 +38,7 @@ public enum FanBarLanguage: String, CaseIterable, Identifiable, Codable, Sendabl
         case .japanese: "ja"
         case .russian: "ru"
         case .french: "fr"
+        case .korean: "ko"
         }
     }
 
@@ -48,10 +51,22 @@ public enum FanBarLanguage: String, CaseIterable, Identifiable, Codable, Sendabl
             return stored
         }
 
-        let languageCode = Locale.current.languageCode?.lowercased() ?? "en"
+        return systemLanguage(
+            languageCode: Locale.current.languageCode?.lowercased() ?? "en",
+            preferredLanguageCode: preferredLanguageCode,
+            prefersTraditionalScript: prefersTraditionalScript
+        )
+    }
+
+    static func systemLanguage(
+        languageCode: String,
+        preferredLanguageCode: String?,
+        prefersTraditionalScript: Bool
+    ) -> FanBarLanguage {
         if languageCode == "ja" || preferredLanguageCode == "ja" { return .japanese }
         if languageCode == "ru" || preferredLanguageCode == "ru" { return .russian }
         if languageCode == "fr" || preferredLanguageCode == "fr" { return .french }
+        if languageCode == "ko" || preferredLanguageCode == "ko" { return .korean }
         guard languageCode.hasPrefix("zh") else { return .english }
         return prefersTraditionalScript ? .traditionalChinese : .chinese
     }
@@ -111,6 +126,7 @@ private func localized(
     case .japanese: JapaneseCatalog.text(for: english) ?? english
     case .russian: RussianCatalog.text(for: english) ?? english
     case .french: FrenchCatalog.text(for: english) ?? english
+    case .korean: KoreanCatalog.text(for: english) ?? english
     case .chinese, .system: chinese
     }
 }

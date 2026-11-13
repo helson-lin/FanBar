@@ -110,7 +110,8 @@ final class CompatibilityControlHistoryTests: XCTestCase {
 
     func testControlTestMessagePrioritizesRestorationThenErrorsThenCancellation() {
         let finished = FanController.compatibilityControlMessage(for: CompatibilityControlTestResult())
-        XCTAssertTrue(finished.contains(fanBarText("控制测试结束", "Control test finished")))
+        XCTAssertEqual(finished, fanBarText("控制测试结束，已恢复系统自动控制。请查看各项结果。",
+                                          "Control test finished; system automatic control restored. Review the results below."))
 
         var cancelled = CompatibilityControlTestResult()
         cancelled.cancelled = true

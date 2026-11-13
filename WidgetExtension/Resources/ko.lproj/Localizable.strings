@@ -1,0 +1,16 @@
+/* Widget gallery display name. */
+"widget.displayName" = "FanBar";
+
+/* Widget gallery description. */
+"widget.description" = "팬 속도와 CPU 온도를 확인하세요.";
+
+"widget.title" = "팬";
+"widget.updated" = "업데이트됨";
+"widget.averageRPM" = "평균 RPM";
+"widget.fan" = "팬 %d";
+"widget.more" = "더 보기";
+"widget.moreFansAverage" = "추가 팬 %d개, 평균 %d RPM";
+"widget.unavailable" = "팬 데이터 사용 불가";
+"widget.mode.automatic" = "자동";
+"widget.mode.smart" = "스마트";
+"widget.mode.manual" = "수동";

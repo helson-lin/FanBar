@@ -76,7 +76,7 @@ final class SupportPromptTests: XCTestCase {
     }
 
     func testRowFitsThePanelInEveryLanguage() throws {
-        for language in [FanBarLanguage.chinese, .english, .japanese, .russian, .french] {
+        for language in [FanBarLanguage.chinese, .english, .japanese, .russian, .french, .korean] {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             for scheme in [ColorScheme.light, .dark] {
                 let host = NSHostingView(rootView: SupportPromptRow(onSupport: {}, onDismiss: {})
