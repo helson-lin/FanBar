@@ -15,7 +15,7 @@ final class SettingsSupportFooterTests: XCTestCase {
     func testFooterFitsOneLineInEveryLanguage() throws {
         // The settings page insets its sections from the window edges.
         let availableWidth = SettingsChrome.contentWidth - 48
-        for language in [FanBarLanguage.chinese, .traditionalChinese, .english, .japanese, .russian, .french] {
+        for language in [FanBarLanguage.chinese, .traditionalChinese, .english, .japanese, .russian, .french, .korean] {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             let host = NSHostingView(rootView: SettingsSupportFooter().fixedSize())
             host.layoutSubtreeIfNeeded()

@@ -78,7 +78,7 @@ final class DeviceCompatibilityLayoutTests: XCTestCase {
         }
     }
 
-    func testOnboardingFitsItsWindowInChineseAndEnglishWithoutChangingControl() {
+    func testOnboardingFitsItsWindowInChineseEnglishAndKoreanWithoutChangingControl() {
         let saved = UserDefaults.standard.object(forKey: FanBarLanguage.preferenceKey)
         defer {
             if let saved {
@@ -90,7 +90,7 @@ final class DeviceCompatibilityLayoutTests: XCTestCase {
         let controller = FanController(
             notificationCenter: nil, widgetSnapshotDestination: .disabled, makeReadingSource: { FakeFanReadingSource() }
         )
-        for language in [FanBarLanguage.chinese, .english] {
+        for language in [FanBarLanguage.chinese, .english, .korean] {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             let host = NSHostingView(rootView: OnboardingCard(controller: controller, onOpenMenu: {}, onDismiss: {}))
             host.layoutSubtreeIfNeeded()

@@ -6,7 +6,7 @@ import XCTest
 /// The panel has a fixed width, so its one-line labels must fit it in every language
 /// rather than truncate (a Mac mini M4 showed "CPU ave…" and "Performanc…" in English).
 final class PanelLabelFitTests: XCTestCase {
-    private let languages: [FanBarLanguage] = [.english, .chinese, .traditionalChinese, .japanese, .russian, .french]
+    private let languages: [FanBarLanguage] = [.english, .chinese, .traditionalChinese, .japanese, .russian, .french, .korean]
     override func invokeTest() {
         let savedLanguage = UserDefaults.standard.object(forKey: FanBarLanguage.preferenceKey)
         defer {

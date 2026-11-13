@@ -52,7 +52,7 @@ not run it, so the rules above still apply to them. Test the guard with
 ## What usually fails CI
 
 - **Translations.** Every `fanBarText` / `fanBarFormat` call needs a matching
-  English key in `FrenchCatalog`, `JapaneseCatalog` and `RussianCatalog`
+  English key in `FrenchCatalog`, `JapaneseCatalog`, `RussianCatalog` and `KoreanCatalog`
   (`Sources/FanBarShared`). The catalog tests scan every call site. Traditional
   Chinese is converted from the Simplified string automatically.
 - **Complexity.** `cyclomatic_complexity` is capped at 10. When a branch pushes
@@ -126,7 +126,7 @@ Before writing code, answer these and put the answers in the PR description:
 2. **Compatibility** — Does it change `FanBarHelperProtocol`, `contracts/`, the `fanbar` commands or output, stored `UserDefaults` keys, or file formats (CSV logs, compatibility receipts)? Then how do an older helper, the deployed service, Raycast and existing user settings behave?
 3. **Platforms** — Does it behave differently on macOS 11–13, Apple Silicon vs Intel, one vs two fans, or a Mac with no readable fan data?
 4. **Surfaces** — Which of these show it: menu panel, settings, onboarding, menu bar item, widget, notifications, CLI, diagnostics, READMEs? Each one is part of the change.
-5. **Languages** — Which strings are new or changed, in all seven languages?
+5. **Languages** — Which strings are new or changed, in all eight language options?
 6. **Out of scope** — What did you deliberately not change, and what could not be verified (hardware fan behavior, signed helper, a specific macOS version)?
 
 The PR description then lists the user-visible problem, the resulting behavior, the impact answers, the tests added, the checks run, and anything not verified, with before/after screenshots for UI changes.
@@ -142,7 +142,7 @@ The PR description then lists the user-visible problem, the resulting behavior, 
 
 - **Be honest about state.** Distinguish a read failure, a legitimate zero and missing data; never fill a gap with zero or another device's reading. A displayed name and its value must come from the same source (see [docs/regression-review.md](docs/regression-review.md)).
 - **Supported platforms are part of the product.** macOS 11 and later, Apple Silicon and Intel.
-- **Seven interface languages:** System, English, 简体中文, 繁體中文, 日本語, Русский, Français. Switching applies live, without a restart.
+- **Eight interface language options:** System, English, 简体中文, 繁體中文, 日本語, Русский, Français, 한국어. Switching applies live, without a restart.
 - **No accounts, ads or telemetry by default.** Compatibility and diagnostic uploads are opt-in; respect `services/compatibility/PRIVACY.md`.
 - **Name and icon are not GPL.** Do not reuse the FanBar name or icon in derived assets.
 

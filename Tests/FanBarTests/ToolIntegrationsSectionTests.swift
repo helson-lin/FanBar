@@ -104,7 +104,7 @@ final class ToolIntegrationsSectionTests: XCTestCase {
         // Keep the same hosting view and installers: recreating the root would
         // hide the stale-child bug seen when switching French to Japanese.
         var frenchImage: Data?
-        for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian] {
+        for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian, .korean] {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             RunLoop.current.run(until: Date().addingTimeInterval(0.15))
             host.layoutSubtreeIfNeeded()

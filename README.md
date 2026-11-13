@@ -12,7 +12,8 @@
   <a href="README.zh-TW.md">繁體中文</a> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.ru.md">Русский</a> ·
-  <a href="README.fr.md">Français</a>
+  <a href="README.fr.md">Français</a> ·
+  <a href="README.ko.md">한국어</a>
 </p>
 
 <p align="center">
@@ -77,7 +78,7 @@ The official site publishes a concise [llms.txt](https://getfanbar.com/llms.txt?
 
 ## 📸 Screenshots
 
-English interface in light and dark appearance. Switch to Simplified Chinese, Traditional Chinese, Japanese, Russian, or French from **Settings → General → Interface language** without restarting.
+English interface in light and dark appearance. Switch to Simplified Chinese, Traditional Chinese, Japanese, Russian, French, or Korean from **Settings → General → Interface language** without restarting.
 
 <table>
   <tr>
@@ -156,7 +157,7 @@ General includes local device compatibility checks, control-service status, auto
 - **CSV log** — Record CPU, GPU, SSD, and battery temperatures, fan speeds, and the control mode every 2–60 seconds to CSV files in `~/Library/Application Support/FanBar/Logs`, starting a new file on launch, at midnight, or never.
 - **Safe fallback** — Targets are clamped to each fan's reported hardware range. On quit, disconnect, or service failure, FanBar attempts to restore macOS automatic control.
 - **Native authorization flow** — First-run guidance explains why the control service is needed and opens the correct macOS settings page.
-- **Six languages** — English, 简体中文, 繁體中文, 日本語, Русский, and Français, or follow the system language.
+- **Seven languages** — English, 简体中文, 繁體中文, 日本語, Русский, Français, and 한국어, or follow the system language.
 
 ## ⬇️ Download
 
@@ -240,13 +241,14 @@ Full reference: [docs/cli.md](docs/cli.md).
 
 Open **Settings → General → Interface language** and choose:
 
-- **System** — follow the Mac's current language (Simplified or Traditional Chinese, Japanese, Russian, French, otherwise English)
+- **System** — follow the Mac's current language (Simplified or Traditional Chinese, Japanese, Russian, French, Korean, otherwise English)
 - **English**
 - **简体中文**
 - **繁體中文**
 - **日本語**
 - **Русский**
 - **Français**
+- **한국어**
 
 The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, helper errors, and the desktop widget.
 

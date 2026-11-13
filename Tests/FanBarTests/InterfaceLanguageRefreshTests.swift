@@ -141,7 +141,7 @@ final class InterfaceLanguageRefreshTests: XCTestCase {
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
         let title = LocalizedWindowTitle(window: window, chinese: "设备兼容性", english: "Device Compatibility")
         withExtendedLifetime(title) {
-            for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian] {
+            for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian, .korean] {
                 UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
                 // Match the notification delivered by the language picker.
                 NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: nil)
@@ -182,7 +182,7 @@ final class InterfaceLanguageRefreshTests: XCTestCase {
             referenceWindow.contentView = nil
         }
         var retainedDraft: String?
-        for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian] {
+        for language in [FanBarLanguage.french, .japanese, .english, .chinese, .traditionalChinese, .russian, .korean] {
             defaults.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
             host.layoutSubtreeIfNeeded()
