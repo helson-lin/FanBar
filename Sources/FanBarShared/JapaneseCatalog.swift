@@ -661,6 +661,15 @@ enum JapaneseCatalog {
         "Measuring…": "計測中…",
         "Opens Activity Monitor": "アクティビティモニタを開きます",
         "Show the apps using the most CPU": "CPU 使用率の高いアプリを表示",
+        "Share anonymous usage statistics": "匿名の利用統計を共有",
+        "Adds the install week, Mac model, macOS version and chip type to one update check per week. The service also records the country or region from your network location.": "週に1回の更新確認に、インストール週、Mac のモデル、macOS のバージョン、チップの種類を追加します。サービス側では、ネットワークの位置情報から国または地域も記録されます。",
+        "With automatic checks off, only a manual update check is counted. It is counted by version only, unless this switch is on.": "自動確認をオフにすると、手動で更新を確認したときだけカウントされます。このスイッチがオンでない限り、バージョン別にのみカウントされます。",
+        "What is collected": "収集される内容",
+        "Open the description of what is collected in a browser": "収集される内容の説明をブラウザで開く",
+        "Share anonymous usage statistics?": "匿名の利用統計を共有しますか？",
+        "You can change this later in Settings, under General.": "あとで設定の「一般」から変更できます。",
+        "Share": "共有する",
+        "No thanks": "共有しない",
     ]
 }
 

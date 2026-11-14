@@ -225,6 +225,10 @@ Raycast では、Raycast Store から [FanBar 拡張機能](https://www.raycast.
 
 この設定は、メニューバーのポップオーバー、設定ウインドウ、初回の案内、ステータスメッセージ、ヘルパーのエラー、デスクトップウィジェットに共通して適用されます。
 
+## 📊 使用統計
+
+FanBar は `update.getfanbar.com` 経由でアップデートを確認します。このサーバーは GitHub の appcast へ転送し、アップデート確認を匿名でカウントします。既定では、日ごと・アプリのバージョンごとの確認回数だけを数えます。オプトインした場合（既定はオフ、確認は一度だけ）は、週に一度、インストールした週、Mac のモデル、macOS のメジャーバージョン、チップのアーキテクチャ、そして Cloudflare がリクエストから判定した国も送信します。IP アドレス、デバイス ID、シリアル番号、App 名は保存されず、件数が 5 未満のグループは公開されません。集計は [getfanbar.com/stats](https://getfanbar.com/stats) で確認できます。設定の「自動アップデート」の下でいつでもオフにでき、自動アップデート確認をオフにすると自動のカウントも止まります。詳細は [PRIVACY.md](services/update/PRIVACY.md) を参照してください。
+
 ## 🤝 コミュニティ
 
 [貢献ガイド](CONTRIBUTING.md) · [行動規範](CODE_OF_CONDUCT.md) · [サポート](SUPPORT.md) · [セキュリティポリシー](SECURITY.md)
