@@ -336,6 +336,8 @@ Copyright © 2024–2026 Jarin He。FanBar 原始碼採用 [GNU 通用公共授�
 
 **名稱與圖像不在授權範圍內。**「FanBar」名稱及 FanBar 圖像／Logo 不屬於 GPL-3.0 的授權範圍。散布修改版本時必須更改名稱並替換圖像，以免與官方 FanBar 混淆。
 
+**與「FanBar Pro」無關。** 近期有人發佈了名為「FanBar Pro」的產品。它與本專案及作者（Jarin He）毫無關係，我也未對其做任何背書、授權或審核。官方來源僅限本儲存庫及其 [Releases](https://github.com/helson-lin/FanBar/releases)，從其他管道取得的軟體，風險自負。
+
 Apple Silicon 的控制序列參考了採用 MIT 授權的 [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan)。完整的第三方歸屬請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 感謝以下朋友回報錯誤，協助 FanBar 變得更好：

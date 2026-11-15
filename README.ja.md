@@ -357,6 +357,8 @@ GPL-3.0 に従う限り、FanBar を使用、改変、再配布できます（�
 
 **名称とアイコンは対象外です。**「FanBar」という名称と FanBar のアイコン／ロゴは GPL-3.0 の対象ではありません。改変版を配布する場合は、公式の FanBar と混同されないよう、名称を変更しアイコンを差し替えてください。
 
+**「FanBar Pro」とは無関係です。** 最近「FanBar Pro」という製品が公開されましたが、本プロジェクトおよび作者（Jarin He）とは一切関係なく、私は推奨・承認・審査を行っていません。公式の入手先は本リポジトリと [Releases](https://github.com/helson-lin/FanBar/releases) のみです。それ以外から入手したものは自己責任でご利用ください。
+
 Apple Silicon の制御手順は、MIT ライセンスの [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan) を参考にしています。サードパーティの帰属表示の全文は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
 
 不具合を報告し、FanBar の改善に協力してくださった皆さんに感謝します。
