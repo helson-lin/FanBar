@@ -390,6 +390,8 @@ You may use, modify, and redistribute FanBar—including commercially—as long 
 
 **Name and icon are excluded.** The "FanBar" name and the FanBar icon/logo are not covered by the GPL-3.0 license. If you distribute a modified version, you must rename it and replace the icon so it cannot be confused with the official FanBar.
 
+**Not affiliated with "FanBar Pro".** Someone has recently published a product called "FanBar Pro". It has nothing to do with this project or its author (Jarin He), and I have not endorsed, authorized or reviewed it. The only official source is this repository and its [Releases](https://github.com/helson-lin/FanBar/releases). Any other download is at your own risk.
+
 The Apple Silicon control sequence references the MIT-licensed [`agoodkind/macos-smc-fan`](https://github.com/agoodkind/macos-smc-fan). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete third-party attribution.
 
 Thanks to these people for reporting bugs and helping make FanBar better:
