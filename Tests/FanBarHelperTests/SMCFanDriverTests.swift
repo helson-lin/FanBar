@@ -176,6 +176,20 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.rpm("F0Tg"), 0)
     }
 
+    /// Measured on a Mac16,7 (M4 Pro, macOS 27.2.1): a fan that macOS has just
+    /// stopped starts again 12.3 s later, and an unlock from stopped fans takes up
+    /// to 8.1 s. A switch started right after a hand-back must not time out first.
+    func testUnlockOutlastsAFanThatMacOSJustStopped() {
+        let restartAfterStop: TimeInterval = 12.3
+        let slowestUnlockFromStopped: TimeInterval = 8.1
+        XCTAssertGreaterThan(
+            SMCFanDriver.UnlockTiming.hardware.settle + SMCFanDriver.UnlockTiming.hardware.deadline,
+            restartAfterStop + slowestUnlockFromStopped
+        )
+        // The app's reply timeout follows the same constant, so it never cuts the wait short.
+        XCTAssertEqual(SMCFanDriver.UnlockTiming.hardware.deadline, FanControlTiming.manualModeUnlockDeadline)
+    }
+
     func testRejectedModeWriteWithoutForceTestFails() {
         let smc = FakeSMC.appleSilicon(forceTest: false)
         smc.rejectsManualMode = true

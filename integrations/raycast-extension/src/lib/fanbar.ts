@@ -90,10 +90,10 @@ export const INSTALL_COMMAND =
 
 // Must outlast fanbar's worst case, or Raycast kills it while a switch is still
 // being applied: launch wait 20 s (CLIConnection.launchConnectTimeout) + reply
-// timeout 117 s (FanBarCLIContract.replyTimeout = commandTimeout 102 s + 15 s,
-// commandTimeout = 10 s + 8 fans × 11.5 s) = 137 s, plus 13 s of margin.
+// timeout 277 s (FanBarCLIContract.replyTimeout = commandTimeout 262 s + 15 s,
+// commandTimeout = 10 s + 8 fans × 31.5 s) = 297 s, plus 13 s of margin.
 // RaycastExtensionTimeoutTests keeps this in step with the Swift constants.
-const TIMEOUT_MS = 150_000;
+const TIMEOUT_MS = 310_000;
 
 function isExecutable(path: string): boolean {
   try {

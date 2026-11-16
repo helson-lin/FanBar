@@ -11,7 +11,13 @@ public enum FanBarService {
 public enum FanControlTiming {
     public static let maximumFanCount = 8
     public static let manualModeUnlockSettle: TimeInterval = 0.5
-    public static let manualModeUnlockDeadline: TimeInterval = 10
+    /// How long the driver retries a fan's manual mode after setting `Ftst`. The SMC
+    /// accepts manual mode only from a running fan, and a fan that macOS has just
+    /// stopped does not start again until it has run down. Measured on a Mac16,7:
+    /// such a fan restarted 12.3 s after macOS stopped it, and an unlock from stopped
+    /// fans took up to 8.1 s, so a switch right after a hand-back needs about 20 s.
+    /// 10 s made every switch in that window fail.
+    public static let manualModeUnlockDeadline: TimeInterval = 30
     /// SMC reads and the target write surrounding each fan's unlock.
     public static let perFanIOAllowance: TimeInterval = 1
 
