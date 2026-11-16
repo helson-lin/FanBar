@@ -290,6 +290,21 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.bytes("Ftst"), [0])
     }
 
+    func testRestoreSucceedsWhenMacOSAlreadyHoldsTheFans() throws {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0md", bytes: [3])
+        smc.set("F1md", bytes: [3])
+        smc.failWrites(to: "F0md", code: badCommand)
+        smc.failWrites(to: "F1md", code: badCommand)
+
+        try driver(smc).restoreAutomatic()
+
+        XCTAssertEqual(smc.bytes("F0md"), [3])
+        XCTAssertEqual(smc.bytes("F1md"), [3])
+        XCTAssertEqual(smc.rpm("F0Tg"), 0, "A fan that macOS holds was given a manual target")
+        XCTAssertEqual(smc.rpm("F1Tg"), 0)
+    }
+
     func testReleasingTheDriverRestoresAutomatic() throws {
         let smc = FakeSMC.appleSilicon()
         do {
