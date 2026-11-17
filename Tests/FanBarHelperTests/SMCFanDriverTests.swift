@@ -176,6 +176,16 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.rpm("F0Tg"), 0)
     }
 
+    func testUnlockOutlastsAFanThatMacOSJustStopped() {
+        let restartAfterStop: TimeInterval = 12.3
+        let slowestUnlockFromStopped: TimeInterval = 8.1
+        XCTAssertGreaterThan(
+            SMCFanDriver.UnlockTiming.hardware.settle + SMCFanDriver.UnlockTiming.hardware.deadline,
+            restartAfterStop + slowestUnlockFromStopped
+        )
+        XCTAssertEqual(SMCFanDriver.UnlockTiming.hardware.deadline, FanControlTiming.manualModeUnlockDeadline)
+    }
+
     func testRejectedModeWriteWithoutForceTestFails() {
         let smc = FakeSMC.appleSilicon(forceTest: false)
         smc.rejectsManualMode = true

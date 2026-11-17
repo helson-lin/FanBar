@@ -11,7 +11,7 @@ public enum FanBarService {
 public enum FanControlTiming {
     public static let maximumFanCount = 8
     public static let manualModeUnlockSettle: TimeInterval = 0.5
-    public static let manualModeUnlockDeadline: TimeInterval = 10
+    public static let manualModeUnlockDeadline: TimeInterval = 30
     /// SMC reads and the target write surrounding each fan's unlock.
     public static let perFanIOAllowance: TimeInterval = 1
 
