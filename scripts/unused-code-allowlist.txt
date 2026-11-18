@@ -33,3 +33,4 @@ settlePathResolution               # CommandLineToolInstaller tests
 waitForPendingWrites               # TemperatureLog tests
 launchBuildForTesting              # FanBarHelperService tests
 setControlStateForTesting          # Control notice rendering tests
+forgetMeasuredHeights              # Onboarding layout tests

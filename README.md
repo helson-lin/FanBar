@@ -252,6 +252,10 @@ Open **Settings → General → Interface language** and choose:
 
 The setting is shared by the menu-bar popover, settings window, onboarding flow, status messages, helper errors, and the desktop widget.
 
+## 📊 Usage statistics
+
+FanBar checks for updates through `update.getfanbar.com`, which forwards to the GitHub appcast and counts update checks anonymously. By default it only counts checks per day by app version. If you opt in (off by default, asked once), FanBar also sends once a week your install week, Mac model, macOS major version, chip architecture, and the country Cloudflare infers from the request. It never stores your IP address, a device ID, a serial number, or the names of your apps, and groups smaller than 5 are never published; the aggregate numbers are shown at [getfanbar.com/stats](https://getfanbar.com/stats). You can switch this off in Settings, under automatic updates, and turning off automatic update checks stops the automatic counting. Details: [PRIVACY.md](services/update/PRIVACY.md).
+
 ## 🤝 Community
 
 [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Support](SUPPORT.md) · [Security policy](SECURITY.md)
