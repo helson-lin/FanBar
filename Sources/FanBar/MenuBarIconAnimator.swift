@@ -105,7 +105,8 @@ final class MenuBarIconAnimator {
         }
         lastRPM = rpm
 
-        guard !reduceMotion else {
+        // None has nothing to spin. Stop a rotor left over from the previous glyph.
+        guard style.showsGlyph, !reduceMotion else {
             if phase != .idle { stop() }
             return
         }
@@ -125,7 +126,7 @@ final class MenuBarIconAnimator {
 
     /// Spins briefly to acknowledge a mode switch, then coasts to rest.
     func playSwitchBurst() {
-        guard !reduceMotion, button != nil else { return }
+        guard style.showsGlyph, !reduceMotion, button != nil else { return }
         startBurst(velocity: max(Self.perceptualVelocity(forRPM: lastRPM, capped: rotor == nil), Self.minimumBurstVelocity))
     }
 
@@ -145,7 +146,7 @@ final class MenuBarIconAnimator {
     /// Flashes the icon to signal a failed switch, then restores the state
     /// that matches the live fan readings.
     func flashFailure() {
-        guard !reduceMotion else { return }
+        guard style.showsGlyph, !reduceMotion else { return }
         // The blink dims the icon on every menu bar, so it swaps frames.
         rotor?.detach()
         phase = .blinking

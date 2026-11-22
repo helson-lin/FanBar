@@ -55,9 +55,11 @@ struct MenuBarStatusLabel: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(nsImage: iconStyle.image(isManual: controller.isManualStatus))
-                .renderingMode(.template)
-                .foregroundColor(.primary)
+            if composition.showsGlyph {
+                Image(nsImage: iconStyle.image(isManual: controller.isManualStatus))
+                    .renderingMode(.template)
+                    .foregroundColor(.primary)
+            }
 
             if displayMode == .temperatureOverFanSpeed {
                 VStack(alignment: .leading, spacing: -1) {
@@ -65,14 +67,18 @@ struct MenuBarStatusLabel: View {
                     Text(fanSpeedText)
                 }
                 .font(.system(size: MenuBarDisplayMode.stackedFontSize, weight: .medium).monospacedDigit())
-            } else if let statusText {
-                Text(statusText)
+            } else if let text = composition.text {
+                Text(text)
                     .font(.system(size: 12, weight: .medium).monospacedDigit())
             }
         }
         .accessibilityLabel(accessibilityText)
         .help(controller.temperatureHistory.last?.cpuTemperatureSummary ?? "FanBar")
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
+    }
+
+    private var composition: MenuBarStatusComposition {
+        MenuBarStatusComposition.make(style: iconStyle, displayMode: displayMode, reading: statusText)
     }
 
     private var statusText: String? {

@@ -103,6 +103,8 @@ final class LegacyStatusItemController: NSObject {
 
     private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
         guard let signal, statusItem?.button != nil, SwitchFeedbackPreferences.isEnabled else { return }
+        // None has no glyph to spin or flash.
+        guard MenuBarIconStyle.current.showsGlyph else { return }
         // A switch spins the icon while the request runs and once more when it
         // lands, even with the fans stopped; a failure flashes instead.
         switch signal {
@@ -254,47 +256,21 @@ final class LegacyStatusItemController: NSObject {
         let modeRawValue = UserDefaults.standard.string(forKey: MenuBarDisplayMode.preferenceKey)
         let displayMode = MenuBarDisplayMode(rawValue: modeRawValue ?? "") ?? .defaultMode
         let iconStyle = MenuBarIconStyle.current
-        let text: String?
-        switch displayMode {
-        case .iconOnly:
-            text = nil
-        case .cpuTemperature:
-            text = temperatureText(for: controller)
-        case .fanSpeed:
-            text = averageFanSpeed(for: controller)
-        case .temperatureAndFanSpeed:
-            text = "\(temperatureText(for: controller)) · \(averageFanSpeed(for: controller))"
-        case .temperatureOverFanSpeed:
-            text = "\(temperatureText(for: controller))\n\(averageFanSpeed(for: controller))"
-        }
-
-        // Drive the icon with the live fan reading: it spins while the fans
-        // run and coasts to a stop when they halt. While any animation is
-        // active the animator owns button.image, so the two-second refresh
-        // must not clobber the rotating frames.
-        if SwitchFeedbackPreferences.isEnabled {
-            iconAnimator.update(
-                rpm: averageFanRPM(for: controller),
-                on: button,
-                style: iconStyle,
-                isManual: controller.isManualStatus
-            )
-        } else {
-            iconAnimator.stop()
-        }
-        if !iconAnimator.isAnimating {
-            let still = stillIcon(style: iconStyle, isManual: controller.isManualStatus)
-            // Assigning even an equal new image re-snapshots every menu bar.
-            if button.image !== still { button.image = still }
-        }
+        let composition = MenuBarStatusComposition.make(
+            style: iconStyle,
+            displayMode: displayMode,
+            reading: statusReading(for: displayMode, controller: controller)
+        )
+        updateIcon(style: iconStyle, showsGlyph: composition.showsGlyph, on: button, controller: controller)
         let content = MenuBarButtonContent.make(
             displayMode: displayMode,
-            text: text,
+            text: composition.text,
             toolTip: toolTip,
-            iconWidth: button.image?.size.width ?? 16
+            iconWidth: composition.showsGlyph ? (button.image?.size.width ?? MenuBarIconStyle.canvasSide) : 0,
+            showsGlyph: composition.showsGlyph
         )
         let layoutChanged = buttonWriter.apply(content, to: button, statusItem: statusItem)
-        if content.isStacked, let text {
+        if content.isStacked, let text = composition.text {
             installStackedLabelIfNeeded(in: button)
             stackedLabel.text = text
         }
@@ -316,6 +292,50 @@ final class LegacyStatusItemController: NSObject {
             stackedLabel.widthAnchor.constraint(equalToConstant: ceil(MenuBarButtonContent.stackedPlaceholder.size().width))
         ])
         stackedLabelLeading = leading
+    }
+
+    private func statusReading(for displayMode: MenuBarDisplayMode, controller: FanController) -> String? {
+        switch displayMode {
+        case .iconOnly:
+            nil
+        case .cpuTemperature:
+            temperatureText(for: controller)
+        case .fanSpeed:
+            averageFanSpeed(for: controller)
+        case .temperatureAndFanSpeed:
+            "\(temperatureText(for: controller)) · \(averageFanSpeed(for: controller))"
+        case .temperatureOverFanSpeed:
+            "\(temperatureText(for: controller))\n\(averageFanSpeed(for: controller))"
+        }
+    }
+
+    /// Spins a drawn glyph, or clears the button when the icon choice is None.
+    /// While an animation is active the animator owns `button.image`.
+    private func updateIcon(
+        style: MenuBarIconStyle,
+        showsGlyph: Bool,
+        on button: NSButton,
+        controller: FanController
+    ) {
+        guard showsGlyph else {
+            iconAnimator.stop()
+            if button.image != nil { button.image = nil }
+            return
+        }
+        if SwitchFeedbackPreferences.isEnabled {
+            iconAnimator.update(
+                rpm: averageFanRPM(for: controller),
+                on: button,
+                style: style,
+                isManual: controller.isManualStatus
+            )
+        } else {
+            iconAnimator.stop()
+        }
+        guard !iconAnimator.isAnimating else { return }
+        let still = stillIcon(style: style, isManual: controller.isManualStatus)
+        // Assigning even an equal new image re-snapshots every menu bar.
+        if button.image !== still { button.image = still }
     }
 
     private var stillIcons: [String: NSImage] = [:]

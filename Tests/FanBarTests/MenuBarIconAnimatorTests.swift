@@ -37,6 +37,18 @@ final class MenuBarIconAnimatorTests: XCTestCase {
         animator.stop()
     }
 
+    func testNoneDoesNotSpinOrFlash() {
+        let (animator, button) = makeAnimator()
+        animator.update(rpm: 1_850, on: button, style: .swirl, isManual: false)
+        XCTAssertTrue(animator.isAnimating)
+
+        animator.update(rpm: 1_850, on: button, style: .none, isManual: true)
+        XCTAssertFalse(animator.isAnimating)
+        animator.playSwitchBurst()
+        animator.flashFailure()
+        XCTAssertFalse(animator.isAnimating)
+    }
+
     func testStoppedFansStayStill() {
         let (animator, button) = makeAnimator()
         animator.update(rpm: 0, on: button, style: .defaultStyle, isManual: false)

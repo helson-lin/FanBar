@@ -116,6 +116,39 @@ final class MenuBarButtonContentTests: XCTestCase {
         )
     }
 
+    func testHiddenIconDropsTheGlyphWidth() {
+        let withIcon = MenuBarButtonContent.make(
+            displayMode: .cpuTemperature, text: "54°", toolTip: "CPU", iconWidth: 20, showsGlyph: true
+        )
+        let hidden = MenuBarButtonContent.make(
+            displayMode: .cpuTemperature, text: "54°", toolTip: "CPU", iconWidth: 20, showsGlyph: false
+        )
+
+        XCTAssertEqual(withIcon.imagePosition, .imageLeading)
+        XCTAssertEqual(hidden.imagePosition, .noImage)
+        XCTAssertLessThan(hidden.length, withIcon.length)
+        XCTAssertEqual(
+            hidden.length,
+            MenuBarButtonContent.make(
+                displayMode: .cpuTemperature, text: "100°", toolTip: "CPU", iconWidth: 0, showsGlyph: false
+            ).length
+        )
+    }
+
+    func testHiddenIconWithNoReadingKeepsATitleWidth() {
+        let hidden = MenuBarButtonContent.make(
+            displayMode: .iconOnly,
+            text: MenuBarStatusComposition.fallbackTitle,
+            toolTip: "FanBar",
+            iconWidth: 0,
+            showsGlyph: false
+        )
+
+        XCTAssertEqual(hidden.imagePosition, .noImage)
+        XCTAssertGreaterThan(hidden.length, 0)
+        XCTAssertNotEqual(hidden.length, NSStatusItem.squareLength)
+    }
+
     func testOnlyTheStackedModeHasAnAccessibilityTitle() {
         XCTAssertNil(content(.cpuTemperature, text: "54°").accessibilityTitle)
         XCTAssertNil(content(.iconOnly, text: nil).accessibilityTitle)

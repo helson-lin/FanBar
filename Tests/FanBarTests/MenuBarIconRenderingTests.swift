@@ -7,7 +7,7 @@ final class MenuBarIconRenderingTests: XCTestCase {
     /// the glyph at every angle, on ordinary and Retina displays (issue #51).
     @MainActor
     func testFullRotationHasStableSizeAndNoClippedEdges() throws {
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             for isManual in [false, true] {
                 for angle in stride(from: 0.0, to: 360.0, by: 15.0) {
                     let image = style.image(isManual: isManual, degrees: angle)
@@ -35,7 +35,7 @@ final class MenuBarIconRenderingTests: XCTestCase {
     /// and hub fills must not darken where they meet.
     @MainActor
     func testFailureFlashDimmingPreservesShape() throws {
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             let fullPixels = try bitmap(of: style.image(isManual: true, alpha: 1), scale: 2)
             let dimmedPixels = try bitmap(of: style.image(isManual: true, alpha: 0.3), scale: 2)
             var fullAlpha = 0.0, dimmedAlpha = 0.0

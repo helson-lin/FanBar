@@ -61,15 +61,17 @@ struct MenuBarIconStylePicker: View {
             SettingsRowText(
                 title: fanBarText("图标", "Icon"),
                 detail: fanBarText(
-                    "由 FanBar 控制风扇时，图标中心变为实心。",
-                    "The hub turns solid while FanBar controls the fans."
+                    "由 FanBar 控制风扇时，图标中心变为实心。选择「无」则隐藏图标。",
+                    "The hub turns solid while FanBar controls the fans. None hides the icon."
                 )
             )
             Picker(fanBarText("菜单栏图标", "Menu bar icon"), selection: $selectedRawValue) {
                 ForEach(MenuBarIconStyle.allCases) { style in
                     HStack {
-                        Image(nsImage: style.image(isManual: controller.isManualStatus))
-                            .renderingMode(.template)
+                        if style.showsGlyph {
+                            Image(nsImage: style.image(isManual: controller.isManualStatus))
+                                .renderingMode(.template)
+                        }
                         Text(style.title)
                     }
                     .tag(style.rawValue)

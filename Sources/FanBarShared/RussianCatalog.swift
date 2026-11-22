@@ -494,7 +494,7 @@ enum RussianCatalog {
         "Now": "Сейчас",
         "That RPM is outside the fans' supported range": "Эти обороты вне поддерживаемого диапазона вентиляторов",
         "The fan control service did not respond. Reauthorize it or restart FanBar.": "Служба управления вентиляторами не отвечает. Разрешите её повторно или перезапустите FanBar.",
-        "The hub turns solid while FanBar controls the fans.": "Ступица закрашивается, пока FanBar управляет вентиляторами.",
+        "The hub turns solid while FanBar controls the fans. None hides the icon.": "Ступица закрашивается, пока FanBar управляет вентиляторами. «Нет» скрывает значок.",
         "The icon spins with the fans and coasts to a stop when they halt.": "Значок вращается вместе с вентиляторами и плавно останавливается вместе с ними.",
         "The menu panel shows up to two presets. Uncheck one to choose another.": "В панели меню показывается не больше двух пресетов. Снимите отметку с одного, чтобы выбрать другой.",
         "This Mac did not return readable fan data.": "Этот Mac не вернул читаемых данных о вентиляторах.",
