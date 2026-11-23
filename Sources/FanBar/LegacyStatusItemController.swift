@@ -259,7 +259,11 @@ final class LegacyStatusItemController: NSObject {
         let composition = MenuBarStatusComposition.make(
             style: iconStyle,
             displayMode: displayMode,
-            reading: statusReading(for: displayMode, controller: controller)
+            reading: MenuBarStatusReadout.make(
+                displayMode: displayMode,
+                temperature: temperatureText(for: controller),
+                fanSpeed: averageFanSpeed(for: controller)
+            )
         )
         updateIcon(style: iconStyle, showsGlyph: composition.showsGlyph, on: button, controller: controller)
         let content = MenuBarButtonContent.make(
@@ -269,16 +273,22 @@ final class LegacyStatusItemController: NSObject {
             iconWidth: composition.showsGlyph ? (button.image?.size.width ?? MenuBarIconStyle.canvasSide) : 0,
             showsGlyph: composition.showsGlyph
         )
-        let layoutChanged = buttonWriter.apply(content, to: button, statusItem: statusItem)
+        buttonWriter.apply(content, to: button, statusItem: statusItem)
         if content.isStacked, let text = composition.text {
             installStackedLabelIfNeeded(in: button)
             stackedLabel.text = text
         }
         if stackedLabel.isHidden == content.isStacked { stackedLabel.isHidden = !content.isStacked }
-        if content.isStacked, layoutChanged, let cell = button.cell {
-            button.layoutSubtreeIfNeeded()
-            stackedLabelLeading?.constant = cell.titleRect(forBounds: button.bounds).minX
+        if content.isStacked {
+            alignStackedLabel(in: button)
         }
+    }
+
+    /// `titleRect` is only valid after AppKit lays out the resized status item.
+    /// The overlay must move after that pass, and lay out again with its new
+    /// leading constant so it does not sit under the icon.
+    private func alignStackedLabel(in button: NSButton) {
+        StackedStatusLabelLayout.align(in: button, leadingConstraint: stackedLabelLeading)
     }
 
     private func installStackedLabelIfNeeded(in button: NSStatusBarButton) {
@@ -294,21 +304,6 @@ final class LegacyStatusItemController: NSObject {
         stackedLabelLeading = leading
     }
 
-    private func statusReading(for displayMode: MenuBarDisplayMode, controller: FanController) -> String? {
-        switch displayMode {
-        case .iconOnly:
-            nil
-        case .cpuTemperature:
-            temperatureText(for: controller)
-        case .fanSpeed:
-            averageFanSpeed(for: controller)
-        case .temperatureAndFanSpeed:
-            "\(temperatureText(for: controller)) · \(averageFanSpeed(for: controller))"
-        case .temperatureOverFanSpeed:
-            "\(temperatureText(for: controller))\n\(averageFanSpeed(for: controller))"
-        }
-    }
-
     /// Spins a drawn glyph, or clears the button when the icon choice is None.
     /// While an animation is active the animator owns `button.image`.
     private func updateIcon(
@@ -317,25 +312,18 @@ final class LegacyStatusItemController: NSObject {
         on button: NSButton,
         controller: FanController
     ) {
-        guard showsGlyph else {
-            iconAnimator.stop()
-            if button.image != nil { button.image = nil }
-            return
-        }
-        if SwitchFeedbackPreferences.isEnabled {
-            iconAnimator.update(
-                rpm: averageFanRPM(for: controller),
-                on: button,
+        MenuBarIconUpdate.apply(
+            .init(
                 style: style,
+                showsGlyph: showsGlyph,
+                switchFeedbackEnabled: SwitchFeedbackPreferences.isEnabled,
+                rpm: averageFanRPM(for: controller),
                 isManual: controller.isManualStatus
-            )
-        } else {
-            iconAnimator.stop()
-        }
-        guard !iconAnimator.isAnimating else { return }
-        let still = stillIcon(style: style, isManual: controller.isManualStatus)
-        // Assigning even an equal new image re-snapshots every menu bar.
-        if button.image !== still { button.image = still }
+            ),
+            animator: iconAnimator,
+            on: button,
+            stillIcon: { stillIcon(style: style, isManual: controller.isManualStatus) }
+        )
     }
 
     private var stillIcons: [String: NSImage] = [:]

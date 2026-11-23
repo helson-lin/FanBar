@@ -19,13 +19,24 @@ enum LoginShellPath {
     /// Runs an interactive login shell once to print its environment. Blocks
     /// for up to `timeout`; call it off the main thread.
     static func read(timeout: TimeInterval = 5) -> String? {
+        run(shell: URL(fileURLWithPath: userShell()), timeout: timeout)
+    }
+
+    static func run(shell: URL, timeout: TimeInterval) -> String? {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: userShell())
+        process.executableURL = shell
         // Separate flags: fish does not accept a combined `-ilc`.
         process.arguments = ["-i", "-l", "-c", "/usr/bin/env"]
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        let output = Pipe()
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fanbar-login-shell-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
+              let output = try? FileHandle(forWritingTo: outputURL)
+        else {
+            return nil
+        }
+        defer { try? FileManager.default.removeItem(at: outputURL) }
         process.standardOutput = output
         do {
             try process.run()
@@ -38,10 +49,12 @@ enum LoginShellPath {
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
         process.waitUntilExit()
         watchdog.cancel()
-        // A background job the rc files started may still hold the pipe open,
-        // so read what is buffered without waiting for end-of-file.
-        let data = drain(output.fileHandleForReading.fileDescriptor)
-        guard let text = String(bytes: data, encoding: .utf8) else { return nil }
+        try? output.close()
+        guard let data = try? Data(contentsOf: outputURL),
+              let text = String(bytes: data, encoding: .utf8)
+        else {
+            return nil
+        }
         return path(fromEnvironmentOutput: text)
     }
 
@@ -92,17 +105,5 @@ enum LoginShellPath {
             if FileManager.default.isExecutableFile(atPath: path) { return path }
         }
         return "/bin/zsh"
-    }
-
-    private static func drain(_ descriptor: Int32) -> Data {
-        _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
-        var data = Data()
-        var buffer = [UInt8](repeating: 0, count: 4_096)
-        while true {
-            let count = buffer.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
-            guard count > 0 else { break }
-            data.append(contentsOf: buffer[0..<count])
-        }
-        return data
     }
 }

@@ -30,4 +30,49 @@ final class MenuBarStatusCompositionTests: XCTestCase {
         let missing = MenuBarStatusComposition.make(style: .none, displayMode: .fanSpeed, reading: nil)
         XCTAssertEqual(missing.text, MenuBarStatusComposition.fallbackTitle)
     }
+
+    func testReadingTextMatchesEachDisplayMode() {
+        let temperature = "54°"
+        let fanSpeed = "1,800"
+
+        XCTAssertNil(
+            MenuBarStatusReadout.make(
+                displayMode: .iconOnly,
+                temperature: temperature,
+                fanSpeed: fanSpeed
+            )
+        )
+        XCTAssertEqual(
+            MenuBarStatusReadout.make(
+                displayMode: .cpuTemperature,
+                temperature: temperature,
+                fanSpeed: fanSpeed
+            ),
+            "54°"
+        )
+        XCTAssertEqual(
+            MenuBarStatusReadout.make(
+                displayMode: .fanSpeed,
+                temperature: temperature,
+                fanSpeed: fanSpeed
+            ),
+            "1,800"
+        )
+        XCTAssertEqual(
+            MenuBarStatusReadout.make(
+                displayMode: .temperatureAndFanSpeed,
+                temperature: temperature,
+                fanSpeed: fanSpeed
+            ),
+            "54° · 1,800"
+        )
+        XCTAssertEqual(
+            MenuBarStatusReadout.make(
+                displayMode: .temperatureOverFanSpeed,
+                temperature: temperature,
+                fanSpeed: fanSpeed
+            ),
+            "54°\n1,800"
+        )
+    }
 }

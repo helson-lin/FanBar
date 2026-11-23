@@ -114,6 +114,26 @@ final class MenuBarButtonContentTests: XCTestCase {
             content(.temperatureOverFanSpeed, text: "54°\n1,800").length,
             content(.temperatureAndFanSpeed).length
         )
+
+        for displayMode in MenuBarDisplayMode.allCases {
+            for showsGlyph in [true, false] {
+                let narrow = MenuBarButtonContent.make(
+                    displayMode: displayMode,
+                    text: "1°",
+                    toolTip: "FanBar",
+                    iconWidth: 20,
+                    showsGlyph: showsGlyph
+                )
+                let wide = MenuBarButtonContent.make(
+                    displayMode: displayMode,
+                    text: "100° · 8,888",
+                    toolTip: "FanBar",
+                    iconWidth: 20,
+                    showsGlyph: showsGlyph
+                )
+                XCTAssertEqual(narrow.length, wide.length, "\(displayMode), glyph: \(showsGlyph)")
+            }
+        }
     }
 
     func testHiddenIconDropsTheGlyphWidth() {
@@ -147,6 +167,47 @@ final class MenuBarButtonContentTests: XCTestCase {
         XCTAssertEqual(hidden.imagePosition, .noImage)
         XCTAssertGreaterThan(hidden.length, 0)
         XCTAssertNotEqual(hidden.length, NSStatusItem.squareLength)
+    }
+
+    func testStackedOverlayMovesToTheTitleSlotAfterTheIcon() throws {
+        let button = NSButton()
+        button.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: content(.temperatureOverFanSpeed, text: "54°\n1,800").length,
+            height: 22
+        )
+        button.image = NSImage(size: NSSize(width: 20, height: 20))
+        button.attributedTitle = MenuBarButtonContent.stackedPlaceholder
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
+
+        let overlay = NSView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(overlay)
+        let leading = overlay.leadingAnchor.constraint(equalTo: button.leadingAnchor)
+        NSLayoutConstraint.activate([
+            leading,
+            overlay.topAnchor.constraint(equalTo: button.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: button.bottomAnchor),
+            overlay.widthAnchor.constraint(equalToConstant: 32)
+        ])
+
+        let aligned = try XCTUnwrap(
+            StackedStatusLabelLayout.align(in: button, leadingConstraint: leading)
+        )
+        let cell = try XCTUnwrap(button.cell)
+        let imageRect = cell.imageRect(forBounds: button.bounds)
+        let titleRect = cell.titleRect(forBounds: button.bounds)
+
+        XCTAssertEqual(aligned, ceil(titleRect.minX))
+        XCTAssertEqual(leading.constant, aligned)
+        XCTAssertGreaterThanOrEqual(overlay.frame.minX, imageRect.maxX)
+        XCTAssertGreaterThanOrEqual(titleRect.minX, imageRect.maxX)
+        XCTAssertEqual(
+            StackedStatusLabelLayout.align(in: button, leadingConstraint: leading),
+            aligned
+        )
     }
 
     func testOnlyTheStackedModeHasAnAccessibilityTitle() {

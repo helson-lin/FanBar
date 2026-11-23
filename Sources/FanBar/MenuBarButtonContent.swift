@@ -59,41 +59,31 @@ struct MenuBarButtonContent: Equatable {
     /// Width sized to the widest reading each mode can show (not the current
     /// one), so the popover anchor stays put without leaving wide side gaps.
     @MainActor static func length(for displayMode: MenuBarDisplayMode, iconWidth: CGFloat, showsGlyph: Bool = true) -> CGFloat {
-        guard showsGlyph else { return textOnlyLength(for: displayMode) }
-        let textWidth: CGFloat
-        switch displayMode {
-        case .iconOnly:
+        guard let textWidth = widestTextWidth(for: displayMode, showsGlyph: showsGlyph) else {
             return NSStatusItem.squareLength
-        case .cpuTemperature:
-            textWidth = width(of: "100°")
-        case .fanSpeed:
-            textWidth = width(of: "8,888")
-        case .temperatureAndFanSpeed:
-            textWidth = width(of: "100° · 8,888")
-        case .temperatureOverFanSpeed:
-            // Only the wider of the two lines counts.
-            textWidth = stackedPlaceholder.size().width
         }
-        // icon + image/title gap + text + button's horizontal inset.
-        return ceil(iconWidth + 3 + textWidth + 3)
+        let glyphWidth = showsGlyph ? iconWidth : 0
+        // AppKit's image/title gap and the button's horizontal inset each add 3pt.
+        return ceil(glyphWidth + textWidth + 6)
     }
 
-    /// The same widest-reading width, without the glyph or the gap beside it.
-    @MainActor private static func textOnlyLength(for displayMode: MenuBarDisplayMode) -> CGFloat {
-        let textWidth: CGFloat
+    @MainActor private static func widestTextWidth(
+        for displayMode: MenuBarDisplayMode,
+        showsGlyph: Bool
+    ) -> CGFloat? {
         switch displayMode {
         case .iconOnly:
-            textWidth = width(of: MenuBarStatusComposition.fallbackTitle)
+            return showsGlyph ? nil : width(of: MenuBarStatusComposition.fallbackTitle)
         case .cpuTemperature:
-            textWidth = width(of: "100°")
+            return width(of: "100°")
         case .fanSpeed:
-            textWidth = width(of: "8,888")
+            return width(of: "8,888")
         case .temperatureAndFanSpeed:
-            textWidth = width(of: "100° · 8,888")
+            return width(of: "100° · 8,888")
         case .temperatureOverFanSpeed:
-            textWidth = stackedPlaceholder.size().width
+            // Only the wider of the two lines counts.
+            return stackedPlaceholder.size().width
         }
-        return ceil(textWidth + 6)
     }
 
     @MainActor private static func width(of text: String) -> CGFloat {
