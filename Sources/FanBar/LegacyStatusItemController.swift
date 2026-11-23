@@ -103,6 +103,8 @@ final class LegacyStatusItemController: NSObject {
 
     private func handleSwitchFeedback(_ signal: FanController.SwitchFeedbackSignal?) {
         guard let signal, statusItem?.button != nil, SwitchFeedbackPreferences.isEnabled else { return }
+        // None has no glyph to spin or flash.
+        guard MenuBarIconStyle.current.showsGlyph else { return }
         // A switch spins the icon while the request runs and once more when it
         // lands, even with the fans stopped; a failure flashes instead.
         switch signal {
@@ -254,55 +256,39 @@ final class LegacyStatusItemController: NSObject {
         let modeRawValue = UserDefaults.standard.string(forKey: MenuBarDisplayMode.preferenceKey)
         let displayMode = MenuBarDisplayMode(rawValue: modeRawValue ?? "") ?? .defaultMode
         let iconStyle = MenuBarIconStyle.current
-        let text: String?
-        switch displayMode {
-        case .iconOnly:
-            text = nil
-        case .cpuTemperature:
-            text = temperatureText(for: controller)
-        case .fanSpeed:
-            text = averageFanSpeed(for: controller)
-        case .temperatureAndFanSpeed:
-            text = "\(temperatureText(for: controller)) · \(averageFanSpeed(for: controller))"
-        case .temperatureOverFanSpeed:
-            text = "\(temperatureText(for: controller))\n\(averageFanSpeed(for: controller))"
-        }
-
-        // Drive the icon with the live fan reading: it spins while the fans
-        // run and coasts to a stop when they halt. While any animation is
-        // active the animator owns button.image, so the two-second refresh
-        // must not clobber the rotating frames.
-        if SwitchFeedbackPreferences.isEnabled {
-            iconAnimator.update(
-                rpm: averageFanRPM(for: controller),
-                on: button,
-                style: iconStyle,
-                isManual: controller.isManualStatus
+        let composition = MenuBarStatusComposition.make(
+            style: iconStyle,
+            displayMode: displayMode,
+            reading: MenuBarStatusReadout.make(
+                displayMode: displayMode,
+                temperature: temperatureText(for: controller),
+                fanSpeed: averageFanSpeed(for: controller)
             )
-        } else {
-            iconAnimator.stop()
-        }
-        if !iconAnimator.isAnimating {
-            let still = stillIcon(style: iconStyle, isManual: controller.isManualStatus)
-            // Assigning even an equal new image re-snapshots every menu bar.
-            if button.image !== still { button.image = still }
-        }
+        )
+        updateIcon(style: iconStyle, showsGlyph: composition.showsGlyph, on: button, controller: controller)
         let content = MenuBarButtonContent.make(
             displayMode: displayMode,
-            text: text,
+            text: composition.text,
             toolTip: toolTip,
-            iconWidth: button.image?.size.width ?? 16
+            iconWidth: composition.showsGlyph ? (button.image?.size.width ?? MenuBarIconStyle.canvasSide) : 0,
+            showsGlyph: composition.showsGlyph
         )
-        let layoutChanged = buttonWriter.apply(content, to: button, statusItem: statusItem)
-        if content.isStacked, let text {
+        buttonWriter.apply(content, to: button, statusItem: statusItem)
+        if content.isStacked, let text = composition.text {
             installStackedLabelIfNeeded(in: button)
             stackedLabel.text = text
         }
         if stackedLabel.isHidden == content.isStacked { stackedLabel.isHidden = !content.isStacked }
-        if content.isStacked, layoutChanged, let cell = button.cell {
-            button.layoutSubtreeIfNeeded()
-            stackedLabelLeading?.constant = cell.titleRect(forBounds: button.bounds).minX
+        if content.isStacked {
+            alignStackedLabel(in: button)
         }
+    }
+
+    /// `titleRect` is only valid after AppKit lays out the resized status item.
+    /// The overlay must move after that pass, and lay out again with its new
+    /// leading constant so it does not sit under the icon.
+    private func alignStackedLabel(in button: NSButton) {
+        StackedStatusLabelLayout.align(in: button, leadingConstraint: stackedLabelLeading)
     }
 
     private func installStackedLabelIfNeeded(in button: NSStatusBarButton) {
@@ -316,6 +302,28 @@ final class LegacyStatusItemController: NSObject {
             stackedLabel.widthAnchor.constraint(equalToConstant: ceil(MenuBarButtonContent.stackedPlaceholder.size().width))
         ])
         stackedLabelLeading = leading
+    }
+
+    /// Spins a drawn glyph, or clears the button when the icon choice is None.
+    /// While an animation is active the animator owns `button.image`.
+    private func updateIcon(
+        style: MenuBarIconStyle,
+        showsGlyph: Bool,
+        on button: NSButton,
+        controller: FanController
+    ) {
+        MenuBarIconUpdate.apply(
+            .init(
+                style: style,
+                showsGlyph: showsGlyph,
+                switchFeedbackEnabled: SwitchFeedbackPreferences.isEnabled,
+                rpm: averageFanRPM(for: controller),
+                isManual: controller.isManualStatus
+            ),
+            animator: iconAnimator,
+            on: button,
+            stillIcon: { stillIcon(style: style, isManual: controller.isManualStatus) }
+        )
     }
 
     private var stillIcons: [String: NSImage] = [:]

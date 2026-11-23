@@ -37,6 +37,18 @@ final class MenuBarIconAnimatorTests: XCTestCase {
         animator.stop()
     }
 
+    func testNoneDoesNotSpinOrFlash() {
+        let (animator, button) = makeAnimator()
+        animator.update(rpm: 1_850, on: button, style: .swirl, isManual: false)
+        XCTAssertTrue(animator.isAnimating)
+
+        animator.update(rpm: 1_850, on: button, style: .none, isManual: true)
+        XCTAssertFalse(animator.isAnimating)
+        animator.playSwitchBurst()
+        animator.flashFailure()
+        XCTAssertFalse(animator.isAnimating)
+    }
+
     func testStoppedFansStayStill() {
         let (animator, button) = makeAnimator()
         animator.update(rpm: 0, on: button, style: .defaultStyle, isManual: false)
@@ -60,6 +72,69 @@ final class MenuBarIconAnimatorTests: XCTestCase {
         animator.update(rpm: 1_850, on: button, style: .defaultStyle, isManual: false)
         XCTAssertFalse(animator.isAnimating)
         animator.playSwitchBurst()
+        XCTAssertFalse(animator.isAnimating)
+    }
+
+    func testNonePresentationClearsTheExistingIcon() {
+        let (animator, button) = makeAnimator(reduceMotion: true)
+        button.image = NSImage(size: NSSize(width: 20, height: 20))
+
+        MenuBarIconUpdate.apply(
+            .init(
+                style: .none,
+                showsGlyph: false,
+                switchFeedbackEnabled: true,
+                rpm: 1_850,
+                isManual: false
+            ),
+            animator: animator,
+            on: button,
+            stillIcon: { XCTFail("None must not ask for a glyph"); return NSImage() }
+        )
+
+        XCTAssertNil(button.image)
+        XCTAssertFalse(animator.isAnimating)
+    }
+
+    func testDisabledFeedbackRestoresTheStillIcon() {
+        let (animator, button) = makeAnimator(reduceMotion: false)
+        let still = MenuBarIconAnimator.staticIcon(style: .ringed, isManual: true)
+
+        MenuBarIconUpdate.apply(
+            .init(
+                style: .ringed,
+                showsGlyph: true,
+                switchFeedbackEnabled: false,
+                rpm: 1_850,
+                isManual: true
+            ),
+            animator: animator,
+            on: button,
+            stillIcon: { still }
+        )
+
+        XCTAssertTrue(button.image === still)
+        XCTAssertFalse(animator.isAnimating)
+    }
+
+    func testEnabledFeedbackWithoutMotionUsesTheStillIcon() {
+        let (animator, button) = makeAnimator(reduceMotion: false)
+        let still = MenuBarIconAnimator.staticIcon(style: .swirl, isManual: false)
+
+        MenuBarIconUpdate.apply(
+            .init(
+                style: .swirl,
+                showsGlyph: true,
+                switchFeedbackEnabled: true,
+                rpm: 0,
+                isManual: false
+            ),
+            animator: animator,
+            on: button,
+            stillIcon: { still }
+        )
+
+        XCTAssertTrue(button.image === still)
         XCTAssertFalse(animator.isAnimating)
     }
 

@@ -11,7 +11,7 @@ extension KoreanCatalog {
         "Now": "현재",
         "That RPM is outside the fans' supported range": "해당 RPM은 팬의 지원 범위를 벗어납니다",
         "The fan control service did not respond. Reauthorize it or restart FanBar.": "팬 제어 서비스가 응답하지 않았습니다. 다시 승인하거나 FanBar를 다시 시작하세요.",
-        "The hub turns solid while FanBar controls the fans.": "FanBar가 팬을 제어하는 동안 아이콘 중심이 채워집니다.",
+        "The hub turns solid while FanBar controls the fans. None hides the icon.": "FanBar가 팬을 제어하는 동안 아이콘 중심이 채워집니다. 없음은 아이콘을 숨깁니다.",
         "The icon spins with the fans and coasts to a stop when they halt.": "아이콘이 팬과 함께 회전하며, 팬이 멈추면 서서히 정지합니다.",
         "The menu panel shows up to two presets. Uncheck one to choose another.": "메뉴 패널에는 프리셋을 최대 2개 표시합니다. 다른 프리셋을 선택하려면 하나를 해제하세요.",
         "This Mac did not return readable fan data.": "이 Mac에서 읽을 수 있는 팬 데이터를 반환하지 않았습니다.",

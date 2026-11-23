@@ -10,9 +10,12 @@ struct MenuBarButtonContent: Equatable {
     /// Sized to the widest reading the mode can show, so the panel anchor
     /// does not move as a value gains or loses a digit.
     let length: CGFloat
+    /// False for the None icon: the button shows its title and no image.
+    let showsGlyph: Bool
 
     var imagePosition: NSControl.ImagePosition {
-        text == nil ? .imageOnly : .imageLeading
+        guard showsGlyph else { return .noImage }
+        return text == nil ? .imageOnly : .imageLeading
     }
 
     /// Digits should not change their advance width as the reading changes.
@@ -24,7 +27,8 @@ struct MenuBarButtonContent: Equatable {
         displayMode: MenuBarDisplayMode,
         text: String?,
         toolTip: String,
-        iconWidth: CGFloat
+        iconWidth: CGFloat,
+        showsGlyph: Bool = true
     ) -> MenuBarButtonContent {
         let isStacked = displayMode == .temperatureOverFanSpeed && text != nil
         return MenuBarButtonContent(
@@ -32,7 +36,8 @@ struct MenuBarButtonContent: Equatable {
             text: text,
             isStacked: isStacked,
             accessibilityTitle: isStacked ? text?.replacingOccurrences(of: "\n", with: ", ") : nil,
-            length: length(for: displayMode, iconWidth: iconWidth)
+            length: length(for: displayMode, iconWidth: iconWidth, showsGlyph: showsGlyph),
+            showsGlyph: showsGlyph
         )
     }
 
@@ -53,23 +58,32 @@ struct MenuBarButtonContent: Equatable {
 
     /// Width sized to the widest reading each mode can show (not the current
     /// one), so the popover anchor stays put without leaving wide side gaps.
-    @MainActor static func length(for displayMode: MenuBarDisplayMode, iconWidth: CGFloat) -> CGFloat {
-        let textWidth: CGFloat
+    @MainActor static func length(for displayMode: MenuBarDisplayMode, iconWidth: CGFloat, showsGlyph: Bool = true) -> CGFloat {
+        guard let textWidth = widestTextWidth(for: displayMode, showsGlyph: showsGlyph) else {
+            return NSStatusItem.squareLength
+        }
+        let glyphWidth = showsGlyph ? iconWidth : 0
+        // AppKit's image/title gap and the button's horizontal inset each add 3pt.
+        return ceil(glyphWidth + textWidth + 6)
+    }
+
+    @MainActor private static func widestTextWidth(
+        for displayMode: MenuBarDisplayMode,
+        showsGlyph: Bool
+    ) -> CGFloat? {
         switch displayMode {
         case .iconOnly:
-            return NSStatusItem.squareLength
+            return showsGlyph ? nil : width(of: MenuBarStatusComposition.fallbackTitle)
         case .cpuTemperature:
-            textWidth = width(of: "100°")
+            return width(of: "100°")
         case .fanSpeed:
-            textWidth = width(of: "8,888")
+            return width(of: "8,888")
         case .temperatureAndFanSpeed:
-            textWidth = width(of: "100° · 8,888")
+            return width(of: "100° · 8,888")
         case .temperatureOverFanSpeed:
             // Only the wider of the two lines counts.
-            textWidth = stackedPlaceholder.size().width
+            return stackedPlaceholder.size().width
         }
-        // icon + image/title gap + text + button's horizontal inset.
-        return ceil(iconWidth + 3 + textWidth + 3)
     }
 
     @MainActor private static func width(of text: String) -> CGFloat {

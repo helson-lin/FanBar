@@ -392,7 +392,8 @@ enum JapaneseCatalog {
         "Increase temperature": "温度を上げる",
         "Interface language": "表示言語",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "画面上部のメニューバーに常駐し、Dock には表示されません。",
-        "Keep the menu bar minimal with only the current mode icon.": "現在のモードのアイコンだけを表示し、メニューバーをすっきり保ちます。",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "メニューバーをすっきり保ち、アイコンだけを表示します。アイコンが「なし」のときは FanBar と表示します。",
         "Limits how far speed can change in one update.": "1 回の更新で変化できる回転数の幅を制限します。",
         "macOS automatic control restored": "macOS の自動制御に戻りました",
         "Managed automatically by macOS": "macOS が自動で管理",
@@ -498,7 +499,7 @@ enum JapaneseCatalog {
         "Now": "現在",
         "That RPM is outside the fans' supported range": "その回転数はファンの対応範囲外です",
         "The fan control service did not respond. Reauthorize it or restart FanBar.": "ファン制御サービスが応答しません。再度承認するか、FanBar を再起動してください。",
-        "The hub turns solid while FanBar controls the fans.": "FanBar がファンを制御している間、アイコンの中心が塗りつぶされます。",
+        "The hub turns solid while FanBar controls the fans. None hides the icon.": "FanBar がファンを制御している間、アイコンの中心が塗りつぶされます。「なし」はアイコンを隠します。",
         "The icon spins with the fans and coasts to a stop when they halt.": "ファンの回転に合わせてアイコンが回り、ファンが止まるとゆっくり停止します。",
         "The menu panel shows up to two presets. Uncheck one to choose another.": "メニューパネルに表示できるプリセットは 2 つまでです。別のものを選ぶには、どれか 1 つのチェックを外してください。",
         "This Mac did not return readable fan data.": "この Mac から読み取れるファンのデータが返されませんでした。",
