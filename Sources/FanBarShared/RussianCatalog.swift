@@ -388,7 +388,8 @@ enum RussianCatalog {
         "Increase temperature": "Увеличить температуру",
         "Interface language": "Язык интерфейса",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "Приложение находится в строке меню вверху экрана и не отображается в Dock.",
-        "Keep the menu bar minimal with only the current mode icon.": "Минимум в строке меню: только значок текущего режима.",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "Минимум в строке меню: только значок, а при выборе «Нет» — название FanBar.",
         "Limits how far speed can change in one update.": "Ограничивает изменение скорости за одно обновление.",
         "macOS automatic control restored": "Автоматическое управление macOS восстановлено",
         "Managed automatically by macOS": "Автоматически управляется macOS",

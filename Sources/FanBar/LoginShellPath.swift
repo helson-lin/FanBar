@@ -29,14 +29,9 @@ enum LoginShellPath {
         process.arguments = ["-i", "-l", "-c", "/usr/bin/env"]
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("fanbar-login-shell-\(UUID().uuidString)")
-        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
-              let output = try? FileHandle(forWritingTo: outputURL)
-        else {
-            return nil
-        }
-        defer { try? FileManager.default.removeItem(at: outputURL) }
+        guard let outputFile = createOutputFile() else { return nil }
+        defer { try? FileManager.default.removeItem(at: outputFile.url) }
+        let output = outputFile.handle
         process.standardOutput = output
         do {
             try process.run()
@@ -50,12 +45,29 @@ enum LoginShellPath {
         process.waitUntilExit()
         watchdog.cancel()
         try? output.close()
-        guard let data = try? Data(contentsOf: outputURL),
+        guard let data = try? Data(contentsOf: outputFile.url),
               let text = String(bytes: data, encoding: .utf8)
         else {
             return nil
         }
         return path(fromEnvironmentOutput: text)
+    }
+
+    /// An empty file for the login shell's environment. The mode is `0600` at
+    /// creation: `createFile` without attributes follows the umask and lands on
+    /// `0644`, and a later chmod would leave a window where the file is wider.
+    static func createOutputFile(
+        directory: URL = FileManager.default.temporaryDirectory
+    ) -> OutputFile? {
+        let url = directory.appendingPathComponent("fanbar-login-shell-\(UUID().uuidString)")
+        let descriptor = Darwin.open(url.path, O_CREAT | O_EXCL | O_WRONLY, 0o600)
+        guard descriptor >= 0 else { return nil }
+        return OutputFile(url: url, handle: FileHandle(fileDescriptor: descriptor, closeOnDealloc: true))
+    }
+
+    struct OutputFile {
+        let url: URL
+        let handle: FileHandle
     }
 
     /// The last `PATH=` line: rc files may print banners before `env` runs.

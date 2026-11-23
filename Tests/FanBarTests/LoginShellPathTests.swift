@@ -47,6 +47,18 @@ struct LoginShellPathTests {
             == .shadowed(by: other.appendingPathComponent("fanbar").path))
     }
 
+    @Test func keepsTheLoginShellOutputReadableOnlyByItsOwner() throws {
+        let created = try #require(LoginShellPath.createOutputFile())
+        defer {
+            try? created.handle.close()
+            try? FileManager.default.removeItem(at: created.url)
+        }
+        let mode = try #require(
+            FileManager.default.attributesOfItem(atPath: created.url.path)[.posixPermissions] as? NSNumber
+        )
+        #expect(mode.intValue & 0o777 == 0o600)
+    }
+
     @Test func readsAnInteractiveLoginShell() throws {
         let path = try #require(
             LoginShellPath.run(shell: URL(fileURLWithPath: "/bin/sh"), timeout: 10)

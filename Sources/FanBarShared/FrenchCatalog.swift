@@ -381,7 +381,8 @@ enum FrenchCatalog {
         "Increase temperature": "Augmenter la température",
         "Interface language": "Langue de l’interface",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "L’app se trouve dans la barre des menus en haut de l’écran et n’apparaît pas dans le Dock.",
-        "Keep the menu bar minimal with only the current mode icon.": "Gardez une barre des menus épurée avec seulement l’icône du mode actuel.",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "Gardez une barre des menus épurée : seulement l’icône, ou FanBar lorsque l’icône est « Aucun ».",
         "Limits how far speed can change in one update.": "Limite la variation de vitesse à chaque mise à jour.",
         "macOS automatic control restored": "Gestion automatique de macOS rétablie",
         "Managed automatically by macOS": "Gestion automatique par macOS",

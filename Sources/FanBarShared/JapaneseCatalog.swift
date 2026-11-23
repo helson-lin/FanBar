@@ -392,7 +392,8 @@ enum JapaneseCatalog {
         "Increase temperature": "温度を上げる",
         "Interface language": "表示言語",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "画面上部のメニューバーに常駐し、Dock には表示されません。",
-        "Keep the menu bar minimal with only the current mode icon.": "現在のモードのアイコンだけを表示し、メニューバーをすっきり保ちます。",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "メニューバーをすっきり保ち、アイコンだけを表示します。アイコンが「なし」のときは FanBar と表示します。",
         "Limits how far speed can change in one update.": "1 回の更新で変化できる回転数の幅を制限します。",
         "macOS automatic control restored": "macOS の自動制御に戻りました",
         "Managed automatically by macOS": "macOS が自動で管理",

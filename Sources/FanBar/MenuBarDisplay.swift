@@ -30,7 +30,11 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 
     var detail: String {
         switch self {
-        case .iconOnly: fanBarText("保持菜单栏最简洁，只显示当前控制模式图标。", "Keep the menu bar minimal with only the current mode icon.")
+        case .iconOnly:
+            fanBarText(
+                "保持菜单栏最简洁：只显示图标；图标为「无」时显示 FanBar。",
+                "Keep the menu bar minimal: only the icon, or FanBar when the icon is None."
+            )
         case .cpuTemperature: fanBarText("显示当前 CPU 最高温度，适合快速观察负载变化。", "Show the highest CPU temperature for a quick load check.")
         case .fanSpeed: fanBarText("显示全部风扇的平均 RPM，并使用千位分隔。", "Show the average RPM across all fans with grouping separators.")
         case .temperatureAndFanSpeed: fanBarText("同时显示 CPU 最高温度和平均风扇转速。", "Show highest CPU temperature and average fan speed together.")

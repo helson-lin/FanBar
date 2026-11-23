@@ -106,7 +106,8 @@ extension KoreanCatalog {
         "Increase temperature": "온도 높이기",
         "Interface language": "인터페이스 언어",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "화면 상단의 메뉴 막대에 표시되며 Dock에는 나타나지 않습니다.",
-        "Keep the menu bar minimal with only the current mode icon.": "현재 모드 아이콘만 표시하여 메뉴 막대를 간결하게 유지합니다.",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "메뉴 막대를 간결하게 유지하고 아이콘만 표시합니다. 아이콘이 없음이면 FanBar라고 표시합니다.",
         "Limits how far speed can change in one update.": "한 번 갱신할 때 변경할 수 있는 속도 폭을 제한합니다.",
         "macOS automatic control restored": "macOS 자동 제어로 복원됨",
         "Managed automatically by macOS": "macOS가 자동으로 관리",
