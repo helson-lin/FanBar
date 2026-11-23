@@ -10,6 +10,7 @@ enum FrenchCatalog {
     }
 
     static let strings: [String: String] = [
+        "Email feedback": "Envoyer un avis par e-mail",
         "Changes made in the menu apply to that session only.": "Les changements faits dans le menu ne valent que pour cette session.",
         "Hand Back to macOS": "Retour à macOS",
         "If nothing changes, once more after the hand-back. With the panel open, it shows there instead.": "Sans action, un second rappel après le retour à macOS. Si le panneau est ouvert, le rappel s’y affiche.",

@@ -12,6 +12,7 @@ enum KoreanCatalog {
         .merging(usageStatisticsStrings) { _, translated in translated }
 
     static let interfaceStrings: [String: String] = [
+        "Email feedback": "이메일로 의견 보내기",
         "Changes made in the menu apply to that session only.": "메뉴에서 변경한 내용은 현재 세션에만 적용됩니다.",
         "Hand Back to macOS": "macOS에 제어권 반환",
         "If nothing changes, once more after the hand-back. With the panel open, it shows there instead.":

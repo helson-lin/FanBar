@@ -4,6 +4,10 @@ import XCTest
 
 /// Links FanBar opens: the repository and the donation checkout.
 final class FanBarLinksTests: XCTestCase {
+    func testFeedbackOpensAnEmailToTheFeedbackAddress() {
+        XCTAssertEqual(FanBarLinks.feedback.absoluteString, "mailto:feedback@jarin.me")
+    }
+
     func testRepositoryLinkOpensGitHub() {
         XCTAssertEqual(FanBarLinks.repository.absoluteString, "https://github.com/helson-lin/FanBar")
     }

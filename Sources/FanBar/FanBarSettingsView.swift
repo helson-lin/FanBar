@@ -257,6 +257,18 @@ struct FanBarSettingsView: View {
             SettingsChrome.rowDivider
             softwareUpdateRow
             SettingsChrome.rowDivider
+            Link(destination: FanBarLinks.feedback) {
+                HStack {
+                    SettingsRowText(title: fanBarText("邮件反馈", "Email feedback"))
+                    Spacer(minLength: 12)
+                    Text("feedback@jarin.me")
+                        .foregroundColor(.accentColor)
+                }
+                .settingsRow()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            SettingsChrome.rowDivider
             UsageStatisticsRow()
                 .settingsRow()
         }
@@ -416,9 +428,10 @@ struct SettingsSupportFooter: View {
     }
 }
 
-/// Pages FanBar opens in the browser.
+/// Destinations FanBar opens outside the app.
 enum FanBarLinks {
     static let repository = URL(string: "https://github.com/helson-lin/FanBar")!
+    static let feedback = URL(string: "mailto:feedback@jarin.me")!
     /// What anonymous usage statistics collect, field by field: the Chinese
     /// original for Chinese, the English translation for every other language.
     static func usageStatisticsPrivacy(for language: FanBarLanguage) -> URL {

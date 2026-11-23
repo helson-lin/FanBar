@@ -13,6 +13,7 @@ enum JapaneseCatalog {
     }
 
     static let strings: [String: String] = [
+        "Email feedback": "メールでフィードバック",
         "Changes made in the menu apply to that session only.": "メニューでの変更はその回のみ有効です。",
         "Hand Back to macOS": "macOS への返却",
         "If nothing changes, once more after the hand-back. With the panel open, it shows there instead.": "何もしなければ、返却後にもう一度通知します。パネルが開いているときはパネル内に表示します。",

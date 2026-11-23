@@ -14,6 +14,7 @@ enum RussianCatalog {
     }
 
     static let strings: [String: String] = [
+        "Email feedback": "Отправить отзыв по почте",
         "Changes made in the menu apply to that session only.": "Изменения в меню действуют только в текущем сеансе.",
         "Hand Back to macOS": "Возврат управления macOS",
         "If nothing changes, once more after the hand-back. With the panel open, it shows there instead.": "Если ничего не изменить, напомним ещё раз после возврата. При открытой панели напоминание показывается в ней.",
