@@ -64,3 +64,16 @@ git push origin v0.3.0
 
 公证失败时应先查看 `notarytool` 在 Actions 日志中返回的具体问题，不要发布
 未公证的 CI 测试产物。
+
+## Sparkle 多语言更新说明
+
+除 GitHub Release 的中英说明外，为每个版本准备以下 HTML 片段，放在
+`docs/releases/vX.Y.Z/`：`en.html`、`zh-Hans.html`、`zh-Hant.html`、
+`ja.html`、`ru.html`、`fr.html`、`ko.html`。每个文件只包含该语言的更新内容，
+例如 `<h3>Fixes</h3><ul><li>...</li></ul>`；不要放安装链接。使用 HTML 可以兼容
+macOS 11。所有语言均为必填，缺失或空文件会使发布失败。
+
+本地发布与 CI 会在 Sparkle 生成并签署更新包后，将各语言说明嵌入 appcast。
+Sparkle 根据 macOS 首选语言选择说明，不一定跟随 FanBar 设置中的语言。更新包的
+EdDSA 签名保持不变；若以后启用 `SURequireSignedFeed`，必须改为在签署 feed 前
+加入说明，本脚本会拒绝修改已要求签名的 feed。
