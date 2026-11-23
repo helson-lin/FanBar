@@ -13,6 +13,9 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
     case bold
     /// Four rounded, crescent-cut lobes, like a desk-fan propeller.
     case propeller
+    /// Four swept paddles around a hub: the `fan.fill` silhouette, drawn here
+    /// because that symbol exists only on macOS 14.
+    case fan
     /// Six short blades inside a heavy guard ring.
     case guarded = "guard"
     /// Line art: four outlined petals inside a thin ring.
@@ -33,6 +36,7 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
         case .ringed: fanBarText("环形", "Ringed")
         case .bold: fanBarText("粗体", "Bold")
         case .propeller: fanBarText("螺旋桨", "Propeller")
+        case .fan: fanBarText("风扇", "Fan")
         case .guarded: fanBarText("护罩", "Guard")
         case .outline: fanBarText("线条", "Outline")
         }
@@ -115,6 +119,8 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
             if !isManual {
                 Self.erase(Self.circle(radius: 1.2 * u))
             }
+        case .fan:
+            drawFan(isManual: isManual, unit: u)
         case .guarded:
             // A heavy ring reads larger than a thin one, so its outer edge
             // matches the ringed style's rather than the canvas edge.
@@ -141,6 +147,44 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
                 Self.circle(radius: 1.6 * u).fill()
             }
         }
+    }
+
+    /// One paddle of the fan glyph. The tip is round and the trailing edge
+    /// sweeps back; four copies, ninety degrees apart, stay inside the ink
+    /// diameter and coverage bands shared by every menu bar glyph.
+    private static func fanPaddle(index: Int, unit: CGFloat) -> NSBezierPath {
+        let base = 90 * CGFloat(index)
+        func point(radius: CGFloat, degrees: CGFloat) -> NSPoint {
+            polar(radius: radius * unit, degrees: base + degrees)
+        }
+        let outer: CGFloat = 8
+        let root: CGFloat = 2.3
+        let path = NSBezierPath()
+        path.move(to: point(radius: root, degrees: 0))
+        path.curve(
+            to: point(radius: outer, degrees: 24),
+            controlPoint1: point(radius: 3.55, degrees: -4),
+            controlPoint2: point(radius: 6.4, degrees: 12)
+        )
+        path.curve(
+            to: point(radius: 7.3, degrees: 54),
+            controlPoint1: point(radius: 8.45, degrees: 34),
+            controlPoint2: point(radius: 8.3, degrees: 48)
+        )
+        path.curve(
+            to: point(radius: root, degrees: 92),
+            controlPoint1: point(radius: 5.6, degrees: 84),
+            controlPoint2: point(radius: 3.25, degrees: 94)
+        )
+        path.close()
+        return path
+    }
+
+    private func drawFan(isManual: Bool, unit: CGFloat) {
+        for index in 0..<4 {
+            Self.fanPaddle(index: index, unit: unit).fill()
+        }
+        Self.hub(radius: 2.45 * unit, holeRadius: isManual ? 0 : 1.05 * unit)
     }
 
     /// A kidney-shaped petal pointing along `degrees` and curling

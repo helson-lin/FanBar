@@ -204,5 +204,19 @@ extension KoreanCatalog {
         "Temperature": "온도",
         "Power": "전력",
         "%d W": "%d W",
+        "Share anonymous usage statistics": "익명 사용 통계 공유",
+        "Adds the install week, Mac model, macOS version and chip type to one update check per week. The service " +
+            "also records the country or region from your network location.":
+            "주 1회 업데이트 확인에 설치 주, Mac 모델, macOS 버전, 칩 종류를 추가합니다. " +
+            "서비스는 네트워크 위치에서 국가 또는 지역도 기록합니다.",
+        "With automatic checks off, only a manual update check is counted. It is counted by version only, unless " +
+            "this switch is on.":
+            "자동 확인을 끄면 수동 업데이트 확인만 집계됩니다. 이 스위치가 켜져 있지 않으면 버전별로만 집계됩니다.",
+        "What is collected": "수집되는 내용",
+        "Open the description of what is collected in a browser": "수집되는 내용의 설명을 브라우저에서 열기",
+        "Share anonymous usage statistics?": "익명 사용 통계를 공유할까요?",
+        "You can change this later in Settings, under General.": "나중에 설정의 일반에서 변경할 수 있습니다.",
+        "Share": "공유",
+        "No thanks": "공유 안 함",
     ]
 }

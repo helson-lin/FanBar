@@ -46,7 +46,7 @@ final class MenuBarIconStyleTests: XCTestCase {
     /// it. Catches drawing-order bugs that leave a single blade damaged.
     func testEveryBladeIsDrawnIdentically() {
         let bladeCounts: [MenuBarIconStyle: Int] = [
-            .swirl: 5, .ringed: 3, .bold: 4, .propeller: 4, .guarded: 6, .outline: 4
+            .swirl: 5, .ringed: 3, .bold: 4, .propeller: 4, .fan: 4, .guarded: 6, .outline: 4
         ]
         for style in MenuBarIconStyle.allCases {
             guard let blades = bladeCounts[style] else {
