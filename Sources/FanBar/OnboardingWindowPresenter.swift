@@ -30,7 +30,7 @@ final class OnboardingWindowPresenter: NSObject, NSWindowDelegate {
                 x: 0,
                 y: 0,
                 width: OnboardingCard.width,
-                height: OnboardingCard.height(for: controller.helperState)
+                height: OnboardingCard.height(for: controller)
             ),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,

@@ -18,7 +18,7 @@
     <!-- Sparkle verifies both the Developer ID signature and this independent
          EdDSA signature before accepting an online update. -->
     <key>SUFeedURL</key>
-    <string>https://github.com/helson-lin/FanBar/releases/latest/download/appcast.xml</string>
+    <string>https://update.getfanbar.com/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>G4oJz01PVyR/W8H0r5mZ6AV6wlAr/ARx3YCYMwfgq60=</string>
     <key>SUEnableAutomaticChecks</key><true/>
