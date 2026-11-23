@@ -18,8 +18,10 @@ final class SoftwareUpdateConfigurationTests: XCTestCase {
 
         XCTAssertEqual(
             plist["SUFeedURL"] as? String,
-            "https://github.com/helson-lin/FanBar/releases/latest/download/appcast.xml"
+            "https://update.getfanbar.com/appcast.xml"
         )
+        // Sparkle's own system profile would send far more than FanBar reports.
+        XCTAssertNotEqual(plist["SUEnableSystemProfiling"] as? Bool, true)
         XCTAssertEqual(
             plist["SUPublicEDKey"] as? String,
             "G4oJz01PVyR/W8H0r5mZ6AV6wlAr/ARx3YCYMwfgq60="

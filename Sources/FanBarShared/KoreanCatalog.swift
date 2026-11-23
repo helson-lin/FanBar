@@ -9,6 +9,7 @@ enum KoreanCatalog {
         .merging(compatibilityStrings) { _, translated in translated }
         .merging(settingsStrings) { _, translated in translated }
         .merging(controlStrings) { _, translated in translated }
+        .merging(usageStatisticsStrings) { _, translated in translated }
 
     static let interfaceStrings: [String: String] = [
         "Changes made in the menu apply to that session only.": "메뉴에서 변경한 내용은 현재 세션에만 적용됩니다.",
