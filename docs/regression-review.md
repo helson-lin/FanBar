@@ -1,5 +1,15 @@
 # 面板数据与显示问题复盘
 
+## 曲线上除了最后一个点都点不中
+
+根因：控制点的拖动手势和悬停写在 `.position()` 后面。macOS 15 的 SwiftUI 会让这个修饰符之后的命中区域变成整张曲线图，后画的点（温度最高、最靠右）接走每一次按下。手势里虽然判断了距离，但事件已经被这个点吃掉，不会再传给左边的点。点与点相距几十度时也会发生，不是热区重叠。macOS 27 已把 `.position()` 的命中收回到圆点本身，所以在这台系统上点得出厂曲线的每个点。
+
+修复：手势、悬停、帮助和辅助功能都放在 `.position()` 之前，并用 28 pt 的圆形作为命中形状。温度读数改成 overlay，避免高亮时把热区撑大。
+
+回归测试：`Tests/FanBarTests/FanCurvePointSelectionTests.swift` 的 `testEarlierCurvePointStaysSelectableAfterALaterPointIsSelected`。先点最右边的点，再点最左边和中间的点，三次都应选中指针下的那个点。
+
+影响范围：设置里的温控曲线编辑。未改曲线计算、控制点排序、步进器、SMC、睡眠交还或文案。
+
 ## 旋转的菜单栏图标让菜单栏出现品红色块
 
 根因：Apple silicon 上旋转图标是在按钮自己画的静止图标之上叠一层 Core Animation 转子，再用 Core Image 背景过滤器把静止图标擦掉。WindowServer 每帧都要重绘该过滤区域，在双显示器的 Mac mini M4 上表现为 FanBar 与相邻 app（如 Stats）的菜单栏项闪出品红色块、整项消失再出现、窗口服务器占用升高。0.9.0 的主菜单栏项还在每次刷新时无条件重写标题、字体与提示文字，每次写入都让 AppKit 对所有显示器的菜单栏重新快照。

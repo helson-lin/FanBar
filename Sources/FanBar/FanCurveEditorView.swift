@@ -436,11 +436,11 @@ struct FanCurveCanvas: View {
     private let fractionRange = Double(FanCurveProfile.minimumFraction)...Double(FanCurveProfile.maximumFraction)
     private let handleHitRadius: CGFloat = 14
     /// Left gutter for Y-axis speed labels (e.g. "100%").
-    private let yAxisWidth: CGFloat = 36
+    static let yAxisWidth: CGFloat = 36
     /// Bottom gutter for X-axis temperature labels (e.g. "60°C").
-    private let xAxisHeight: CGFloat = 22
-    private let plotTopInset: CGFloat = 6
-    private let plotTrailingInset: CGFloat = 8
+    static let xAxisHeight: CGFloat = 22
+    static let plotTopInset: CGFloat = 6
+    static let plotTrailingInset: CGFloat = 8
 
     /// Major X ticks every 10°C across the full temperature domain.
     private var temperatureTicks: [Double] {
@@ -489,7 +489,7 @@ struct FanCurveCanvas: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let plot = plotRect(in: geometry.size)
+            let plot = Self.plotRect(in: geometry.size)
             ZStack(alignment: .topLeading) {
                 axisChrome(plot: plot, canvasSize: geometry.size)
 
@@ -519,10 +519,6 @@ struct FanCurveCanvas: View {
                                 .fill(Color.accentColor.opacity(0.22))
                                 .frame(width: 22, height: 22)
                         }
-                        // Expanded hit target for easier grabbing on dense charts.
-                        Circle()
-                            .fill(Color.primary.opacity(0.001))
-                            .frame(width: handleHitRadius * 2, height: handleHitRadius * 2)
                         Circle()
                             .fill(isDragging ? Color.accentColor : Color.accentColor.opacity(0.95))
                             .frame(
@@ -533,30 +529,19 @@ struct FanCurveCanvas: View {
                                 color: Color.accentColor.opacity(isHighlighted ? 0.3 : 0),
                                 radius: 4
                             )
-
-                        if isHighlighted {
-                            Text(fanBarFormat(
-                                "%.0f°C · %.0f%%",
-                                "%.0f°C · %.0f%%",
-                                point.celsius,
-                                point.fraction * 100
-                            ))
-                            .font(.system(size: 9).monospacedDigit())
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(
-                                Capsule().fill(Color(NSColor.windowBackgroundColor).opacity(0.94))
-                            )
-                            .offset(y: point.fraction > 0.85 ? 21 : -21)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                        }
                     }
-                    .position(position(celsius: point.celsius, fraction: point.fraction, plot: plot))
+                    // The handle's gesture, hover and accessibility stay inside
+                    // `position`. On macOS 15 a modifier after `position` hit-tests
+                    // the whole plot, and the last control point swallows presses
+                    // meant for every earlier one (#174). The label is an overlay
+                    // so highlighting a point does not grow that hit circle.
+                    .frame(width: handleHitRadius * 2, height: handleHitRadius * 2)
+                    .contentShape(Circle())
                     .gesture(dragGesture(for: point, plot: plot))
                     .onHover { hovering in
                         hoveringPointID = hovering ? point.id : nil
                     }
+                    .overlay(handleLabel(for: point, visible: isHighlighted), alignment: .center)
                     .help(fanBarFormat(
                         "%.0f°C · %.0f%%",
                         "%.0f°C · %.0f%%",
@@ -592,6 +577,7 @@ struct FanCurveCanvas: View {
                     .accessibilityAction(named: Text(fanBarText("转速降低", "Decrease fan speed"))) {
                         nudge(point: point, fractionDelta: -0.01)
                     }
+                    .position(position(celsius: point.celsius, fraction: point.fraction, plot: plot))
                 }
             }
             .contentShape(Rectangle())
@@ -696,7 +682,9 @@ struct FanCurveCanvas: View {
         }
     }
 
-    private func plotRect(in size: CGSize) -> CGRect {
+    /// Plot frame inside a canvas of `size`. Shared with the selection test so
+    /// a press lands on the same point the gesture uses.
+    static func plotRect(in size: CGSize) -> CGRect {
         CGRect(
             x: yAxisWidth,
             y: plotTopInset,
@@ -754,8 +742,8 @@ struct FanCurveCanvas: View {
                 Text("\(percent)%")
                     .font(.system(size: 9).monospacedDigit())
                     .foregroundColor(.secondary)
-                    .frame(width: yAxisWidth - 4, alignment: .trailing)
-                    .position(x: yAxisWidth / 2 - 1, y: y)
+                    .frame(width: Self.yAxisWidth - 4, alignment: .trailing)
+                    .position(x: Self.yAxisWidth / 2 - 1, y: y)
             }
 
             // X-axis: full temperature scale (30°C … 100°C)
@@ -768,12 +756,39 @@ struct FanCurveCanvas: View {
                 Text("\(Int(celsius))°C")
                     .font(.system(size: 9).monospacedDigit())
                     .foregroundColor(.secondary)
-                    .position(x: x, y: plot.maxY + xAxisHeight / 2)
+                    .position(x: x, y: plot.maxY + Self.xAxisHeight / 2)
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    /// The value chip drawn beside a hovered or dragged handle. An overlay,
+    /// rather than a sibling in the handle stack, so it cannot enlarge the
+    /// 28 pt hit circle.
+    @ViewBuilder
+    private func handleLabel(for point: FanCurvePoint, visible: Bool) -> some View {
+        if visible {
+            Text(fanBarFormat(
+                "%.0f°C · %.0f%%",
+                "%.0f°C · %.0f%%",
+                point.celsius,
+                point.fraction * 100
+            ))
+            .font(.system(size: 9).monospacedDigit())
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule().fill(Color(NSColor.windowBackgroundColor).opacity(0.94))
+            )
+            // The overlay proposes the 28 pt handle. Without this the padded
+            // text is squeezed into that square and wraps.
+            .fixedSize()
+            .offset(y: point.fraction > 0.85 ? 21 : -21)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     /// Gives VoiceOver users the same precise one-unit edits available in the
