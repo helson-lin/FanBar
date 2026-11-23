@@ -315,6 +315,26 @@ final class SMCFanDriverTests: XCTestCase {
         XCTAssertEqual(smc.rpm("F1Tg"), 0)
     }
 
+    func testAFanLeftInLegacyForcedModeIsHeldAtItsMinimum() {
+        let smc = FakeSMC.appleSilicon()
+        smc.set("F0md", bytes: [2])
+        smc.set("F1md", bytes: [2])
+        smc.set("F0Tg", rpm: 4_000)
+        smc.set("F1Tg", rpm: 4_000)
+        smc.failWrites(to: "F0md", code: badCommand)
+        smc.failWrites(to: "F1md", code: badCommand)
+
+        XCTAssertThrowsError(try driver(smc).restoreAutomatic()) { error in
+            guard case FanHardwareError.operation("F0md", badCommand) = error else {
+                return XCTFail("Unexpected error \(error)")
+            }
+        }
+        XCTAssertEqual(smc.bytes("F0md"), [2])
+        XCTAssertEqual(smc.bytes("F1md"), [2])
+        XCTAssertEqual(smc.rpm("F0Tg"), 1_200, "A fan still forced on was stopped")
+        XCTAssertEqual(smc.rpm("F1Tg"), 1_300)
+    }
+
     func testReleasingTheDriverRestoresAutomatic() throws {
         let smc = FakeSMC.appleSilicon()
         do {

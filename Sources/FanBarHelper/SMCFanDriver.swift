@@ -337,15 +337,18 @@ final class SMCFanDriver {
 
     /// Some SMCs refuse a mode of 0 while `Ftst` is still set. Once `Ftst` is
     /// cleared, macOS may already have taken the fan back, or the write goes
-    /// through. A fan still in manual mode is held at its minimum, never at a
-    /// target of 0, which would keep it stopped however hot the Mac gets.
+    /// through. Mode 0 (automatic) and mode 3 (system, the state macOS reports
+    /// while it already holds the fans) count as released. Any other mode that
+    /// still refuses 0 is held at its minimum, never at a target of 0, which
+    /// would keep it stopped however hot the Mac gets.
     private func handBackRefusedFans(_ refused: [Int: Error], modes: [ModeControl]) -> Error? {
         guard !refused.isEmpty, case .perFan(let format)? = modes.first else { return nil }
         Thread.sleep(forTimeInterval: unlockTiming.settle)
         var firstError: Error?
         for (index, error) in refused.sorted(by: { $0.key < $1.key }) {
             let key = String(format: format, index)
-            let released = (try? isManualMode(fan: index)) == false
+            let mode = (try? store.read(key)).flatMap { Self.bytes(of: $0).first }
+            let released = Self.macOSHoldsFan(mode: mode)
                 || (try? writeBytes(key, bytes: [0])) != nil
             if released {
                 try? writeFloat("F\(index)Tg", value: 0)
@@ -359,6 +362,13 @@ final class SMCFanDriver {
             Self.log.error("Fan \(index) stayed in manual mode; holding it at its minimum")
         }
         return firstError
+    }
+
+    /// Mode 0 is automatic. Mode 3 is the system state Apple Silicon reports
+    /// once macOS holds the fans. Mode 1 is manual, and mode 2 is the legacy
+    /// forced value; neither is treated as released.
+    private static func macOSHoldsFan(mode: UInt8?) -> Bool {
+        mode == 0 || mode == 3
     }
 
     private func enableManualMode(fan index: Int) throws {
