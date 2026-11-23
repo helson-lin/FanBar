@@ -233,9 +233,12 @@ jobs:
             (cd dist && shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256") || exit 1
           done
 
+      - name: Test Sparkle appcast generation
+        run: python3 -m unittest discover -s Tests -p test_localize_appcast.py
+
       - name: Generate signed Sparkle appcast
+        shell: zsh -eo pipefail {0}
         run: |
-          python3 -m unittest discover -s Tests -p test_localize_appcast.py
           updates_dir="${RUNNER_TEMP}/fanbar-updates"
           mkdir -p "${updates_dir}"
           # Sparkle updates only ship the universal DMG; the arch-specific
