@@ -345,7 +345,7 @@ final class SMCFanDriver {
         var firstError: Error?
         for (index, error) in refused.sorted(by: { $0.key < $1.key }) {
             let key = String(format: format, index)
-            let released = (try? store.read(key)).map { Self.bytes(of: $0).first == 0 } == true
+            let released = (try? isManualMode(fan: index)) == false
                 || (try? writeBytes(key, bytes: [0])) != nil
             if released {
                 try? writeFloat("F\(index)Tg", value: 0)
