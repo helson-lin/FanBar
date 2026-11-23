@@ -9,8 +9,7 @@ final class SoftwareUpdateController {
 
     private let updaterController: SPUStandardUpdaterController
     // Sparkle holds its delegate weakly, so the controller keeps it alive.
-    // swiftlint:disable:next weak_delegate
-    private let feedDelegate = UsageFeedDelegate(statistics: .shared)
+    private let usageReporter = UsageFeedDelegate(statistics: .shared)
     private var isStarted = false
     /// Opting in asked for a report while another check was running.
     private var wantsUsageReport = false
@@ -18,10 +17,10 @@ final class SoftwareUpdateController {
     private init() {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: false,
-            updaterDelegate: feedDelegate,
+            updaterDelegate: usageReporter,
             userDriverDelegate: nil
         )
-        feedDelegate.onUpdateCycleFinished = { [weak self] in
+        usageReporter.onUpdateCycleFinished = { [weak self] in
             // Only a report deferred by a busy updater retries here, once; a failed
             // check never loops. Sparkle allows the next check after this returns.
             guard self?.wantsUsageReport == true else { return }
