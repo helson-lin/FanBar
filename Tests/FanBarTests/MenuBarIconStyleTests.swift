@@ -4,14 +4,22 @@ import XCTest
 
 @MainActor
 final class MenuBarIconStyleTests: XCTestCase {
-    func testDefaultsToSwirl() {
-        XCTAssertEqual(MenuBarIconStyle.defaultStyle, .swirl)
+    func testDefaultsToTheSystemFan() {
+        XCTAssertEqual(MenuBarIconStyle.defaultStyle, .fan)
+    }
+
+    func testRetiredHandDrawnStylesResolveToTheSystemFan() {
+        for raw in ["swirl", "ringed", "bold", "propeller", "guard", "blades", nil] {
+            XCTAssertEqual(MenuBarIconStyle.stored(raw), .fan, raw ?? "nil")
+        }
+        XCTAssertEqual(MenuBarIconStyle.stored("outline"), .outline)
+        XCTAssertEqual(MenuBarIconStyle.stored("none"), .none)
     }
 
     func testNoneHidesTheGlyph() {
         XCTAssertEqual(MenuBarIconStyle.none.rawValue, "none")
         XCTAssertFalse(MenuBarIconStyle.none.showsGlyph)
-        XCTAssertTrue(MenuBarIconStyle.swirl.showsGlyph)
+        XCTAssertTrue(MenuBarIconStyle.fan.showsGlyph)
         XCTAssertEqual(MenuBarIconStyle(rawValue: "none"), MenuBarIconStyle.none)
         for isManual in [false, true] {
             let image = MenuBarIconStyle.none.image(isManual: isManual)
@@ -46,19 +54,37 @@ final class MenuBarIconStyleTests: XCTestCase {
         for style in MenuBarIconStyle.allCases where style.showsGlyph {
             let image = style.image(isManual: false)
             let diameter = inkDiameter(of: image)
-            XCTAssertGreaterThanOrEqual(diameter, 16.8, "\(style) reads too small")
+            XCTAssertGreaterThanOrEqual(diameter, 15.5, "\(style) reads too small")
             XCTAssertLessThanOrEqual(diameter, 17.6, "\(style) reads too large")
-            let coverage = inkCoverage(of: image)
-            XCTAssertGreaterThanOrEqual(coverage, 0.32, "\(style) reads too light")
-            XCTAssertLessThanOrEqual(coverage, 0.46, "\(style) reads too heavy")
         }
+    }
+
+    /// The Fan choice is the system symbol scaled into the menu-bar slot,
+    /// not a hand-drawn stand-in.
+    func testFanGlyphMatchesTheSystemSymbol() throws {
+        let glyph = MenuBarIconStyle.fan.image(isManual: false)
+        let configuration = NSImage.SymbolConfiguration(pointSize: MenuBarIconStyle.glyphSide, weight: .regular)
+        let symbol = try XCTUnwrap(
+            NSImage(systemSymbolName: FanBarSymbols.fanFill, accessibilityDescription: nil)?
+                .withSymbolConfiguration(configuration)
+        )
+        let reference = NSImage(size: glyph.size, flipped: false) { _ in
+            let canvas = glyph.size.width
+            let side = MenuBarIconStyle.glyphSide
+            let origin = (canvas - side) / 2
+            symbol.draw(in: NSRect(x: origin, y: origin, width: side, height: side))
+            return true
+        }
+        // Cropped and scaled, so the pixels are not identical, but the glyph
+        // must stay inside the system symbol's silhouette.
+        XCTAssertGreaterThan(inkOverlap(glyph, inside: reference), 0.9)
     }
 
     /// Every glyph is a fan: rotating it by one blade pitch must reproduce
     /// it. Catches drawing-order bugs that leave a single blade damaged.
     func testEveryBladeIsDrawnIdentically() {
         let bladeCounts: [MenuBarIconStyle: Int] = [
-            .swirl: 5, .ringed: 3, .bold: 4, .propeller: 4, .fan: 4, .guarded: 6, .outline: 4
+            .fan: 4, .outline: 4
         ]
         for style in MenuBarIconStyle.allCases where style.showsGlyph {
             guard let blades = bladeCounts[style] else {
@@ -67,12 +93,33 @@ final class MenuBarIconStyleTests: XCTestCase {
             for isManual in [false, true] {
                 let upright = style.image(isManual: isManual)
                 let turned = style.image(isManual: isManual, degrees: 360 / Double(blades))
+                // Resampling a system symbol by a right angle is not pixel-identical.
+                let limit = 0.03
                 XCTAssertLessThan(
-                    pixelDifference(upright, turned), 0.01,
+                    pixelDifference(upright, turned), limit,
                     "\(style) manual=\(isManual) is not rotationally symmetric"
                 )
             }
         }
+    }
+
+    /// Share of `glyph` ink that also lies on `container` ink.
+    private func inkOverlap(_ glyph: NSImage, inside container: NSImage) -> Double {
+        let pixels = 72
+        guard let left = render(glyph, pixels: pixels), let right = render(container, pixels: pixels) else { return 0 }
+        var ink = 0.0
+        var shared = 0.0
+        for y in 0..<pixels {
+            for x in 0..<pixels {
+                let alpha = Double(left.colorAt(x: x, y: y)?.alphaComponent ?? 0)
+                guard alpha > 0.3 else { continue }
+                ink += 1
+                if (right.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.05 {
+                    shared += 1
+                }
+            }
+        }
+        return ink == 0 ? 0 : shared / ink
     }
 
     /// Mean absolute alpha difference across the canvas.

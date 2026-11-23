@@ -39,7 +39,7 @@ final class MenuBarIconAnimatorTests: XCTestCase {
 
     func testNoneDoesNotSpinOrFlash() {
         let (animator, button) = makeAnimator()
-        animator.update(rpm: 1_850, on: button, style: .swirl, isManual: false)
+        animator.update(rpm: 1_850, on: button, style: .fan, isManual: false)
         XCTAssertTrue(animator.isAnimating)
 
         animator.update(rpm: 1_850, on: button, style: .none, isManual: true)
@@ -98,11 +98,11 @@ final class MenuBarIconAnimatorTests: XCTestCase {
 
     func testDisabledFeedbackRestoresTheStillIcon() {
         let (animator, button) = makeAnimator(reduceMotion: false)
-        let still = MenuBarIconAnimator.staticIcon(style: .ringed, isManual: true)
+        let still = MenuBarIconAnimator.staticIcon(style: .outline, isManual: true)
 
         MenuBarIconUpdate.apply(
             .init(
-                style: .ringed,
+                style: .outline,
                 showsGlyph: true,
                 switchFeedbackEnabled: false,
                 rpm: 1_850,
@@ -119,11 +119,11 @@ final class MenuBarIconAnimatorTests: XCTestCase {
 
     func testEnabledFeedbackWithoutMotionUsesTheStillIcon() {
         let (animator, button) = makeAnimator(reduceMotion: false)
-        let still = MenuBarIconAnimator.staticIcon(style: .swirl, isManual: false)
+        let still = MenuBarIconAnimator.staticIcon(style: .fan, isManual: false)
 
         MenuBarIconUpdate.apply(
             .init(
-                style: .swirl,
+                style: .fan,
                 showsGlyph: true,
                 switchFeedbackEnabled: true,
                 rpm: 0,

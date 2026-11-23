@@ -65,7 +65,10 @@ struct MenuBarIconStylePicker: View {
                     "The hub turns solid while FanBar controls the fans. None hides the icon."
                 )
             )
-            Picker(fanBarText("菜单栏图标", "Menu bar icon"), selection: $selectedRawValue) {
+            Picker(fanBarText("菜单栏图标", "Menu bar icon"), selection: Binding(
+                get: { MenuBarIconStyle.stored(selectedRawValue).rawValue },
+                set: { selectedRawValue = $0 }
+            )) {
                 ForEach(MenuBarIconStyle.allCases) { style in
                     HStack {
                         if style.showsGlyph {
