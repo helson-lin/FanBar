@@ -69,15 +69,10 @@ final class FanCurvePointSelectionTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     }
 
-    /// Same insets and domain as `FanCurveCanvas`. A press has to land on the
-    /// handle's center, well clear of the other 14 pt hit circles.
+    /// Same plot frame and domain as `FanCurveCanvas`. A press has to land on
+    /// the handle's center, well clear of the other 14 pt hit circles.
     private func handleCenter(of point: FanCurvePoint, canvasSize: CGSize) -> CGPoint {
-        let plot = CGRect(
-            x: 36,
-            y: 6,
-            width: canvasSize.width - 36 - 8,
-            height: canvasSize.height - 6 - 22
-        )
+        let plot = FanCurveCanvas.plotRect(in: canvasSize)
         let minimumCelsius = FanCurveProfile.minimumCelsius
         let maximumCelsius = FanCurveProfile.maximumCelsius
         let x = plot.minX + CGFloat(
