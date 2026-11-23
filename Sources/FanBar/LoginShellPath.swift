@@ -19,13 +19,19 @@ enum LoginShellPath {
     /// Runs an interactive login shell once to print its environment. Blocks
     /// for up to `timeout`; call it off the main thread.
     static func read(timeout: TimeInterval = 5) -> String? {
+        run(shell: URL(fileURLWithPath: userShell()), timeout: timeout)
+    }
+
+    static func run(shell: URL, timeout: TimeInterval) -> String? {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: userShell())
+        process.executableURL = shell
         // Separate flags: fish does not accept a combined `-ilc`.
         process.arguments = ["-i", "-l", "-c", "/usr/bin/env"]
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        let output = Pipe()
+        guard let outputFile = createOutputFile() else { return nil }
+        defer { try? FileManager.default.removeItem(at: outputFile.url) }
+        let output = outputFile.handle
         process.standardOutput = output
         do {
             try process.run()
@@ -38,11 +44,30 @@ enum LoginShellPath {
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
         process.waitUntilExit()
         watchdog.cancel()
-        // A background job the rc files started may still hold the pipe open,
-        // so read what is buffered without waiting for end-of-file.
-        let data = drain(output.fileHandleForReading.fileDescriptor)
-        guard let text = String(bytes: data, encoding: .utf8) else { return nil }
+        try? output.close()
+        guard let data = try? Data(contentsOf: outputFile.url),
+              let text = String(bytes: data, encoding: .utf8)
+        else {
+            return nil
+        }
         return path(fromEnvironmentOutput: text)
+    }
+
+    /// An empty file for the login shell's environment. The mode is `0600` at
+    /// creation: `createFile` without attributes follows the umask and lands on
+    /// `0644`, and a later chmod would leave a window where the file is wider.
+    static func createOutputFile(
+        directory: URL = FileManager.default.temporaryDirectory
+    ) -> OutputFile? {
+        let url = directory.appendingPathComponent("fanbar-login-shell-\(UUID().uuidString)")
+        let descriptor = Darwin.open(url.path, O_CREAT | O_EXCL | O_WRONLY, 0o600)
+        guard descriptor >= 0 else { return nil }
+        return OutputFile(url: url, handle: FileHandle(fileDescriptor: descriptor, closeOnDealloc: true))
+    }
+
+    struct OutputFile {
+        let url: URL
+        let handle: FileHandle
     }
 
     /// The last `PATH=` line: rc files may print banners before `env` runs.
@@ -92,17 +117,5 @@ enum LoginShellPath {
             if FileManager.default.isExecutableFile(atPath: path) { return path }
         }
         return "/bin/zsh"
-    }
-
-    private static func drain(_ descriptor: Int32) -> Data {
-        _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
-        var data = Data()
-        var buffer = [UInt8](repeating: 0, count: 4_096)
-        while true {
-            let count = buffer.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
-            guard count > 0 else { break }
-            data.append(contentsOf: buffer[0..<count])
-        }
-        return data
     }
 }

@@ -23,6 +23,7 @@
 		8EE0B39526B24D2C17C1C62F /* KoreanCatalog+Compatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */; };
 		CD53A770E0712CF21F479D86 /* KoreanCatalog+Control.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */; };
 		C097E9DCCF9CBAEADCA318CF /* KoreanCatalog+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */; };
+		8A5995E693FC4143B61CA336 /* KoreanCatalog+Usage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB4EA73381C49509D30D5CF /* KoreanCatalog+Usage.swift */; };
 		330E2784CA4600970CCF82DD /* KoreanCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8E99F7C8C07F5C4BDD4BC9 /* KoreanCatalog.swift */; };
 /* End PBXBuildFile section */
 
@@ -73,6 +74,7 @@
 		4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Compatibility.swift"; sourceTree = "<group>"; };
 		B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Control.swift"; sourceTree = "<group>"; };
 		D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Settings.swift"; sourceTree = "<group>"; };
+		2BB4EA73381C49509D30D5CF /* KoreanCatalog+Usage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog+Usage.swift"; sourceTree = "<group>"; };
 		8E8E99F7C8C07F5C4BDD4BC9 /* KoreanCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KoreanCatalog.swift"; sourceTree = "<group>"; };
 		71F630F327FAC84F3BCBB38D /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -130,6 +132,7 @@
 				D56F29DA24568E05FD051D80 /* KoreanCatalog+Settings.swift */,
 				B7E52062D58CB5C56F70E328 /* KoreanCatalog+Control.swift */,
 				4B790CC676AAD7A60EB012C7 /* KoreanCatalog+Compatibility.swift */,
+				2BB4EA73381C49509D30D5CF /* KoreanCatalog+Usage.swift */,
 			);
 			path = FanBarShared;
 			sourceTree = "<group>";
@@ -341,6 +344,7 @@
 				C097E9DCCF9CBAEADCA318CF /* KoreanCatalog+Settings.swift in Sources */,
 				CD53A770E0712CF21F479D86 /* KoreanCatalog+Control.swift in Sources */,
 				8EE0B39526B24D2C17C1C62F /* KoreanCatalog+Compatibility.swift in Sources */,
+				8A5995E693FC4143B61CA336 /* KoreanCatalog+Usage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

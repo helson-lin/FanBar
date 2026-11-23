@@ -106,7 +106,8 @@ extension KoreanCatalog {
         "Increase temperature": "온도 높이기",
         "Interface language": "인터페이스 언어",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "화면 상단의 메뉴 막대에 표시되며 Dock에는 나타나지 않습니다.",
-        "Keep the menu bar minimal with only the current mode icon.": "현재 모드 아이콘만 표시하여 메뉴 막대를 간결하게 유지합니다.",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "메뉴 막대를 간결하게 유지하고 아이콘만 표시합니다. 아이콘이 없음이면 FanBar라고 표시합니다.",
         "Limits how far speed can change in one update.": "한 번 갱신할 때 변경할 수 있는 속도 폭을 제한합니다.",
         "macOS automatic control restored": "macOS 자동 제어로 복원됨",
         "Managed automatically by macOS": "macOS가 자동으로 관리",
@@ -204,19 +205,5 @@ extension KoreanCatalog {
         "Temperature": "온도",
         "Power": "전력",
         "%d W": "%d W",
-        "Share anonymous usage statistics": "익명 사용 통계 공유",
-        "Adds the install week, Mac model, macOS version and chip type to one update check per week. The service " +
-            "also records the country or region from your network location.":
-            "주 1회 업데이트 확인에 설치 주, Mac 모델, macOS 버전, 칩 종류를 추가합니다. " +
-            "서비스는 네트워크 위치에서 국가 또는 지역도 기록합니다.",
-        "With automatic checks off, only a manual update check is counted. It is counted by version only, unless " +
-            "this switch is on.":
-            "자동 확인을 끄면 수동 업데이트 확인만 집계됩니다. 이 스위치가 켜져 있지 않으면 버전별로만 집계됩니다.",
-        "What is collected": "수집되는 내용",
-        "Open the description of what is collected in a browser": "수집되는 내용의 설명을 브라우저에서 열기",
-        "Share anonymous usage statistics?": "익명 사용 통계를 공유할까요?",
-        "You can change this later in Settings, under General.": "나중에 설정의 일반에서 변경할 수 있습니다.",
-        "Share": "공유",
-        "No thanks": "공유 안 함",
     ]
 }

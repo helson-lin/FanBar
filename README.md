@@ -146,7 +146,7 @@ General includes local device compatibility checks, control-service status, auto
 ## ✨ Highlights
 
 - **At-a-glance status** — Show the menu-bar icon, CPU temperature, average fan RPM, or both — side by side or stacked to save menu bar width.
-- **Seven menu bar icons** — Choose Swirl, Ringed, Bold, Propeller, Fan, Guard, or Outline; all are optically matched to system icons, and the hub turns solid while FanBar controls the fans. The icon spins with the fans and coasts to a stop when they halt; turn this off in **Settings → Appearance** to keep it still and save a little CPU.
+- **Menu bar icons** — Choose Swirl, Ringed, Bold, Propeller, Fan, Guard, Outline, or None to hide the glyph and show only the reading. The drawn icons are optically matched to system icons, and the hub turns solid while FanBar controls the fans. A drawn icon spins with the fans and coasts to a stop when they halt; turn this off in **Settings → Appearance** to keep it still and save a little CPU.
 - **Desktop widget** — On macOS 14 or later, add FanBar to the desktop to see average RPM, per-fan speeds, CPU temperature, and control mode. WidgetKit refreshes are system-scheduled and are not second-by-second.
 - **Live visualization** — Each fan leads with its RPM and speed band on a 0-to-max meter. A compact grid shows CPU, GPU, memory, and disk load, colored green, orange, or red by level, with disk judged by free space. Monitor CPU/GPU temperatures plus SSD and battery temperatures when the Mac exposes them, with a rolling ten-minute chart.
 - **Multiple cooling modes** — Restore macOS automatic control, set a target RPM, or choose the Silent, Balanced, Performance, or Extreme panel preset.

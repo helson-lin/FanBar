@@ -381,7 +381,8 @@ enum FrenchCatalog {
         "Increase temperature": "Augmenter la température",
         "Interface language": "Langue de l’interface",
         "It lives in the menu bar at the top of your screen and does not appear in the Dock.": "L’app se trouve dans la barre des menus en haut de l’écran et n’apparaît pas dans le Dock.",
-        "Keep the menu bar minimal with only the current mode icon.": "Gardez une barre des menus épurée avec seulement l’icône du mode actuel.",
+        "Keep the menu bar minimal: only the icon, or FanBar when the icon is None.":
+            "Gardez une barre des menus épurée : seulement l’icône, ou FanBar lorsque l’icône est « Aucun ».",
         "Limits how far speed can change in one update.": "Limite la variation de vitesse à chaque mise à jour.",
         "macOS automatic control restored": "Gestion automatique de macOS rétablie",
         "Managed automatically by macOS": "Gestion automatique par macOS",
@@ -487,7 +488,7 @@ enum FrenchCatalog {
         "Now": "Maintenant",
         "That RPM is outside the fans' supported range": "Ce régime est en dehors de la plage prise en charge par les ventilateurs",
         "The fan control service did not respond. Reauthorize it or restart FanBar.": "Le service de contrôle des ventilateurs n’a pas répondu. Autorisez-le à nouveau ou redémarrez FanBar.",
-        "The hub turns solid while FanBar controls the fans.": "Le centre devient plein lorsque FanBar contrôle les ventilateurs.",
+        "The hub turns solid while FanBar controls the fans. None hides the icon.": "Le centre devient plein lorsque FanBar contrôle les ventilateurs. « Aucun » masque l’icône.",
         "The icon spins with the fans and coasts to a stop when they halt.": "L’icône tourne avec les ventilateurs et ralentit jusqu’à l’arrêt quand ils s’arrêtent.",
         "The menu panel shows up to two presets. Uncheck one to choose another.": "Le panneau du menu affiche au plus deux profils. Décochez-en un pour en choisir un autre.",
         "This Mac did not return readable fan data.": "Ce Mac n’a renvoyé aucune donnée de ventilateur lisible.",

@@ -8,8 +8,20 @@ final class MenuBarIconStyleTests: XCTestCase {
         XCTAssertEqual(MenuBarIconStyle.defaultStyle, .swirl)
     }
 
+    func testNoneHidesTheGlyph() {
+        XCTAssertEqual(MenuBarIconStyle.none.rawValue, "none")
+        XCTAssertFalse(MenuBarIconStyle.none.showsGlyph)
+        XCTAssertTrue(MenuBarIconStyle.swirl.showsGlyph)
+        XCTAssertEqual(MenuBarIconStyle(rawValue: "none"), MenuBarIconStyle.none)
+        for isManual in [false, true] {
+            let image = MenuBarIconStyle.none.image(isManual: isManual)
+            XCTAssertEqual(image.size, .zero)
+            XCTAssertTrue(image.isTemplate)
+        }
+    }
+
     func testEveryStyleRendersATemplateOnTheSharedCanvas() {
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             let image = style.image(isManual: false)
             XCTAssertTrue(image.isTemplate, "\(style)")
             XCTAssertEqual(image.size, NSSize(width: MenuBarIconStyle.canvasSide, height: MenuBarIconStyle.canvasSide), "\(style)")
@@ -19,7 +31,7 @@ final class MenuBarIconStyleTests: XCTestCase {
 
     /// Manual control must change the silhouette, not just a tint.
     func testManualModeAddsInkAtTheHub() {
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             let automatic = inkCoverage(of: style.image(isManual: false))
             let manual = inkCoverage(of: style.image(isManual: true))
             XCTAssertGreaterThan(manual, automatic, "\(style)")
@@ -31,7 +43,7 @@ final class MenuBarIconStyleTests: XCTestCase {
     /// ring reads larger than an open pinwheel of equal diameter — so styles
     /// are tuned against ink extent and ink coverage within these bands.
     func testStylesShareOpticalSizeAndWeight() {
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             let image = style.image(isManual: false)
             let diameter = inkDiameter(of: image)
             XCTAssertGreaterThanOrEqual(diameter, 16.8, "\(style) reads too small")
@@ -48,7 +60,7 @@ final class MenuBarIconStyleTests: XCTestCase {
         let bladeCounts: [MenuBarIconStyle: Int] = [
             .swirl: 5, .ringed: 3, .bold: 4, .propeller: 4, .fan: 4, .guarded: 6, .outline: 4
         ]
-        for style in MenuBarIconStyle.allCases {
+        for style in MenuBarIconStyle.allCases where style.showsGlyph {
             guard let blades = bladeCounts[style] else {
                 return XCTFail("add \(style) to bladeCounts")
             }

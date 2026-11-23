@@ -20,11 +20,22 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
     case guarded = "guard"
     /// Line art: four outlined petals inside a thin ring.
     case outline
+    /// No glyph. The status item keeps its reading, so the menu bar can show
+    /// temperature or fan speed without an icon (issue #173).
+    case none
 
     static let preferenceKey = "fanbar.menuBarIconStyle"
     static let defaultStyle = MenuBarIconStyle.swirl
 
     var id: String { rawValue }
+
+    /// `none` is a choice, not a drawing. Callers skip the glyph and its spin.
+    var showsGlyph: Bool {
+        switch self {
+        case .none: false
+        default: true
+        }
+    }
 
     static var current: MenuBarIconStyle {
         UserDefaults.standard.string(forKey: preferenceKey).flatMap(MenuBarIconStyle.init) ?? defaultStyle
@@ -39,6 +50,7 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
         case .fan: fanBarText("风扇", "Fan")
         case .guarded: fanBarText("护罩", "Guard")
         case .outline: fanBarText("线条", "Outline")
+        case .none: fanBarText("无", "None")
         }
     }
 
@@ -54,6 +66,11 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
     /// Renders a template frame. Manual control is marked by shape — a solid
     /// hub — never by tint alone, since menu bar extras are monochrome.
     func image(isManual: Bool, degrees: Double = 0, alpha: CGFloat = 1) -> NSImage {
+        guard showsGlyph else {
+            let image = NSImage(size: .zero)
+            image.isTemplate = true
+            return image
+        }
         let side = Self.canvasSide
         let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
             guard let context = NSGraphicsContext.current else { return false }
@@ -79,6 +96,8 @@ enum MenuBarIconStyle: String, CaseIterable, Identifiable {
     /// Draws around the origin; `unit` scales the 17pt design grid.
     private func draw(isManual: Bool, unit u: CGFloat) {
         switch self {
+        case .none:
+            return
         case .swirl:
             // Wide, long blades: thin crescents left the glyph reading light
             // and small beside other extras even at full canvas size.
