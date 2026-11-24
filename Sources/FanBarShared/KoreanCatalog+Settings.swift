@@ -90,7 +90,7 @@ extension KoreanCatalog {
         "FanBar Settings": "FanBar 설정",
         "FanBar, %@": "FanBar, %@",
         "FanBar, %@ mode": "FanBar, %@ 모드",
-        "Fixed": "고정",
+        "Manual": "수동",
         "Fixed RPM": "고정 RPM",
         "Fixed target: %d RPM": "목표 속도: %d RPM",
         "General": "일반",

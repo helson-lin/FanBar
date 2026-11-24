@@ -59,10 +59,12 @@ enum HandBackWarning {
 /// The name of the mode being handed back, as the user picked it.
 @MainActor
 enum ControlNoticeText {
+    static var fixedModeName: String { fanBarText("手动", "Manual") }
+
     static func modeName(_ mode: ResumableMode, controller: FanController) -> String {
         switch mode {
         case .preset(let id): controller.presetTitle(for: id)
-        case .fixed: fanBarText("固定转速", "Fixed speed")
+        case .fixed: fixedModeName
         }
     }
 

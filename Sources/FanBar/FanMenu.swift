@@ -480,7 +480,7 @@ struct FanMenu: View {
     private var modeOptions: [(id: ModeOption, title: String)] {
         [(ModeOption.automatic, fanBarText("自动", "Auto"))]
             + visibleCoolingPresets.map { (ModeOption.preset($0.id), $0.title) }
-            + [(ModeOption.fixed, fanBarText("固定", "Fixed"))]
+            + [(ModeOption.fixed, ControlNoticeText.fixedModeName)]
     }
 
     private var selectedMode: ModeOption {

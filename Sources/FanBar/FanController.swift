@@ -206,10 +206,7 @@ final class FanController: ObservableObject {
     @Published private(set) var customPresets: [CustomCoolingPreset]
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
     /// Last RPM the user entered by hand; offered again in the Fixed menu.
-    @Published private(set) var customFixedRPM: Int? = {
-        let stored = UserDefaults.standard.integer(forKey: FanController.customFixedRPMKey)
-        return stored > 0 ? stored : nil
-    }()
+    @Published private(set) var customFixedRPM: Int? = FixedRPMPreference.load()
 
     @Published private(set) var highTemperatureThresholdCelsius = ThermalAlertSettings.thresholdCelsius
     @Published private(set) var highTemperatureAlertSound = ThermalAlertSettings.sound
@@ -843,7 +840,6 @@ final class FanController: ObservableObject {
         helperService.openSettings()
     }
 
-    static let customFixedRPMKey = "fanbar.customFixedRPM"
     static let fixedRPMPresets = [2500, 3500, 4500, 5500]
 
     /// The RPM range every fan can hold: from the highest fan minimum to the
@@ -901,15 +897,14 @@ final class FanController: ObservableObject {
         Task {
             do {
                 await finishPendingCurveUpdate()
-                try await helperClient.setAllFans(rpm: rpm)
+                try await FixedRPMPreference.apply(rpm) { target in
+                    try await helperClient.setAllFans(rpm: target)
+                }
                 manualControlFailure = nil
                 manualControlEvidence = .requestSucceeded
                 mode = .fixed(rpm)
-                // Remember hand-entered values only once they actually applied.
-                if !Self.fixedRPMPresets.contains(rpm) {
-                    customFixedRPM = rpm
-                    UserDefaults.standard.set(rpm, forKey: Self.customFixedRPMKey)
-                }
+                // Remember the accepted target, including values that match a preset.
+                customFixedRPM = rpm
                 clearTemperatureCurveState()
                 if resetsAutomaticRestore {
                     scheduleAutomaticRestore()
