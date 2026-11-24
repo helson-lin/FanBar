@@ -62,8 +62,10 @@ struct RaycastRow: View {
                 Button(fanBarText("获取 Raycast…", "Get Raycast…")) {
                     NSWorkspace.shared.open(RaycastScriptsInstaller.downloadURL)
                 }
+                .fixedSize()
             case .ready, .copied:
                 Button(fanBarText("在 Raycast 中设置…", "Set Up in Raycast…"), action: installer.setUp)
+                    .fixedSize()
             case .unavailable:
                 EmptyView()
             }

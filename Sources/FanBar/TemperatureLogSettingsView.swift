@@ -171,6 +171,7 @@ private struct TemperatureLogOverviewCard: View {
             Button(fanBarText("用表格打开", "Open Spreadsheet")) {
                 NSWorkspace.shared.open(directory.appendingPathComponent(fileName))
             }
+            .fixedSize()
             .help(fanBarText("用 Numbers 或 Excel 打开正在记录的文件", "Opens the current file in Numbers or Excel"))
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([directory.appendingPathComponent(fileName)])
@@ -201,7 +202,9 @@ private struct TemperatureLogOverviewCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .help(fanBarText("写入失败，请检查文件夹权限。", "Writing failed. Check the folder’s permissions."))
             Button(fanBarText("重试", "Retry")) { controller.temperatureLog.retryNow() }
+                .fixedSize()
             Button(fanBarText("更换位置…", "Change Location…")) { TemperatureLogFolderPicker.choose() }
+                .fixedSize()
         }
         .settingsRow()
         .background(palette.hot.opacity(0.07))

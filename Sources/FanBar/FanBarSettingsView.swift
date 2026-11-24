@@ -318,7 +318,6 @@ struct FanBarSettingsView: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
@@ -344,7 +343,6 @@ struct FanBarSettingsView: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
@@ -362,6 +360,7 @@ struct FanBarSettingsView: View {
             Button(fanBarText("检查更新…", "Check for Updates…")) {
                 updater.checkForUpdates()
             }
+            .fixedSize()
             Toggle(
                 fanBarText("自动检查更新", "Automatically check for updates"),
                 isOn: Binding(
@@ -507,6 +506,7 @@ struct ControlServiceBanner: View {
 
             if let actionTitle = state.actionTitle {
                 Button(actionTitle, action: controller.performHelperAction)
+                    .fixedSize()
             }
         }
         .padding(12)

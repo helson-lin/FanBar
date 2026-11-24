@@ -23,8 +23,6 @@ enum SettingsChrome {
     /// Inset of a highlighted choice inside its card; its corners stay
     /// concentric with the card's.
     static let choiceInset: CGFloat = 6
-    /// Shared width for trailing pop-up buttons so their leading edges align.
-    static let trailingControlMinWidth: CGFloat = 140
 
     static func sectionHeader(
         _ title: String,
@@ -43,7 +41,7 @@ enum SettingsChrome {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, rowHorizontalPadding)
     }
 
     static func sectionFooter(_ text: String) -> some View {
@@ -51,7 +49,7 @@ enum SettingsChrome {
             .font(.system(size: 11))
             .foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, rowHorizontalPadding)
             .padding(.top, 4)
     }
 

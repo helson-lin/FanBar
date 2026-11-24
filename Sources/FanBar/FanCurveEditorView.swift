@@ -290,6 +290,7 @@ struct FanCurveEditorView: View {
                     )
                 }
                 .controlSize(.small)
+                .fixedSize()
                 .disabled(profile.hasFactoryCurve(for: builtIn))
                 .help(fanBarText(
                     "恢复当前预设的默认曲线；可使用撤销恢复修改",

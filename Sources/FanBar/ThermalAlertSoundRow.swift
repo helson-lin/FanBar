@@ -41,7 +41,6 @@ struct ThermalAlertSoundRow: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
