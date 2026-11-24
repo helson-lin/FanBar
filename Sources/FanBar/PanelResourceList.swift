@@ -34,7 +34,6 @@ struct PanelResourceList: View {
     @Binding var expanded: Resource?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.focusedMenuBarResource) private var focusedResource
-    @State private var isDetailRevealed = false
 
     private var palette: PanelPalette { PanelPalette(colorScheme: colorScheme) }
 
@@ -53,22 +52,13 @@ struct PanelResourceList: View {
                 Group {
                     if detail == .disk {
                         diskDetail
+                            .panelDetailReveal(animates: animates)
                     } else {
                         PanelTopAppsDetail(snapshot: topApps, palette: palette) { setExpanded(nil) }
+                            .panelDetailReveal(animates: animates)
                     }
                 }
                 .padding(.vertical, PanelLayout.rowVerticalPadding)
-                // Height changes instantly (see setExpanded); only the drawing eases in.
-                .opacity(isDetailRevealed ? 1 : 0)
-                .scaleEffect(isDetailRevealed ? 1 : 0.98, anchor: .top)
-                .id(detail)
-                .onAppear {
-                    guard animates else {
-                        isDetailRevealed = true
-                        return
-                    }
-                    withAnimation(.easeOut(duration: 0.15)) { isDetailRevealed = true }
-                }
             }
         }
         .environment(\.locale, (FanBarLanguage(rawValue: languageRawValue) ?? .system).locale)
@@ -78,7 +68,6 @@ struct PanelResourceList: View {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            isDetailRevealed = false
             expanded = resource
         }
     }
