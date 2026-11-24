@@ -1,6 +1,12 @@
 import FanBarShared
 import SwiftUI
 
+enum MenuBarResourcePreviewLayout {
+    static let horizontalInset: CGFloat = 8
+    static let iconWidth: CGFloat = 14
+    static let contentSpacing: CGFloat = 3
+}
+
 /// A stylized menu bar with FanBar's live status label between the system
 /// items, so the display choice is judged in context.
 struct MenuBarPreviewStrip: View {
@@ -82,7 +88,6 @@ struct MenuBarIconStylePicker: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
@@ -149,11 +154,7 @@ private struct MenuBarResourceSettingsRow: View {
             .id(languageRawValue)
             .fixedSize()
             .disabled(!isOn)
-            resourcePreview(resource, style: style, usage: usage)
-                .frame(width: 65, alignment: .center)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.primary.opacity(0.06)))
-                .accessibilityHidden(true)
+            MenuBarResourcePreviewPill(resource: resource, style: style, usage: usage)
             Toggle(resource.title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -164,6 +165,32 @@ private struct MenuBarResourceSettingsRow: View {
             // that, so the picker has a selection.
             if MenuBarResourceStyle(rawValue: styleRawValue) == nil { styleRawValue = style.rawValue }
         }
+    }
+}
+
+/// Reserve the width of 100% without making short icon previews unnecessarily wide.
+struct MenuBarResourcePreviewPill: View {
+    let resource: MenuBarResource
+    let style: MenuBarResourceStyle
+    let usage: SystemUsage
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            resourcePreview(resource, style: style, usage: usage)
+            HStack(spacing: MenuBarResourcePreviewLayout.contentSpacing) {
+                if style == .icon {
+                    Color.clear.frame(width: MenuBarResourcePreviewLayout.iconWidth, height: 14)
+                }
+                Text(MenuBarResourceItemContent.make(resource, usage: usage, style: style).widestTitle)
+            }
+            .font(.system(size: 12, weight: .medium).monospacedDigit())
+            .hidden()
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, MenuBarResourcePreviewLayout.horizontalInset)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.primary.opacity(0.06)))
+        .accessibilityHidden(true)
     }
 }
 
@@ -192,11 +219,11 @@ private struct MenuBarResourcePreviewItem: View {
 }
 
 private func resourcePreview(_ resource: MenuBarResource, style: MenuBarResourceStyle, usage: SystemUsage) -> some View {
-    HStack(spacing: 3) {
+    HStack(spacing: MenuBarResourcePreviewLayout.contentSpacing) {
         if style == .icon {
             Image(nsImage: resource.icon)
                 .renderingMode(.template)
-                .frame(width: 14, height: 14)
+                .frame(width: MenuBarResourcePreviewLayout.iconWidth, height: 14)
         }
         Text(resource.text(for: usage, style: style))
     }

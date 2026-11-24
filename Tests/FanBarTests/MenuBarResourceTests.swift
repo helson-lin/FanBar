@@ -1,5 +1,6 @@
 import AppKit
 import FanBarShared
+import SwiftUI
 import XCTest
 @testable import FanBar
 
@@ -146,6 +147,30 @@ final class MenuBarResourceTests: XCTestCase {
         XCTAssertTrue(MenuBarResourceItemContent.make(.gpu, usage: usage, style: .icon).showsIcon)
         XCTAssertFalse(MenuBarResourceItemContent.make(.gpu, usage: usage, style: .label).showsIcon)
         XCTAssertEqual(MenuBarResourceItemContent.make(.gpu, usage: usage, style: .icon).widestTitle, "100%")
+    }
+
+    @MainActor
+    func testSettingsPreviewFitsThreeDigitValuesInEveryLanguageAndStyle() {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        for language in FanBarLanguage.allCases {
+            UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
+            for resource in MenuBarResource.allCases {
+                for style in MenuBarResourceStyle.allCases {
+                    let content = MenuBarResourceItemContent.make(resource, usage: SystemUsage(), style: style)
+                    let textWidth = (content.widestTitle as NSString).size(withAttributes: [.font: font]).width
+                    let iconWidth = content.showsIcon
+                        ? MenuBarResourcePreviewLayout.iconWidth + MenuBarResourcePreviewLayout.contentSpacing : 0
+                    let host = NSHostingView(rootView: MenuBarResourcePreviewPill(
+                        resource: resource, style: style, usage: SystemUsage()
+                    ))
+                    let width = host.fittingSize.width
+                    XCTAssertGreaterThanOrEqual(width + 1, textWidth + iconWidth + 2 * MenuBarResourcePreviewLayout.horizontalInset)
+                    if style == .icon {
+                        XCTAssertLessThan(width, 80, "Icon previews should remain compact")
+                    }
+                }
+            }
+        }
     }
 
     func testEachResourceHasItsOwnAutosaveName() {

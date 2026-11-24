@@ -67,7 +67,7 @@ struct FanBarSettingsView: View {
             VStack(alignment: .leading, spacing: currentTab == .general ? 24 : SettingsChrome.sectionSpacing) {
                 switch currentTab {
                 case .cooling: coolingTab
-                case .appearance: menuBarTab
+                case .appearance: menuBarTab.id(languageRawValue)
                 case .panel: panelTab
                 case .general: generalTab
                 case .log: logTab
@@ -318,7 +318,6 @@ struct FanBarSettingsView: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
@@ -344,7 +343,6 @@ struct FanBarSettingsView: View {
             }
             .labelsHidden()
             .id(languageRawValue)
-            .frame(minWidth: SettingsChrome.trailingControlMinWidth)
             .fixedSize()
         }
         .settingsRow()
@@ -362,6 +360,7 @@ struct FanBarSettingsView: View {
             Button(fanBarText("检查更新…", "Check for Updates…")) {
                 updater.checkForUpdates()
             }
+            .fixedSize()
             Toggle(
                 fanBarText("自动检查更新", "Automatically check for updates"),
                 isOn: Binding(

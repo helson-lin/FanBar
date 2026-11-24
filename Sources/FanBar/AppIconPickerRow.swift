@@ -33,12 +33,16 @@ struct AppIconPickerRow: View {
             isShowingPicker.toggle()
         } label: {
             HStack(spacing: 6) {
-                AppIconPreview(choice: selection, size: 36)
+                AppIconPreview(choice: selection, size: 26)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
+            .padding(.leading, 4)
+            .padding(.trailing, 6)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -28,6 +28,7 @@ struct CommandLineToolRow: View {
             }
             if let action {
                 Button(action.title, action: action.perform)
+                    .fixedSize()
                     .disabled(installer.isWorking)
             }
         }

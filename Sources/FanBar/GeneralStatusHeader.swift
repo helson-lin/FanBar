@@ -92,41 +92,44 @@ struct GeneralStatusHeader: View {
 
     var body: some View {
         let summary = summary
-        HStack(alignment: .top, spacing: 12) {
-            // A distinct symbol per state, so status never relies on color alone.
-            Image(systemName: summary.symbolName)
-                .font(.system(size: 20, weight: .regular))
-                .foregroundColor(tint(for: summary.level))
-                .frame(width: 26, height: 22)
-                .accessibilityHidden(true)
+        HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                // A distinct symbol per state, so status never relies on color alone.
+                Image(systemName: summary.symbolName)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(tint(for: summary.level))
+                    .frame(width: 26, height: 22)
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(summary.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(summary.detail)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    CompatibilityWindowPresenter.shared.show(controller: controller)
-                } label: {
-                    HStack(spacing: 2) {
-                        Text(fanBarText("本机能力与兼容性", "This Mac’s capabilities and compatibility"))
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(summary.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(summary.detail)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        CompatibilityWindowPresenter.shared.show(controller: controller)
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text(fanBarText("本机能力与兼容性", "This Mac’s capabilities and compatibility"))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .accessibilityHidden(true)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+                    .padding(.top, 3)
                 }
-                .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundColor(.accentColor)
-                .padding(.top, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle = summary.actionTitle {
                 Button(actionTitle, action: controller.performHelperAction)
+                    .fixedSize()
             }
         }
         .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
