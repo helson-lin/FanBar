@@ -205,11 +205,8 @@ final class FanController: ObservableObject {
     /// User-created presets in creation order; each carries its own curve.
     @Published private(set) var customPresets: [CustomCoolingPreset]
     @Published private(set) var highTemperatureNotificationsEnabled: Bool
-    /// Last RPM the user entered by hand; offered again in the Fixed menu.
-    @Published private(set) var customFixedRPM: Int? = {
-        let stored = UserDefaults.standard.integer(forKey: FanController.customFixedRPMKey)
-        return stored > 0 ? stored : nil
-    }()
+    /// Last accepted manual target, offered again when selecting Manual.
+    @Published private(set) var customFixedRPM: Int?
 
     @Published private(set) var highTemperatureThresholdCelsius = ThermalAlertSettings.thresholdCelsius
     @Published private(set) var highTemperatureAlertSound = ThermalAlertSettings.sound
@@ -319,6 +316,7 @@ final class FanController: ObservableObject {
     /// always uses the system notification center through the default value.
     private let notificationCenter: UNUserNotificationCenter?
     private let notificationDelegate = ThermalNotificationDelegate()
+    private let fixedRPMDefaults: UserDefaults?
     private let automaticRestoreTestInterval: TimeInterval?
     // One hour of readings at the two-second refresh cadence used below.
     private let maximumTemperatureSamples = 2_000
@@ -372,6 +370,7 @@ final class FanController: ObservableObject {
     // swiftlint:disable:next function_body_length
     init(
         automaticRestoreTestInterval: TimeInterval? = nil,
+        fixedRPMDefaults: UserDefaults? = .standard,
         notificationCenter: UNUserNotificationCenter? = UNUserNotificationCenter.current(),
         widgetSnapshotDestination: WidgetSnapshotDestination = .sharedContainer,
         makeReadingSource: @escaping () throws -> FanReadingSource = { try SMCClient() },
@@ -393,6 +392,8 @@ final class FanController: ObservableObject {
         } else {
             self.compatibilityHistoryStore = nil
         }
+        self.fixedRPMDefaults = fixedRPMDefaults
+        customFixedRPM = FixedRPMPreference.load(from: fixedRPMDefaults)
         self.automaticRestoreTestInterval = automaticRestoreTestInterval
         self.notificationCenter = notificationCenter
         self.widgetSnapshotDestination = widgetSnapshotDestination
@@ -843,7 +844,6 @@ final class FanController: ObservableObject {
         helperService.openSettings()
     }
 
-    static let customFixedRPMKey = "fanbar.customFixedRPM"
     static let fixedRPMPresets = [2500, 3500, 4500, 5500]
 
     /// The RPM range every fan can hold: from the highest fan minimum to the
@@ -901,15 +901,14 @@ final class FanController: ObservableObject {
         Task {
             do {
                 await finishPendingCurveUpdate()
-                try await helperClient.setAllFans(rpm: rpm)
+                let rememberedRPM = try await FixedRPMPreference.apply(rpm, to: fixedRPMDefaults) { target in
+                    try await helperClient.setAllFans(rpm: target)
+                }
                 manualControlFailure = nil
                 manualControlEvidence = .requestSucceeded
                 mode = .fixed(rpm)
-                // Remember hand-entered values only once they actually applied.
-                if !Self.fixedRPMPresets.contains(rpm) {
-                    customFixedRPM = rpm
-                    UserDefaults.standard.set(rpm, forKey: Self.customFixedRPMKey)
-                }
+                // Remember the accepted target, including values that match a preset.
+                customFixedRPM = rememberedRPM
                 clearTemperatureCurveState()
                 if resetsAutomaticRestore {
                     scheduleAutomaticRestore()

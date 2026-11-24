@@ -112,7 +112,6 @@ extension KoreanCatalog {
             "클릭하고, ⌘⇧G를 누른 뒤 이 버튼이 복사한 경로를 붙여넣으세요.",
         "Could not prepare the Raycast scripts: %@": "Raycast 스크립트 준비 실패: %@",
         "Command Line & Automation": "명령줄 및 자동화",
-        "Fixed speed": "고정 속도",
         "%@ hands back to macOS in %@": "%@ · %@ 후 macOS에 제어권 반환",
         "After %@, %@ handed back to macOS": "%@ 후 %@ 모드가 macOS에 제어권을 반환했습니다",
         "Couldn't read the %@ temperature; %@ handed back to macOS": "%@ 온도를 읽을 수 없어 %@ 모드가 macOS에 제어권을 반환했습니다",
