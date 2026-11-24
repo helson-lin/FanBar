@@ -1,5 +1,15 @@
 # 面板数据与显示问题复盘
 
+## 启动盘与 CPU 详情直接切换时出现空白
+
+根因：启动盘与 CPU 详情共用 `PanelResourceList` 上的一个 `@State private var isDetailRevealed`，且 `.onAppear` 挂在外层 `.id(detail)` 之外。已展开其中一项后直接点另一项切换时，`setExpanded` 先将 `isDetailRevealed` 设为 `false`，但外层详情容器并没有离开视图树，`.onAppear` 不会再次触发，导致新展开的详情区停留在 `.opacity(0)`、占满高度却只显示空白。
+
+修复：将详情入场状态拆到 `PanelDetailReveal`（`PanelDetailRevealStyle` 与 `PanelDetailRevealModifier`），挂在启动盘与 CPU 各自的分支视图上；每次切换分支都会挂载全新的揭示状态，且状态只单向从隐藏过渡到显示（关闭动画或开启减少动态效果时初始即完全可见），不再在切换时把共享状态写回隐藏。`setExpanded` 与 `FanMenu.updateContentHeight` 的无插值即时调高行为保持不变。
+
+回归测试：`Tests/FanBarTests/PanelResourceDetailSwitchTests.swift` 的 `testSwitchingDirectlyBetweenDiskAndCPUDetailsNeverLeavesDetailBlank` 与 `testRevealStyleIsImmediatelyVisibleWhenAnimationsAreOff`，分别验证开启与关闭面板动画时，启动盘 → CPU → 启动盘及快速连续切换后详情区域实际像素可见、不会出现空白。
+
+影响范围：菜单面板中资源区详情的显现过渡。未改动风扇控制、SMC、Helper、XPC 协议、CLI、存储格式或本地化文案。
+
 ## 曲线上除了最后一个点都点不中
 
 根因：控制点的拖动手势和悬停写在 `.position()` 后面。macOS 15 的 SwiftUI 会让这个修饰符之后的命中区域变成整张曲线图，后画的点（温度最高、最靠右）接走每一次按下。手势里虽然判断了距离，但事件已经被这个点吃掉，不会再传给左边的点。点与点相距几十度时也会发生，不是热区重叠。macOS 27 已把 `.position()` 的命中收回到圆点本身，所以在这台系统上点得出厂曲线的每个点。
