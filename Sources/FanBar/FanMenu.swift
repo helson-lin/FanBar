@@ -554,11 +554,8 @@ struct FanMenu: View {
         case .preset(let id):
             controller.setCoolingPreset(id)
         case .fixed:
-            guard !isFixed, let range = controller.fixedRPMRange else { return }
-            let preferred = controller.customFixedRPM
-                ?? FanController.fixedRPMPresets.first(where: range.contains)
-                ?? range.lowerBound
-            controller.setFixedRPM(min(max(preferred, range.lowerBound), range.upperBound))
+            guard !isFixed, let target = FixedRPMPreference.initialTarget(for: controller) else { return }
+            controller.setFixedRPM(target)
         }
     }
 

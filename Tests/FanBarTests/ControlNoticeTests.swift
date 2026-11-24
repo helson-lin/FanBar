@@ -91,15 +91,18 @@ final class ControlNoticeTests: XCTestCase {
         let controller = makeController()
         let cases: [(FanBarLanguage, String)] = [
             (.english, "Manual"), (.chinese, "手动"), (.traditionalChinese, "手動"),
-            (.japanese, "手動"), (.russian, "Вручную"), (.french, "Manuel"), (.korean, "수동")
+            (.japanese, "手動"), (.russian, "Ручной"), (.french, "Manuel"), (.korean, "수동")
         ]
         let notice = ControlNotice.handBackSoon(mode: .fixed(2_400), duration: .thirtyMinutes, deadline: Date())
         for (language, expected) in cases {
             UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
             XCTAssertEqual(ControlNoticeText.fixedModeName, expected, "\(language)")
             XCTAssertEqual(ControlNoticeText.modeName(.fixed(2_400), controller: controller), expected, "\(language)")
-            XCTAssertTrue(ControlNoticeText.panelMessage(notice, controller: controller, countdown: "0:42")
-                .contains(expected), "\(language)")
+            let panelMessage = ControlNoticeText.panelMessage(notice, controller: controller, countdown: "0:42")
+            XCTAssertTrue(panelMessage.contains(expected), "\(language)")
+            if language == .russian {
+                XCTAssertTrue(panelMessage.contains("Режим «Ручной»"), "\(language): \(panelMessage)")
+            }
             XCTAssertTrue(ControlNoticeText.notificationContent(for: notice, controller: controller).title
                 .contains(expected), "\(language)")
         }

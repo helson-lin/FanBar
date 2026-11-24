@@ -373,7 +373,7 @@ enum RussianCatalog {
         "FanBar Settings": "Настройки FanBar",
         "FanBar, %@": "FanBar, %@",
         "FanBar, %@ mode": "FanBar, режим «%@»",
-        "Manual": "Вручную",
+        "Manual": "Ручной",
         "Fixed RPM": "Фиксированные обороты",
         "Fixed target: %d RPM": "Фиксированная цель: %d об/мин",
         "General": "Основные",

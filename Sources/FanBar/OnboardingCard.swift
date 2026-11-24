@@ -289,7 +289,7 @@ struct OnboardingCard: View {
                     icon: "arrow.triangle.2.circlepath",
                     title: fanBarText("需要时再接管", "Take over only when you need to"),
                     detail: fanBarText(
-                        "日常保持自动；可切到均衡、极速或固定，随时切回。",
+                        "日常保持自动；可切到均衡、极速或手动，随时切回。",
                         "Stay on Auto day to day; switch to a preset or a fixed speed, and back, at any time."
                     )
                 )

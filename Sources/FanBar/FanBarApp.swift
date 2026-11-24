@@ -318,7 +318,7 @@ struct FanBarApp: App {
     /// Verifies the real controller timer path with a short test-only deadline.
     private static func runAutomaticRestoreSmokeTestAndExit() -> Never {
         Task { @MainActor in
-            let controller = FanController(automaticRestoreTestInterval: 3)
+            let controller = FanController(automaticRestoreTestInterval: 3, fixedRPMDefaults: FixedRPMPreference.smokeTestDefaults())
             controller.setFixedRPM(3_500)
 
             let fixedDeadline = Date().addingTimeInterval(10)
