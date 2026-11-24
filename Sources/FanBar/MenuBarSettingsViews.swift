@@ -101,6 +101,14 @@ struct MenuBarResourceSettings: View {
     @AppStorage(FanBarLanguage.preferenceKey)
     private var languageRawValue = FanBarLanguage.defaultValue
 
+    @AppStorage(MenuBarResource.cpu.stylePreferenceKey) private var cpuStyle = MenuBarResourceStyle.icon.rawValue
+    @AppStorage(MenuBarResource.memory.stylePreferenceKey) private var memoryStyle = MenuBarResourceStyle.icon.rawValue
+    @AppStorage(MenuBarResource.gpu.stylePreferenceKey) private var gpuStyle = MenuBarResourceStyle.icon.rawValue
+
+    private var previewStyles: [MenuBarResourceStyle] {
+        [cpuStyle, memoryStyle, gpuStyle].map(MenuBarResourceStyle.resolve)
+    }
+
     var body: some View {
         SettingsSection(
             title: fanBarText("系统资源", "System resources"),
@@ -111,7 +119,7 @@ struct MenuBarResourceSettings: View {
         ) {
             ForEach(Array(MenuBarResource.allCases.enumerated()), id: \.element.rawValue) { index, resource in
                 if index > 0 { SettingsChrome.rowDivider }
-                MenuBarResourceSettingsRow(resource: resource, usage: controller.usage)
+                MenuBarResourceSettingsRow(resource: resource, usage: controller.usage, previewStyles: previewStyles)
             }
         }
         // The section owns translated header and footer text as well as rows.
@@ -123,6 +131,7 @@ struct MenuBarResourceSettings: View {
 private struct MenuBarResourceSettingsRow: View {
     let resource: MenuBarResource
     let usage: SystemUsage
+    let previewStyles: [MenuBarResourceStyle]
     /// Read so the row repaints when the interface language changes, even when
     /// the reading it shows has not.
     @AppStorage(FanBarLanguage.preferenceKey)
@@ -130,9 +139,10 @@ private struct MenuBarResourceSettingsRow: View {
     @AppStorage private var isOn: Bool
     @AppStorage private var styleRawValue: String
 
-    init(resource: MenuBarResource, usage: SystemUsage) {
+    init(resource: MenuBarResource, usage: SystemUsage, previewStyles: [MenuBarResourceStyle]) {
         self.resource = resource
         self.usage = usage
+        self.previewStyles = previewStyles
         _isOn = AppStorage(wrappedValue: false, resource.preferenceKey)
         _styleRawValue = AppStorage(wrappedValue: MenuBarResourceStyle.icon.rawValue, resource.stylePreferenceKey)
     }
@@ -154,7 +164,7 @@ private struct MenuBarResourceSettingsRow: View {
             .id(languageRawValue)
             .fixedSize()
             .disabled(!isOn)
-            MenuBarResourcePreviewPill(resource: resource, style: style, usage: usage)
+            MenuBarResourcePreviewPill(resource: resource, style: style, usage: usage, previewStyles: previewStyles)
             Toggle(resource.title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -173,18 +183,22 @@ struct MenuBarResourcePreviewPill: View {
     let resource: MenuBarResource
     let style: MenuBarResourceStyle
     let usage: SystemUsage
+    let previewStyles: [MenuBarResourceStyle]
 
     var body: some View {
         ZStack(alignment: .leading) {
             resourcePreview(resource, style: style, usage: usage)
-            HStack(spacing: MenuBarResourcePreviewLayout.contentSpacing) {
-                if style == .icon {
-                    Color.clear.frame(width: MenuBarResourcePreviewLayout.iconWidth, height: 14)
+            ForEach(Array(MenuBarResource.allCases.enumerated()), id: \.element.rawValue) { index, candidate in
+                let candidateStyle = previewStyles[index]
+                HStack(spacing: MenuBarResourcePreviewLayout.contentSpacing) {
+                    if candidateStyle == .icon {
+                        Color.clear.frame(width: MenuBarResourcePreviewLayout.iconWidth, height: 14)
+                    }
+                    Text(MenuBarResourceItemContent.make(candidate, usage: usage, style: candidateStyle).widestTitle)
                 }
-                Text(MenuBarResourceItemContent.make(resource, usage: usage, style: style).widestTitle)
+                .font(.system(size: 12, weight: .medium).monospacedDigit())
+                .hidden()
             }
-            .font(.system(size: 12, weight: .medium).monospacedDigit())
-            .hidden()
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, MenuBarResourcePreviewLayout.horizontalInset)

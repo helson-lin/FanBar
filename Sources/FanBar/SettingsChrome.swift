@@ -49,7 +49,7 @@ enum SettingsChrome {
             .font(.system(size: 11))
             .foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, rowHorizontalPadding)
             .padding(.top, 4)
     }
 

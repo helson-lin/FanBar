@@ -27,7 +27,7 @@ struct TemperatureLogPresetPicker: View {
                     .font(.system(size: 12))
             }
             .foregroundColor(.secondary)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
 
             HStack(alignment: .top, spacing: 8) {
                 ForEach(TemperatureLogPreset.allCases) { preset in
@@ -46,7 +46,7 @@ struct TemperatureLogPresetPicker: View {
             .font(.system(size: 11).monospacedDigit())
             .foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, SettingsChrome.rowHorizontalPadding)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(fanBarText("记录方式", "Recording mode"))
@@ -210,6 +210,7 @@ struct TemperatureLogAdvancedCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(fanBarText("更改…", "Change…")) { TemperatureLogFolderPicker.choose() }
+                .fixedSize()
         }
         .settingsRow()
         .id(directoryPath)

@@ -67,7 +67,7 @@ struct FanBarSettingsView: View {
             VStack(alignment: .leading, spacing: currentTab == .general ? 24 : SettingsChrome.sectionSpacing) {
                 switch currentTab {
                 case .cooling: coolingTab
-                case .appearance: menuBarTab.id(languageRawValue)
+                case .appearance: menuBarTab
                 case .panel: panelTab
                 case .general: generalTab
                 case .log: logTab
@@ -506,6 +506,7 @@ struct ControlServiceBanner: View {
 
             if let actionTitle = state.actionTitle {
                 Button(actionTitle, action: controller.performHelperAction)
+                    .fixedSize()
             }
         }
         .padding(12)

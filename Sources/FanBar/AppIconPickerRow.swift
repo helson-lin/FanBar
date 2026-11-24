@@ -41,9 +41,9 @@ struct AppIconPickerRow: View {
             .padding(.vertical, 3)
             .padding(.leading, 4)
             .padding(.trailing, 6)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
-            .contentShape(Rectangle())
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(fanBarText("选择 App 图标", "Choose an app icon"))

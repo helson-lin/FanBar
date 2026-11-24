@@ -161,13 +161,44 @@ final class MenuBarResourceTests: XCTestCase {
                     let iconWidth = content.showsIcon
                         ? MenuBarResourcePreviewLayout.iconWidth + MenuBarResourcePreviewLayout.contentSpacing : 0
                     let host = NSHostingView(rootView: MenuBarResourcePreviewPill(
-                        resource: resource, style: style, usage: SystemUsage()
+                        resource: resource, style: style, usage: SystemUsage(),
+                        previewStyles: Array(repeating: style, count: MenuBarResource.allCases.count)
                     ))
                     let width = host.fittingSize.width
                     XCTAssertGreaterThanOrEqual(width + 1, textWidth + iconWidth + 2 * MenuBarResourcePreviewLayout.horizontalInset)
                     if style == .icon {
                         XCTAssertLessThan(width, 80, "Icon previews should remain compact")
                     }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testPreviewColumnsStayAlignedAcrossStylesAndReadings() {
+        for language in FanBarLanguage.allCases {
+            UserDefaults.standard.set(language.rawValue, forKey: FanBarLanguage.preferenceKey)
+            for styles: [MenuBarResourceStyle] in [[.icon, .icon, .icon], [.icon, .label, .icon], [.label, .label, .label]] {
+                var widths: [CGFloat] = []
+                for (index, resource) in MenuBarResource.allCases.enumerated() {
+                    for fraction: Double? in [nil, 0.05, 1] {
+                        var usage = SystemUsage()
+                        usage.cpuFraction = fraction
+                        usage.gpuFraction = fraction
+                        if let fraction {
+                            usage.memory = MemoryBreakdown(
+                                appBytes: UInt64(fraction * 100), cachedBytes: 0, compressedBytes: 0,
+                                totalBytes: 100, swapUsedBytes: nil
+                            )
+                        }
+                        let host = NSHostingView(rootView: MenuBarResourcePreviewPill(
+                            resource: resource, style: styles[index], usage: usage, previewStyles: styles
+                        ))
+                        widths.append(host.fittingSize.width)
+                    }
+                }
+                for width in widths {
+                    XCTAssertEqual(width, widths[0], accuracy: 0.5)
                 }
             }
         }
