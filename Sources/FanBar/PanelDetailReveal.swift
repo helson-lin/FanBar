@@ -41,13 +41,8 @@ struct PanelDetailRevealModifier: ViewModifier {
             .scaleEffect(style.scale, anchor: .top)
             .onAppear {
                 guard !isRevealed else { return }
-                // Defer out of setExpanded's non-animated transaction so the
-                // entrance ease runs without animating the popover's height.
-                Task { @MainActor in
-                    guard !isRevealed else { return }
-                    withAnimation(animates ? .easeOut(duration: PanelDetailRevealStyle.duration) : nil) {
-                        isRevealed = true
-                    }
+                withAnimation(.easeOut(duration: PanelDetailRevealStyle.duration)) {
+                    isRevealed = true
                 }
             }
     }

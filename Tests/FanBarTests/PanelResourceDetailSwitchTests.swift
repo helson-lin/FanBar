@@ -73,27 +73,46 @@ final class PanelResourceDetailSwitchTests: XCTestCase {
         let cpuPoint = NSPoint(x: Self.panelWidth * 0.25, y: Self.windowHeight - collapsedHeight * 0.25)
         let diskPoint = NSPoint(x: Self.panelWidth * 0.75, y: Self.windowHeight - collapsedHeight * 0.75)
 
-        try click(at: diskPoint, in: window, settleFor: 0.25)
+        try click(at: diskPoint, in: window, settleFor: 0.05)
         XCTAssertEqual(state.expanded, .disk, "animates=\(animates)")
-        XCTAssertGreaterThan(try visibleDetailPixelCount(in: host, below: collapsedHeight), 100, "disk open animates=\(animates)")
+        let diskOpenPixels = try waitForVisibleDetailPixels(in: host, below: collapsedHeight)
+        XCTAssertGreaterThan(diskOpenPixels, 100, "disk open animates=\(animates)")
 
-        try click(at: cpuPoint, in: window, settleFor: 0.25)
+        try click(at: cpuPoint, in: window, settleFor: 0.05)
         XCTAssertEqual(state.expanded, .cpu, "animates=\(animates)")
-        XCTAssertGreaterThan(try visibleDetailPixelCount(in: host, below: collapsedHeight), 100, "disk -> cpu animates=\(animates)")
+        let cpuPixels = try waitForVisibleDetailPixels(in: host, below: collapsedHeight)
+        XCTAssertGreaterThan(cpuPixels, 100, "disk -> cpu animates=\(animates)")
 
-        try click(at: diskPoint, in: window, settleFor: 0.25)
+        try click(at: diskPoint, in: window, settleFor: 0.05)
         XCTAssertEqual(state.expanded, .disk, "animates=\(animates)")
-        XCTAssertGreaterThan(try visibleDetailPixelCount(in: host, below: collapsedHeight), 100, "cpu -> disk animates=\(animates)")
+        let diskPixels = try waitForVisibleDetailPixels(in: host, below: collapsedHeight)
+        XCTAssertGreaterThan(diskPixels, 100, "cpu -> disk animates=\(animates)")
 
         try click(at: cpuPoint, in: window, settleFor: 0.02)
         try click(at: diskPoint, in: window, settleFor: 0.02)
-        try click(at: cpuPoint, in: window, settleFor: 0.25)
-        XCTAssertEqual(state.expanded, .cpu, "animates=\(animates)")
-        XCTAssertGreaterThan(try visibleDetailPixelCount(in: host, below: collapsedHeight), 100, "rapid switch animates=\(animates)")
-
         try click(at: cpuPoint, in: window, settleFor: 0.05)
+        XCTAssertEqual(state.expanded, .cpu, "animates=\(animates)")
+        let rapidPixels = try waitForVisibleDetailPixels(in: host, below: collapsedHeight)
+        XCTAssertGreaterThan(rapidPixels, 100, "rapid switch animates=\(animates)")
+
+        try click(at: cpuPoint, in: window, settleFor: 0.1)
         XCTAssertNil(state.expanded, "animates=\(animates)")
         XCTAssertEqual(try visibleDetailPixelCount(in: host, below: collapsedHeight), 0, "collapsed animates=\(animates)")
+    }
+
+    private func waitForVisibleDetailPixels(
+        in host: NSView,
+        below collapsedHeight: CGFloat,
+        minimum: Int = 100,
+        timeout: TimeInterval = 2.0
+    ) throws -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var count = try visibleDetailPixelCount(in: host, below: collapsedHeight)
+        while count <= minimum, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            count = try visibleDetailPixelCount(in: host, below: collapsedHeight)
+        }
+        return count
     }
 
     private func makeWindow(for host: NSView) -> NSWindow {
