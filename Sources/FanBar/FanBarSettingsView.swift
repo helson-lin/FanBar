@@ -7,12 +7,12 @@ import SwiftUI
 /// window presenter so content can use the full height below the title bar.
 /// Case order is the toolbar order (and ⌘1…⌘5).
 enum SettingsTab: String, CaseIterable, Identifiable {
+    case general
     /// Primary task: smart cooling curve (see `.impeccable.md`).
     case cooling
     /// Raw value kept from the former "Menu Bar" pane so a saved selection survives.
     case appearance = "menuBar"
     case panel
-    case general
     case log
 
     static let preferenceKey = "fanbar.settingsSelectedTab"
@@ -21,9 +21,9 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .cooling: fanBarText("散热", "Cooling")
+        case .cooling: fanBarText("风扇转速", "Fan Speed")
         case .appearance: fanBarText("菜单栏", "Menu Bar")
-        case .panel: fanBarText("面板", "Panel")
+        case .panel: fanBarText("面板", "Panels")
         case .general: fanBarText("通用", "General")
         // "Log" reads like a developer tool; the tab is about looking back.
         case .log: fanBarText("记录", "History")
@@ -34,7 +34,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .cooling: FanBarSymbols.fan
         case .appearance: "macwindow"
-        case .panel: "rectangle.on.rectangle"
+        case .panel: "rectangle.grid.1x2"
         case .general: "gearshape"
         case .log: "doc.text"
         }
