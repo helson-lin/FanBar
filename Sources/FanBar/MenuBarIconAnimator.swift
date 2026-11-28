@@ -248,12 +248,26 @@ final class MenuBarIconAnimator {
     /// Real fan RPM is too fast to render directly without aliasing, so the
     /// icon turns on a perceptual scale: degrees per second, clamped so idle
     /// fans still visibly turn and fast ones never strobe. Swapped frames are
-    /// also `capped` at their frame rate; the rotor is not.
+    /// `capped` at their frame rate and keep their gentler slope, so the cap
+    /// is not reached sooner.
     static func perceptualVelocity(forRPM rpm: Double, capped: Bool) -> Double {
         guard rpm > 1 else { return 0 }
-        let velocity = min(max(rpm / 5_000, 0.18), 1.15) * 360
-        return capped ? min(velocity, frameQuantum * maximumFramesPerSecond) : velocity
+        if capped {
+            return min(max(rpm / 5_000, minimumTurnsPerSecond) * 360, frameQuantum * maximumFramesPerSecond)
+        }
+        return min(max(rpm / rotorRPMPerTurnPerSecond, minimumTurnsPerSecond), maximumRotorTurnsPerSecond) * 360
     }
+
+    /// Slowest spin for a running fan, about 5.6 s a turn.
+    private static let minimumTurnsPerSecond = 0.18
+    /// The rotor turns once a second per this many RPM: 1,000 RPM takes
+    /// 2.6 s a turn and 2,000 RPM 1.3 s (issue #194), so a fan ramping up
+    /// visibly speeds the icon up.
+    static let rotorRPMPerTurnPerSecond = 2_600.0
+    /// Reached at 5,200 RPM. At 60 Hz this is 12° a frame, well under half
+    /// the 60° blade spacing, so the fastest fans never look like they turn
+    /// backwards.
+    static let maximumRotorTurnsPerSecond = 2.0
 
     /// Returns the un-rotated, full-opacity icon image — intended for the
     /// static status bar item when the animator is idle. Shares the same

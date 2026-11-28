@@ -163,7 +163,28 @@ final class MenuBarIconAnimatorTests: XCTestCase {
         XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 3_000, capped: true), cap)
         XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 6_000, capped: true), cap)
         // The rotor swaps nothing, so it keeps following faster fans.
-        XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 3_000, capped: false), 0.6 * 360, accuracy: 1e-9)
+        XCTAssertGreaterThan(MenuBarIconAnimator.perceptualVelocity(forRPM: 3_000, capped: false), cap)
+    }
+
+    /// Issue #194: across a laptop fan's range the rotor speed used to change
+    /// too little to see; 1,000 RPM now takes 2.6 s a turn and 2,000 RPM 1.3 s.
+    func testRotorSpeedMakesFanRampVisible() {
+        func secondsPerTurn(_ rpm: Double) -> Double {
+            360 / MenuBarIconAnimator.perceptualVelocity(forRPM: rpm, capped: false)
+        }
+        XCTAssertEqual(secondsPerTurn(1_000), 2.6, accuracy: 1e-9)
+        XCTAssertEqual(secondsPerTurn(2_000), 1.3, accuracy: 1e-9)
+        XCTAssertLessThan(secondsPerTurn(3_000), secondsPerTurn(2_000))
+        XCTAssertLessThan(secondsPerTurn(5_000), secondsPerTurn(3_000))
+        // Slow fans still visibly turn; stopped ones do not.
+        XCTAssertEqual(secondsPerTurn(200), 1 / 0.18, accuracy: 1e-9)
+        XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 0, capped: false), 0)
+        // The ceiling keeps a blade's step per 60 Hz frame under half the
+        // 60° blade spacing, so very fast fans never strobe.
+        let ceiling = MenuBarIconAnimator.maximumRotorTurnsPerSecond * 360
+        XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 5_200, capped: false), ceiling, accuracy: 1e-9)
+        XCTAssertEqual(MenuBarIconAnimator.perceptualVelocity(forRPM: 9_000, capped: false), ceiling)
+        XCTAssertLessThan(ceiling / 60, 30)
     }
 
     /// Each frame swap re-snapshots the status item on every menu bar, so the
@@ -219,8 +240,8 @@ final class MenuBarIconAnimatorTests: XCTestCase {
             if button.image !== still { swaps += 1 }
         }
         XCTAssertEqual(swaps, 0)
-        // Uncapped: 3,000 RPM is 0.6 turns a second once smoothing settles.
-        XCTAssertEqual(rotor.turnsPerSecond, 0.6, accuracy: 0.05)
+        // Uncapped: 3,000 RPM is 3,000 / 2,600 turns a second once smoothing settles.
+        XCTAssertEqual(rotor.turnsPerSecond, 3_000 / MenuBarIconAnimator.rotorRPMPerTurnPerSecond, accuracy: 0.05)
 
         animator.stop()
         XCTAssertFalse(rotor.isAttached)
